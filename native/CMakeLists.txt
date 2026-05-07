@@ -1,5 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
+
+# CMP0091 (NEW) is required for CMAKE_MSVC_RUNTIME_LIBRARY to take effect.
+cmake_policy(SET CMP0091 NEW)
+
 project(netkeyer_midi_shim C CXX)
+
+# Statically link the MSVC CRT into the DLL so end users don't need
+# vcruntime140.dll / msvcp140.dll from the VC++ redistributable.
+# Must be set BEFORE FetchContent_MakeAvailable so dependencies inherit it,
+# otherwise libremidi gets built with /MD and produces LIBCMT/MSVCRT link conflicts.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 include(FetchContent)
 
@@ -30,6 +42,12 @@ target_compile_definitions(netkeyer_midi_shim PRIVATE NKM_EXPORTS)
 set_target_properties(netkeyer_midi_shim PROPERTIES
     C_STANDARD 11
     POSITION_INDEPENDENT_CODE ON)
+
+if(MSVC)
+    target_compile_options(netkeyer_midi_shim PRIVATE /MT)
+    set_property(TARGET netkeyer_midi_shim PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 # Platform-specific link flags to hide non-exported symbols
 if(UNIX AND NOT APPLE)

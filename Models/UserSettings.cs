@@ -28,6 +28,9 @@ namespace NetKeyer.Models
         // MIDI note mappings
         public List<MidiNoteMapping> MidiNoteMappings { get; set; }
 
+        // Last IP address used for manual (by-IP) connection
+        public string LastManualRadioIp { get; set; }
+
         // SmartLink settings
         public string SmartLinkClientId { get; set; }
         public bool RememberMeSmartLink { get; set; } = true;

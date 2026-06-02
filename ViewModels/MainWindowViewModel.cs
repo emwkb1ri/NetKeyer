@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Net;
 using System.ComponentModel;
 using System.IO.Ports;
 using System.Linq;
@@ -1061,66 +1062,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 HasRadioError = false;
             }
 
-            // Bind to the selected station using its UUID
-            _connectedRadio.BindGUIClient(clientId);
-            _boundGuiClientHandle = targetClientHandle;
-            ConnectButtonText = "Disconnect";
-
-            // Reinitialize keying controller with the correct radio client handle
-            // First dispose the old controller to unsubscribe from events
-            _keyingController?.Dispose();
-            _keyingController = new KeyingController(_sidetoneGenerator);
-            _keyingController.Initialize(
-                _boundGuiClientHandle,
-                GetTimestamp,
-                (state, timestamp, handle) =>
-                {
-                    if (_connectedRadio != null)
-                        _connectedRadio.CWKey(state, timestamp, handle);
-                }
-            );
-            _keyingController.SetKeyingMode(IsIambicMode, IsIambicModeB);
-            _keyingController.SetSpeed(CwSpeed);
-
-            // Subscribe to radio property changes
-            _connectedRadio.PropertyChanged += Radio_PropertyChanged;
-
-            // Subscribe to transmit slice property changes and update initial mode
-            _transmitSliceMonitor.AttachToRadio(_connectedRadio, _boundGuiClientHandle);
-
-            // Attach keying controller to radio
-            _keyingController?.SetRadio(_connectedRadio, isSidetoneOnly: false);
-            _keyingController?.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW);
-
-            // Attach radio settings synchronizer and apply initial settings
-            _radioSettingsSynchronizer.AttachToRadio(_connectedRadio);
-            try
-            {
-                _radioSettingsSynchronizer.ApplyInitialSettingsFromRadio();
-            }
-            catch (Exception ex)
-            {
-                RadioStatus = ex.Message;
-                RadioStatusColor = Brushes.Orange;
-                HasRadioError = true;
-            }
-
-            // SAVE PERSISTENCE: Save connected radio to settings
-            _settings.SelectedRadioSerial = _connectedRadio.Serial;
-            _settings.SelectedGuiClientStation = targetStation;
-            _settings.Save();
-
-            // Clear current selection - this is now the baseline
-            _currentUserSelection = null;
-
-            // Open the selected input device
-            OpenInputDevice();
-
-            // Switch to operating page
-            CurrentPage = PageType.Operating;
-
-            // Update paddle labels after connection
-            UpdatePaddleLabels();
+            FinishConnection(_connectedRadio, targetClientHandle, targetStation, clientId);
         }
         else
         {
@@ -1331,6 +1273,138 @@ public partial class MainWindowViewModel : ViewModelBase
             HasRadioError = true;
             ConnectButtonText = "Connect";
         }
+    }
+
+    private void FinishConnection(Radio radio, uint clientHandle, string targetStation, string clientId)
+    {
+        _connectedRadio = radio;
+        _connectedRadio.BindGUIClient(clientId);
+        _boundGuiClientHandle = clientHandle;
+        ConnectButtonText = "Disconnect";
+
+        _keyingController?.Dispose();
+        _keyingController = new KeyingController(_sidetoneGenerator);
+        _keyingController.Initialize(
+            _boundGuiClientHandle,
+            GetTimestamp,
+            (state, timestamp, handle) =>
+            {
+                if (_connectedRadio != null)
+                    _connectedRadio.CWKey(state, timestamp, handle);
+            }
+        );
+        _keyingController.SetKeyingMode(IsIambicMode, IsIambicModeB);
+        _keyingController.SetSpeed(CwSpeed);
+
+        _connectedRadio.PropertyChanged += Radio_PropertyChanged;
+        _transmitSliceMonitor.AttachToRadio(_connectedRadio, _boundGuiClientHandle);
+        _keyingController?.SetRadio(_connectedRadio, isSidetoneOnly: false);
+        _keyingController?.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW);
+
+        _radioSettingsSynchronizer.AttachToRadio(_connectedRadio);
+        try
+        {
+            _radioSettingsSynchronizer.ApplyInitialSettingsFromRadio();
+        }
+        catch (Exception ex)
+        {
+            RadioStatus = ex.Message;
+            RadioStatusColor = Brushes.Orange;
+            HasRadioError = true;
+        }
+
+        _settings.SelectedRadioSerial = _connectedRadio.Serial;
+        _settings.SelectedGuiClientStation = targetStation;
+        _settings.Save();
+
+        _currentUserSelection = null;
+        OpenInputDevice();
+        CurrentPage = PageType.Operating;
+        UpdatePaddleLabels();
+    }
+
+    [RelayCommand]
+    private async Task ConnectByIp()
+    {
+        var dialog = new Views.ConnectByIpDialog();
+        dialog.SetInitialIp(_settings.LastManualRadioIp ?? "");
+
+        var mainWindow = (Avalonia.Application.Current?.ApplicationLifetime
+            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        if (mainWindow == null) return;
+
+        var showTask = dialog.ShowDialog(mainWindow);
+
+        // Phase 1: wait for user to enter IP and click Connect
+        string ipStr = await dialog.WaitForConnectAsync();
+        if (ipStr == null) { await showTask; return; }
+
+        if (!IPAddress.TryParse(ipStr, out var ip))
+        {
+            dialog.ShowError("Invalid IP address");
+            await showTask;
+            return;
+        }
+
+        _settings.LastManualRadioIp = ipStr;
+        _settings.Save();
+
+        var radio = API.CreateManualRadio(ip);
+
+        // Subscribe to all three client events before Connect() so nothing is missed
+        Radio.GUIClientAddedEventHandler onClientAdded = client => dialog.AddGuiClient(client);
+        Radio.GUIClientUpdatedEventHandler onClientUpdated = client => dialog.UpdateGuiClient(client);
+        Radio.GUIClientRemovedEventHandler onClientRemoved = client => dialog.RemoveGuiClient(client);
+        radio.GUIClientAdded += onClientAdded;
+        radio.GUIClientUpdated += onClientUpdated;
+        radio.GUIClientRemoved += onClientRemoved;
+
+        dialog.UpdateStatus("Connecting...");
+        bool connectResult = radio.Connect();
+
+        if (!connectResult)
+        {
+            radio.GUIClientAdded -= onClientAdded;
+            radio.GUIClientUpdated -= onClientUpdated;
+            radio.GUIClientRemoved -= onClientRemoved;
+            dialog.ShowError("Failed to connect to radio");
+            await showTask;
+            return;
+        }
+
+        // Transition to Phase 2 immediately — no fixed delay.
+        // Event handlers stay active and keep the list current until the user selects.
+        dialog.TransitionToPhase2();
+
+        // Phase 2: user picks a station (list grows/updates dynamically as clients arrive)
+        GUIClient selectedClient = await dialog.WaitForClientSelectionAsync();
+        radio.GUIClientAdded -= onClientAdded;
+        radio.GUIClientUpdated -= onClientUpdated;
+        radio.GUIClientRemoved -= onClientRemoved;
+        await showTask;
+
+        if (selectedClient == null)
+        {
+            radio.Disconnect();
+            return;
+        }
+
+        // Wait for ClientID to be populated (likely already done; returns immediately if so)
+        RadioStatus = "Waiting for station info...";
+        HasRadioError = false;
+        GUIClient updatedClient = await WaitForGUIClientReadyAsync(
+            radio, selectedClient.ClientHandle, TimeSpan.FromSeconds(10));
+
+        if (updatedClient == null || string.IsNullOrEmpty(updatedClient.ClientID))
+        {
+            RadioStatus = "Client UUID not available";
+            RadioStatusColor = Brushes.Red;
+            HasRadioError = true;
+            radio.Disconnect();
+            return;
+        }
+
+        FinishConnection(radio, updatedClient.ClientHandle, selectedClient.Station, updatedClient.ClientID);
     }
 
     // Waits until the GUIClient for clientHandle has a non-empty ClientID, or the timeout elapses.

@@ -191,14 +191,22 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Connect Button -->
-                    <Button Content="Connect"
-                            Command="{Binding ToggleConnectionCommand}"
-                            HorizontalAlignment="Center"
-                            HorizontalContentAlignment="Center"
-                            Width="120"
-                            Padding="6"
-                            Margin="0,5,0,0"/>
+                    <!-- Connect Buttons -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Spacing="10"
+                                Margin="0,5,0,0">
+                        <Button Content="Connect"
+                                Command="{Binding ToggleConnectionCommand}"
+                                HorizontalContentAlignment="Center"
+                                Width="120"
+                                Padding="6"/>
+                        <Button Content="Connect by IP..."
+                                Command="{Binding ConnectByIpCommand}"
+                                HorizontalContentAlignment="Center"
+                                Width="120"
+                                Padding="6"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Operating Page -->

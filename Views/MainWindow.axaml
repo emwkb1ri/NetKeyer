@@ -114,6 +114,65 @@
                     <!-- Radio Selection -->
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3">
                         <StackPanel Spacing="6">
+                            <TextBlock Text="Remote Connection Mode" FontWeight="Bold" FontSize="14"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="15">
+                                <RadioButton Content="Standalone"
+                                             GroupName="RemoteMode"
+                                             IsChecked="{Binding IsRemoteModeOff}"
+                                             Padding="2"/>
+                                <RadioButton Content="Remote Client (Computer #1)"
+                                             GroupName="RemoteMode"
+                                             IsChecked="{Binding IsRemoteModeClient}"
+                                             Padding="2"/>
+                                <RadioButton Content="Remote Host (Computer #2)"
+                                             GroupName="RemoteMode"
+                                             IsChecked="{Binding IsRemoteModeHost}"
+                                             Padding="2"/>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6" IsVisible="{Binding IsRemoteModeClient}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Target Host:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteClientHost}" Width="220"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Target Port:" Width="110" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding RemoteClientPort}" Minimum="1" Maximum="65535" Width="140"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Spacing="6" IsVisible="{Binding IsRemoteModeHost}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Bind Address:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteHostBindAddress}" Width="220"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Listen Port:" Width="110" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding RemoteHostPort}" Minimum="1" Maximum="65535" Width="140"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Max Clients:" Width="110" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding RemoteMaxClients}" Minimum="1" Maximum="5" Width="140"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsRemoteModeOff}">
+                                <TextBlock Text="Shared Token:" Width="110" VerticalAlignment="Center"/>
+                                <TextBox Text="{Binding RemoteSharedToken}" Width="220"/>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding RemoteStatus}" FontSize="12" Foreground="DimGray"/>
+                            <TextBlock Text="{Binding RemoteConnectedClients, StringFormat=Connected clients: {0}}"
+                                       FontSize="12"
+                                       Foreground="DimGray"
+                                       IsVisible="{Binding IsRemoteModeHost}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Radio Selection -->
+                    <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3">
+                        <StackPanel Spacing="6">
                             <TextBlock Text="Radio Selection" FontWeight="Bold" FontSize="14"/>
 
                             <StackPanel Orientation="Horizontal" Spacing="6">

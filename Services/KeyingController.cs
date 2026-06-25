@@ -14,6 +14,7 @@ public class KeyingController
     private bool _isTransmitModeCW = true;
     private bool _isSidetoneOnlyMode = false;
     private bool _isIambicMode = true;
+    private bool _isSidetoneEnabled = true;
 
     // Initialization parameters
     private Func<string> _timestampGenerator;
@@ -57,6 +58,15 @@ public class KeyingController
 
         // Update iambic keyer's sidetone generator without recreating the keyer
         _iambicKeyer?.UpdateSidetoneGenerator(_sidetoneGenerator);
+    }
+
+    public void SetSidetoneEnabled(bool enabled)
+    {
+        _isSidetoneEnabled = enabled;
+        if (!_isSidetoneEnabled)
+        {
+            _sidetoneGenerator?.Stop();
+        }
     }
 
     public void SetTransmitMode(bool isCW)
@@ -150,7 +160,7 @@ public class KeyingController
     private void SendCWKey(bool state)
     {
         // Control sidetone
-        if (state)
+        if (_isSidetoneEnabled && state)
         {
             _sidetoneGenerator?.Start();
         }

@@ -19,6 +19,7 @@ using NetKeyer.Keying;
 using NetKeyer.Midi;
 using NetKeyer.Models;
 using NetKeyer.Services;
+using NetKeyer.Services.Remote;
 using NetKeyer.SmartLink;
 using PortAudioSharp;
 
@@ -168,6 +169,11 @@ public partial class MainWindowViewModel : ViewModelBase
     // Keying controller
     private KeyingController _keyingController;
 
+    // Remote connectivity
+    private IRemoteClientService _remoteClientService;
+    private IRemoteHostService _remoteHostService;
+    private CancellationTokenSource _remoteCts;
+
     [ObservableProperty]
     private bool _smartLinkAvailable = false;
 
@@ -198,6 +204,52 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _rightPaddleVisible = true;  // Hide right paddle when appropriate
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRemoteModeOff), nameof(IsRemoteModeClient), nameof(IsRemoteModeHost))]
+    private RemoteConnectionMode _remoteMode = RemoteConnectionMode.Off;
+
+    public bool IsRemoteModeOff
+    {
+        get => RemoteMode == RemoteConnectionMode.Off;
+        set { if (value) RemoteMode = RemoteConnectionMode.Off; }
+    }
+
+    public bool IsRemoteModeClient
+    {
+        get => RemoteMode == RemoteConnectionMode.Client;
+        set { if (value) RemoteMode = RemoteConnectionMode.Client; }
+    }
+
+    public bool IsRemoteModeHost
+    {
+        get => RemoteMode == RemoteConnectionMode.Host;
+        set { if (value) RemoteMode = RemoteConnectionMode.Host; }
+    }
+
+    [ObservableProperty]
+    private string _remoteClientHost = "127.0.0.1";
+
+    [ObservableProperty]
+    private int _remoteClientPort = RemoteDefaults.DefaultPort;
+
+    [ObservableProperty]
+    private string _remoteHostBindAddress = "0.0.0.0";
+
+    [ObservableProperty]
+    private int _remoteHostPort = RemoteDefaults.DefaultPort;
+
+    [ObservableProperty]
+    private string _remoteSharedToken = "";
+
+    [ObservableProperty]
+    private int _remoteMaxClients = 5;
+
+    [ObservableProperty]
+    private string _remoteStatus = "Remote mode off";
+
+    [ObservableProperty]
+    private int _remoteConnectedClients = 0;
 
     public MainWindowViewModel()
     {
@@ -235,6 +287,18 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             InputType = InputDeviceType.MIDI;
         }
+
+        RemoteMode = _settings.RemoteMode;
+        RemoteClientHost = string.IsNullOrWhiteSpace(_settings.RemoteClientTargetHost)
+            ? "127.0.0.1"
+            : _settings.RemoteClientTargetHost;
+        RemoteClientPort = _settings.RemoteClientTargetPort > 0 ? _settings.RemoteClientTargetPort : RemoteDefaults.DefaultPort;
+        RemoteHostBindAddress = string.IsNullOrWhiteSpace(_settings.RemoteHostBindAddress)
+            ? "0.0.0.0"
+            : _settings.RemoteHostBindAddress;
+        RemoteHostPort = _settings.RemoteHostListenPort > 0 ? _settings.RemoteHostListenPort : RemoteDefaults.DefaultPort;
+        RemoteSharedToken = _settings.RemoteSharedToken ?? "";
+        RemoteMaxClients = _settings.RemoteHostMaxClients > 0 ? _settings.RemoteHostMaxClients : 5;
         _loadingSettings = false;
 
         // Initial discovery
@@ -295,6 +359,14 @@ public partial class MainWindowViewModel : ViewModelBase
         _keyingController.SetKeyingMode(IsIambicMode, IsIambicModeB);
         _keyingController.SetSpeed(CwSpeed);
 
+        _remoteClientService = new RemoteClientService();
+        _remoteClientService.ConnectionStatusChanged += RemoteClientService_ConnectionStatusChanged;
+
+        _remoteHostService = new RemoteHostService();
+        _remoteHostService.HostStatusChanged += RemoteHostService_HostStatusChanged;
+        _remoteHostService.ConnectedClientCountChanged += RemoteHostService_ConnectedClientCountChanged;
+        _remoteHostService.PaddleStateReceived += RemoteHostService_PaddleStateReceived;
+
         // Initialize transmit slice monitor
         _transmitSliceMonitor = new TransmitSliceMonitor();
         _transmitSliceMonitor.TransmitModeChanged += TransmitSliceMonitor_ModeChanged;
@@ -322,6 +394,82 @@ public partial class MainWindowViewModel : ViewModelBase
         if (!_loadingSettings && _settings != null)
         {
             _settings.InputType = value == InputDeviceType.MIDI ? "MIDI" : "Serial";
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteModeChanged(RemoteConnectionMode value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteMode = value;
+            _settings.Save();
+        }
+
+        if (value == RemoteConnectionMode.Off)
+        {
+            RemoteStatus = "Remote mode off";
+        }
+        else if (value == RemoteConnectionMode.Client)
+        {
+            RemoteStatus = $"Client configured for {RemoteClientHost}:{RemoteClientPort}";
+        }
+        else
+        {
+            RemoteStatus = $"Host configured on {RemoteHostBindAddress}:{RemoteHostPort}";
+        }
+    }
+
+    partial void OnRemoteClientHostChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteClientTargetHost = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteClientPortChanged(int value)
+    {
+        if (!_loadingSettings && _settings != null && value > 0)
+        {
+            _settings.RemoteClientTargetPort = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteHostBindAddressChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteHostBindAddress = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteHostPortChanged(int value)
+    {
+        if (!_loadingSettings && _settings != null && value > 0)
+        {
+            _settings.RemoteHostListenPort = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteSharedTokenChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteSharedToken = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteMaxClientsChanged(int value)
+    {
+        if (!_loadingSettings && _settings != null && value > 0)
+        {
+            _settings.RemoteHostMaxClients = value;
             _settings.Save();
         }
     }
@@ -910,6 +1058,135 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Delegate keying logic to KeyingController
         _keyingController?.HandlePaddleStateChange(leftPaddleState, rightPaddleState, straightKeyState, pttState);
+
+        if (RemoteMode == RemoteConnectionMode.Client)
+        {
+            _ = SendRemotePaddleStateAsync(leftPaddleState, rightPaddleState, straightKeyState, pttState);
+        }
+    }
+
+    private async Task SendRemotePaddleStateAsync(bool leftPaddle, bool rightPaddle, bool straightKey, bool ptt)
+    {
+        try
+        {
+            if (_remoteClientService == null || !_remoteClientService.IsConnected)
+            {
+                return;
+            }
+
+            await _remoteClientService.SendPaddleStateAsync(new PaddleStatePayload
+            {
+                LeftPaddle = leftPaddle,
+                RightPaddle = rightPaddle,
+                StraightKey = straightKey,
+                Ptt = ptt,
+                SenderTickMs = Environment.TickCount64
+            }, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            DebugLogger.Log("remote", $"Failed to send paddle state: {ex.Message}");
+        }
+    }
+
+    private async Task StartRemoteClientAsync()
+    {
+        _remoteCts?.Cancel();
+        _remoteCts?.Dispose();
+        _remoteCts = new CancellationTokenSource();
+
+        await _remoteClientService.ConnectAsync(new RemoteClientOptions
+        {
+            TargetHost = RemoteClientHost,
+            TargetPort = RemoteClientPort,
+            SharedToken = RemoteSharedToken
+        }, _remoteCts.Token);
+    }
+
+    private async Task StartRemoteHostAsync()
+    {
+        _remoteCts?.Cancel();
+        _remoteCts?.Dispose();
+        _remoteCts = new CancellationTokenSource();
+        RemoteConnectedClients = 0;
+
+        await _remoteHostService.StartAsync(new RemoteHostOptions
+        {
+            BindAddress = RemoteHostBindAddress,
+            ListenPort = RemoteHostPort,
+            SharedToken = RemoteSharedToken,
+            MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients))
+        }, _remoteCts.Token);
+    }
+
+    private async Task StopRemoteServicesAsync()
+    {
+        _remoteCts?.Cancel();
+        _remoteCts?.Dispose();
+        _remoteCts = null;
+
+        if (_remoteClientService != null)
+        {
+            await _remoteClientService.DisconnectAsync();
+        }
+
+        if (_remoteHostService != null)
+        {
+            await _remoteHostService.StopAsync();
+        }
+
+        RemoteConnectedClients = 0;
+        if (RemoteMode == RemoteConnectionMode.Off)
+        {
+            RemoteStatus = "Remote mode off";
+        }
+    }
+
+    private void RemoteClientService_ConnectionStatusChanged(object sender, string status)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoteStatus = status;
+        });
+    }
+
+    private void RemoteHostService_HostStatusChanged(object sender, string status)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoteStatus = status;
+        });
+    }
+
+    private void RemoteHostService_ConnectedClientCountChanged(object sender, int count)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoteConnectedClients = count;
+        });
+    }
+
+    private void RemoteHostService_PaddleStateReceived(object sender, RemotePaddleStateEventArgs e)
+    {
+        if (RemoteMode != RemoteConnectionMode.Host)
+        {
+            return;
+        }
+
+        _keyingController?.HandlePaddleStateChange(
+            e.State.LeftPaddle,
+            e.State.RightPaddle,
+            e.State.StraightKey,
+            e.State.Ptt
+        );
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            LeftPaddleIndicatorColor = e.State.LeftPaddle ? Brushes.LimeGreen : Brushes.Black;
+            LeftPaddleStateText = e.State.LeftPaddle ? "ON" : "OFF";
+            RightPaddleIndicatorColor = e.State.RightPaddle ? Brushes.LimeGreen : Brushes.Black;
+            RightPaddleStateText = e.State.RightPaddle ? "ON" : "OFF";
+        });
     }
 
     private string GetTimestamp()
@@ -925,9 +1202,48 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (_connectedRadio == null && !_isSidetoneOnlyMode)
         {
+            if (RemoteMode == RemoteConnectionMode.Client)
+            {
+                _isSidetoneOnlyMode = true;
+                _connectedRadio = null;
+                ConnectButtonText = "Disconnect";
+                HasRadioError = false;
+
+                _keyingController?.SetRadio(null, isSidetoneOnly: true);
+                _keyingController?.SetSidetoneEnabled(true);
+
+                try
+                {
+                    await StartRemoteClientAsync();
+                }
+                catch (Exception ex)
+                {
+                    RadioStatus = $"Remote client connect failed: {ex.Message}";
+                    RadioStatusColor = Brushes.Red;
+                    HasRadioError = true;
+                    ConnectButtonText = "Connect";
+                    _isSidetoneOnlyMode = false;
+                    return;
+                }
+
+                OpenInputDevice();
+                CurrentPage = PageType.Operating;
+                _currentUserSelection = null;
+                UpdatePaddleLabels();
+                return;
+            }
+
             // Check if sidetone-only mode is selected
             if (SelectedRadioClient != null && SelectedRadioClient.DisplayName == SIDETONE_ONLY_OPTION)
             {
+                if (RemoteMode == RemoteConnectionMode.Host)
+                {
+                    RadioStatus = "Remote host mode requires a radio connection";
+                    RadioStatusColor = Brushes.Orange;
+                    HasRadioError = true;
+                    return;
+                }
+
                 // Sidetone-only mode - no radio connection
                 _isSidetoneOnlyMode = true;
                 _connectedRadio = null;
@@ -936,6 +1252,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 // Set keying controller to sidetone-only mode
                 _keyingController?.SetRadio(null, isSidetoneOnly: true);
+                _keyingController?.SetSidetoneEnabled(true);
 
                 // Open the selected input device
                 OpenInputDevice();
@@ -1063,13 +1380,36 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             FinishConnection(_connectedRadio, targetClientHandle, targetStation, clientId);
+
+            if (RemoteMode == RemoteConnectionMode.Host)
+            {
+                try
+                {
+                    await StartRemoteHostAsync();
+                    _keyingController?.SetSidetoneEnabled(false);
+                    _sidetoneGenerator?.Stop();
+                }
+                catch (Exception ex)
+                {
+                    RadioStatus = $"Remote host start failed: {ex.Message}";
+                    RadioStatusColor = Brushes.Red;
+                    HasRadioError = true;
+                }
+            }
+            else
+            {
+                _keyingController?.SetSidetoneEnabled(true);
+            }
         }
         else
         {
             // Disconnect - clean up all keying state first
 
+            await StopRemoteServicesAsync();
+
             // Stop keying controller (sends key-up if active)
             _keyingController?.Stop();
+            _keyingController?.SetSidetoneEnabled(true);
 
             // Ensure sidetone is stopped
             _sidetoneGenerator?.Stop();
@@ -1135,6 +1475,12 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void Exit()
     {
+        try
+        {
+            StopRemoteServicesAsync().GetAwaiter().GetResult();
+        }
+        catch { }
+
         // Clean up all keying state before exit
         _keyingController?.Stop();
         _sidetoneGenerator?.Stop();
@@ -1267,6 +1613,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (_connectedRadio == radio)
         {
+            _ = StopRemoteServicesAsync();
             _connectedRadio = null;
             RadioStatus = "Disconnected (radio removed)";
             RadioStatusColor = Brushes.Red;
@@ -1405,6 +1752,22 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         FinishConnection(radio, updatedClient.ClientHandle, selectedClient.Station, updatedClient.ClientID);
+
+        if (RemoteMode == RemoteConnectionMode.Host)
+        {
+            try
+            {
+                await StartRemoteHostAsync();
+                _keyingController?.SetSidetoneEnabled(false);
+                _sidetoneGenerator?.Stop();
+            }
+            catch (Exception ex)
+            {
+                RadioStatus = $"Remote host start failed: {ex.Message}";
+                RadioStatusColor = Brushes.Red;
+                HasRadioError = true;
+            }
+        }
     }
 
     // Waits until the GUIClient for clientHandle has a non-empty ClientID, or the timeout elapses.

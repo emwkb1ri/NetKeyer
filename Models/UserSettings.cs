@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using NetKeyer.Services.Remote;
 
 namespace NetKeyer.Models
 {
@@ -34,6 +35,15 @@ namespace NetKeyer.Models
         // SmartLink settings
         public string SmartLinkClientId { get; set; }
         public bool RememberMeSmartLink { get; set; } = true;
+
+        // Remote mode settings
+        public RemoteConnectionMode RemoteMode { get; set; } = RemoteConnectionMode.Off;
+        public string RemoteClientTargetHost { get; set; } = "127.0.0.1";
+        public int RemoteClientTargetPort { get; set; } = RemoteDefaults.DefaultPort;
+        public string RemoteHostBindAddress { get; set; } = "0.0.0.0";
+        public int RemoteHostListenPort { get; set; } = RemoteDefaults.DefaultPort;
+        public int RemoteHostMaxClients { get; set; } = 5;
+        public string RemoteSharedToken { get; set; } = "";
 
         // Stored encrypted in the file (Base64)
         public string SmartLinkRefreshTokenEncrypted { get; set; }

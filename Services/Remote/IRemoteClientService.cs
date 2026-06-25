@@ -1,0 +1,15 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace NetKeyer.Services.Remote;
+
+public interface IRemoteClientService : IDisposable
+{
+    bool IsConnected { get; }
+    event EventHandler<string> ConnectionStatusChanged;
+
+    Task ConnectAsync(RemoteClientOptions options, CancellationToken ct);
+    Task DisconnectAsync();
+    ValueTask SendPaddleStateAsync(PaddleStatePayload payload, CancellationToken ct);
+}

@@ -26,6 +26,11 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - WASAPI for Windows
 - **PTT Support**:
   - Supports PTT keying for non-CW modes
+- **Remote Keying Transport (Phase 1)**:
+  - Remote Client mode sends local paddle state over TCP
+  - Remote Host mode accepts up to 5 TCP clients
+  - Default TCP port is `49920`
+  - Client keeps local sidetone active, host mutes local sidetone
 
 ## Requirements
 
@@ -126,6 +131,24 @@ dotnet run
 4. **Swap Paddles**: Reverse left/right paddle assignment if needed
 5. **Disconnect**: Return to setup page to change settings
 
+### Remote Mode (Phase 1)
+
+Use the **Remote Connection Mode** section on the setup page to select one of these modes:
+
+- **Standalone**: Existing behavior (local input keys local radio connection)
+- **Remote Client (Computer #1)**:
+  - Opens local input device and keeps local sidetone active
+  - Sends paddle/straight/PTT state with timing ticks to a remote host via TCP
+- **Remote Host (Computer #2)**:
+  - Connects to a local/SmartLink radio and listens for remote paddle events
+  - Mutes local sidetone while host mode is active
+  - Accepts up to 5 simultaneous TCP client connections
+
+Defaults:
+- Port: `49920`
+- Client target host: `127.0.0.1`
+- Host bind address: `0.0.0.0`
+
 ## MIDI Configuration
 
 The MIDI note configuration dialog allows you to assign any MIDI note (0-127) to one or more functions:
@@ -202,6 +225,7 @@ You can easily access the log folder via **Help → View Debug Log...** in the a
 | `slice` | Transmit slice mode monitoring (CW vs PTT mode detection) |
 | `sidetone` | Audio sidetone provider (tone/silence state machine, timing) |
 | `audio` | Audio device management (initialization, enumeration, selection) |
+| `remote` | Remote TCP client/host transport, framing, and session status |
 
 **Usage Examples**:
 

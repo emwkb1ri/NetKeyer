@@ -1110,6 +1110,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteCts = new CancellationTokenSource();
         RemoteConnectedClients = 0;
 
+        MuteHostSidetone();
+
         await _remoteHostService.StartAsync(new RemoteHostOptions
         {
             BindAddress = RemoteHostBindAddress,
@@ -1135,11 +1137,24 @@ public partial class MainWindowViewModel : ViewModelBase
             await _remoteHostService.StopAsync();
         }
 
+        RestoreHostSidetone();
+
         RemoteConnectedClients = 0;
         if (RemoteMode == RemoteConnectionMode.Off)
         {
             RemoteStatus = "Remote mode off";
         }
+    }
+
+    private void MuteHostSidetone()
+    {
+        _sidetoneGenerator?.Stop();
+        _keyingController?.SetSidetoneEnabled(false);
+    }
+
+    private void RestoreHostSidetone()
+    {
+        _keyingController?.SetSidetoneEnabled(true);
     }
 
     private void RemoteClientService_ConnectionStatusChanged(object sender, string status)
@@ -1386,11 +1401,10 @@ public partial class MainWindowViewModel : ViewModelBase
                 try
                 {
                     await StartRemoteHostAsync();
-                    _keyingController?.SetSidetoneEnabled(false);
-                    _sidetoneGenerator?.Stop();
                 }
                 catch (Exception ex)
                 {
+                    RestoreHostSidetone();
                     RadioStatus = $"Remote host start failed: {ex.Message}";
                     RadioStatusColor = Brushes.Red;
                     HasRadioError = true;
@@ -1758,11 +1772,10 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 await StartRemoteHostAsync();
-                _keyingController?.SetSidetoneEnabled(false);
-                _sidetoneGenerator?.Stop();
             }
             catch (Exception ex)
             {
+                    RestoreHostSidetone();
                 RadioStatus = $"Remote host start failed: {ex.Message}";
                 RadioStatusColor = Brushes.Red;
                 HasRadioError = true;

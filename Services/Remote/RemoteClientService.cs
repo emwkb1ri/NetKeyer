@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,10 +18,13 @@ public class RemoteClientService : IRemoteClientService
     private Task _receiveLoopTask;
     private Task _heartbeatTask;
     private long _sequence;
+    private string _connectedHostIp = "";
+    private string _connectedHostName = "";
 
     public bool IsConnected => _client?.Connected == true && _stream != null;
 
     public event EventHandler<string> ConnectionStatusChanged;
+    public event EventHandler<RemoteHostIdentityEventArgs> HostIdentityChanged;
 
     public async Task ConnectAsync(RemoteClientOptions options, CancellationToken ct)
     {
@@ -40,7 +44,13 @@ public class RemoteClientService : IRemoteClientService
             _sequence = 0;
         }
 
-        await SendControlMessageAsync(RemoteMessageType.Hello, new HelloPayload(), _internalCts.Token);
+        _connectedHostIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? options.TargetHost;
+        _connectedHostName = string.Empty;
+
+        await SendControlMessageAsync(RemoteMessageType.Hello, new HelloPayload
+        {
+            Callsign = options.Callsign ?? ""
+        }, _internalCts.Token);
 
         if (!string.IsNullOrWhiteSpace(options.SharedToken))
         {
@@ -51,6 +61,7 @@ public class RemoteClientService : IRemoteClientService
         _heartbeatTask = Task.Run(() => HeartbeatLoopAsync(_internalCts.Token));
 
         RaiseStatus($"Connected to {options.TargetHost}:{options.TargetPort}");
+        RaiseHostIdentity(_connectedHostIp, _connectedHostName);
         DebugLogger.Log("remote", $"Client connected to {options.TargetHost}:{options.TargetPort}");
     }
 
@@ -96,7 +107,11 @@ public class RemoteClientService : IRemoteClientService
             _client = null;
         }
 
+        _connectedHostIp = "";
+        _connectedHostName = "";
+
         RaiseStatus("Disconnected");
+        RaiseHostIdentity("", "");
     }
 
     public async ValueTask SendPaddleStateAsync(PaddleStatePayload payload, CancellationToken ct)
@@ -160,6 +175,13 @@ public class RemoteClientService : IRemoteClientService
                     RaiseStatus($"Host error: {payload?.Message ?? "Unknown"}");
                     DebugLogger.Log("remote", $"Host error payload: {payload?.Message ?? "Unknown"}");
                 }
+                else if (envelope.Type == RemoteMessageType.Hello)
+                {
+                    var hello = RemoteProtocolJson.DeserializePayload<HelloPayload>(envelope);
+                    _connectedHostName = hello?.HostName ?? "";
+                    RaiseHostIdentity(_connectedHostIp, _connectedHostName);
+                    DebugLogger.Log("remote", $"Host identity updated: ip={_connectedHostIp}, hostName={_connectedHostName}");
+                }
             }
         }
         catch (OperationCanceledException)
@@ -199,6 +221,15 @@ public class RemoteClientService : IRemoteClientService
     private void RaiseStatus(string status)
     {
         ConnectionStatusChanged?.Invoke(this, status);
+    }
+
+    private void RaiseHostIdentity(string hostIp, string hostName)
+    {
+        HostIdentityChanged?.Invoke(this, new RemoteHostIdentityEventArgs
+        {
+            HostIp = hostIp ?? "",
+            HostName = hostName ?? ""
+        });
     }
 
     public void Dispose()

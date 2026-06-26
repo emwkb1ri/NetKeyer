@@ -8,6 +8,7 @@ public interface IRemoteClientService : IDisposable
 {
     bool IsConnected { get; }
     event EventHandler<string> ConnectionStatusChanged;
+    event EventHandler<RemoteHostIdentityEventArgs> HostIdentityChanged;
 
     Task ConnectAsync(RemoteClientOptions options, CancellationToken ct);
     Task DisconnectAsync();

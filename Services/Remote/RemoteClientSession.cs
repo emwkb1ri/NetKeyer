@@ -11,27 +11,35 @@ public class RemoteClientSession : IDisposable
     private readonly TcpClient _client;
     private readonly NetworkStream _stream;
     private readonly string _requiredToken;
+    private readonly string _hostName;
     private bool _isAuthenticated;
 
     public string ClientId { get; } = Guid.NewGuid().ToString("N");
     public string RemoteEndpoint { get; }
+    public string RemoteIp { get; }
+    public string Callsign { get; private set; } = "";
 
     public event EventHandler<RemotePaddleStateEventArgs> PaddleStateReceived;
     public event EventHandler<RemoteClientSession> SessionClosed;
+    public event EventHandler<RemoteClientSession> SessionMetadataChanged;
 
-    public RemoteClientSession(TcpClient client, string requiredToken)
+    public RemoteClientSession(TcpClient client, string requiredToken, string hostName)
     {
         _client = client;
         _stream = _client.GetStream();
         _requiredToken = requiredToken ?? "";
+        _hostName = hostName ?? "";
         _isAuthenticated = string.IsNullOrWhiteSpace(_requiredToken);
         RemoteEndpoint = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
+        RemoteIp = (client.Client.RemoteEndPoint as System.Net.IPEndPoint)?.Address.ToString() ?? "";
     }
 
     public async Task RunAsync(CancellationToken ct)
     {
         try
         {
+            await SendHelloAsync(ct);
+
             while (!ct.IsCancellationRequested)
             {
                 var envelope = await RemoteFrameCodec.ReadEnvelopeAsync(_stream, ct);
@@ -39,7 +47,7 @@ public class RemoteClientSession : IDisposable
                 switch (envelope.Type)
                 {
                     case RemoteMessageType.Hello:
-                        DebugLogger.Log("remote", $"Session {ClientId} hello from {RemoteEndpoint}");
+                        await HandleHelloAsync(envelope);
                         break;
 
                     case RemoteMessageType.Auth:
@@ -70,6 +78,15 @@ public class RemoteClientSession : IDisposable
         {
             SessionClosed?.Invoke(this, this);
         }
+    }
+
+    private async Task HandleHelloAsync(RemoteMessageEnvelope envelope)
+    {
+        var hello = RemoteProtocolJson.DeserializePayload<HelloPayload>(envelope);
+        Callsign = hello?.Callsign ?? "";
+        SessionMetadataChanged?.Invoke(this, this);
+        DebugLogger.Log("remote", $"Session {ClientId} hello from {RemoteEndpoint}, callsign={Callsign}");
+        await Task.CompletedTask;
     }
 
     private async Task HandleAuthAsync(RemoteMessageEnvelope envelope, CancellationToken ct)
@@ -118,6 +135,22 @@ public class RemoteClientSession : IDisposable
         catch
         {
             // Ignore transport errors during error reporting
+        }
+    }
+
+    private async Task SendHelloAsync(CancellationToken ct)
+    {
+        try
+        {
+            var envelope = RemoteProtocolJson.CreateEnvelope(RemoteMessageType.Hello, 0, new HelloPayload
+            {
+                HostName = _hostName
+            });
+            await RemoteFrameCodec.WriteEnvelopeAsync(_stream, envelope, ct);
+        }
+        catch
+        {
+            // Ignore if hello cannot be sent; caller loop will handle stream state.
         }
     }
 

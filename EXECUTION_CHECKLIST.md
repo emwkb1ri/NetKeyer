@@ -34,7 +34,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - all checks true in source
 
 ## Step 4: Run Two-Machine LAN Smoke Test
-- Status: In Progress
+- Status: Complete
 - Goal: validate basic client-host remote keying path.
 - Procedure:
   - Machine A: Remote Client mode, set host IP + port 49920
@@ -46,7 +46,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - host sidetone stays muted
 
 ## Step 5: Stabilization Fixes
-- Status: Pending
+- Status: Complete
 - Goal: address any compile/runtime issues found in Steps 1-4.
 - Actions:
   - patch failures
@@ -77,3 +77,5 @@ Purpose: finish environment validation and complete the next implementation/test
 - 2026-06-25: LAN reachability to Machine B (192.168.1.73) passed.
 - 2026-06-25: Host sidetone mute/restore fix added in MainWindowViewModel: save current volume, force 0 on host start, restore on exit.
 - 2026-06-25: Updated host mute behavior to decouple local NetKeyer mute from TXCWMonitorGain sync; SmartSDR/Flex sidetone is no longer auto-muted by host-mode local mute logic.
+- 2026-06-26: Added network status enhancements: host client list with IP/callsign/status history, client/host identity fields, and client host identity display.
+- 2026-06-26: Step 4 and Step 5 marked complete after LAN smoke validation and stabilization/UI refinements (window sizing, host/client status views, reconnect dedupe, client status formatting, dark-theme status bar readability).

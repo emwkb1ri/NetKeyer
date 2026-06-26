@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +12,7 @@ public interface IRemoteHostService : IDisposable
 
     event EventHandler<string> HostStatusChanged;
     event EventHandler<int> ConnectedClientCountChanged;
+    event EventHandler<IReadOnlyList<RemoteClientStatusInfo>> ClientStatusesChanged;
     event EventHandler<RemotePaddleStateEventArgs> PaddleStateReceived;
 
     Task StartAsync(RemoteHostOptions options, CancellationToken ct);

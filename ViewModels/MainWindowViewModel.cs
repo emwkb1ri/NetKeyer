@@ -46,6 +46,14 @@ public class RadioClientSelection
     public override string ToString() => DisplayName;
 }
 
+public class RemoteHostClientDisplayRow
+{
+    public string RemoteIp { get; set; } = string.Empty;
+    public string Callsign { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string LastActive { get; set; } = string.Empty;
+}
+
 public partial class MainWindowViewModel : ViewModelBase
 {
     // On macOS, we use the native menu bar, so hide the in-window menu
@@ -206,7 +214,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _rightPaddleVisible = true;  // Hide right paddle when appropriate
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRemoteModeOff), nameof(IsRemoteModeClient), nameof(IsRemoteModeHost))]
+    [NotifyPropertyChangedFor(nameof(IsRemoteModeOff), nameof(IsRemoteModeClient), nameof(IsRemoteModeHost), nameof(IsWaitingForClientConnection))]
     private RemoteConnectionMode _remoteMode = RemoteConnectionMode.Off;
 
     public bool IsRemoteModeOff
@@ -228,10 +236,16 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [ObservableProperty]
+    private string _remoteCallsign = "";
+
+    [ObservableProperty]
     private string _remoteClientHost = "127.0.0.1";
 
     [ObservableProperty]
     private int _remoteClientPort = RemoteDefaults.DefaultPort;
+
+    [ObservableProperty]
+    private string _remoteHostName = Environment.MachineName;
 
     [ObservableProperty]
     private string _remoteHostBindAddress = "0.0.0.0";
@@ -246,10 +260,83 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _remoteMaxClients = 5;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RemoteClientConnectionStatusText))]
     private string _remoteStatus = "Remote mode off";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWaitingForClientConnection))]
     private int _remoteConnectedClients = 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RemoteHostHasClients))]
+    private ObservableCollection<RemoteClientStatusInfo> _remoteHostClientStatuses = new();
+
+    [ObservableProperty]
+    private ObservableCollection<RemoteHostClientDisplayRow> _remoteHostClientDisplayRows = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RemoteConnectedHostIpDisplay))]
+    private string _remoteConnectedHostIp = "";
+
+    [ObservableProperty]
+    private string _remoteConnectedHostName = "";
+
+    public string RemoteConnectedHostIpDisplay
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(RemoteConnectedHostIp))
+            {
+                return string.Empty;
+            }
+
+            if (IPAddress.TryParse(RemoteConnectedHostIp, out var parsed))
+            {
+                if (parsed.IsIPv4MappedToIPv6)
+                {
+                    return parsed.MapToIPv4().ToString();
+                }
+
+                return parsed.ToString();
+            }
+
+            const string ipv4MappedPrefix = "::ffff:";
+            if (RemoteConnectedHostIp.StartsWith(ipv4MappedPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return RemoteConnectedHostIp.Substring(ipv4MappedPrefix.Length);
+            }
+
+            return RemoteConnectedHostIp;
+        }
+    }
+
+    public string RemoteClientConnectionStatusText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(RemoteStatus))
+            {
+                return string.Empty;
+            }
+
+            if (RemoteStatus.StartsWith("Connected", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Connected";
+            }
+
+            if (RemoteStatus.StartsWith("Connection lost", StringComparison.OrdinalIgnoreCase)
+                || RemoteStatus.StartsWith("Disconnected", StringComparison.OrdinalIgnoreCase)
+                || RemoteStatus.StartsWith("Host error", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Connection lost";
+            }
+
+            return RemoteStatus;
+        }
+    }
+
+    public bool RemoteHostHasClients => RemoteHostClientStatuses.Count > 0;
+    public bool IsWaitingForClientConnection => IsRemoteModeHost && RemoteConnectedClients == 0;
 
     public MainWindowViewModel()
     {
@@ -289,10 +376,14 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         RemoteMode = _settings.RemoteMode;
+        RemoteCallsign = _settings.RemoteCallsign ?? "";
         RemoteClientHost = string.IsNullOrWhiteSpace(_settings.RemoteClientTargetHost)
             ? "127.0.0.1"
             : _settings.RemoteClientTargetHost;
         RemoteClientPort = _settings.RemoteClientTargetPort > 0 ? _settings.RemoteClientTargetPort : RemoteDefaults.DefaultPort;
+        RemoteHostName = string.IsNullOrWhiteSpace(_settings.RemoteHostName)
+            ? Environment.MachineName
+            : _settings.RemoteHostName;
         RemoteHostBindAddress = string.IsNullOrWhiteSpace(_settings.RemoteHostBindAddress)
             ? "0.0.0.0"
             : _settings.RemoteHostBindAddress;
@@ -361,11 +452,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _remoteClientService = new RemoteClientService();
         _remoteClientService.ConnectionStatusChanged += RemoteClientService_ConnectionStatusChanged;
+        _remoteClientService.HostIdentityChanged += RemoteClientService_HostIdentityChanged;
 
         _remoteHostService = new RemoteHostService();
         _remoteHostService.HostStatusChanged += RemoteHostService_HostStatusChanged;
         _remoteHostService.ConnectedClientCountChanged += RemoteHostService_ConnectedClientCountChanged;
+        _remoteHostService.ClientStatusesChanged += RemoteHostService_ClientStatusesChanged;
         _remoteHostService.PaddleStateReceived += RemoteHostService_PaddleStateReceived;
+
+        UpdateRemoteHostClientDisplayRows(Array.Empty<RemoteClientStatusInfo>());
 
         // Initialize transmit slice monitor
         _transmitSliceMonitor = new TransmitSliceMonitor();
@@ -420,6 +515,15 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    partial void OnRemoteCallsignChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteCallsign = value ?? "";
+            _settings.Save();
+        }
+    }
+
     partial void OnRemoteClientHostChanged(string value)
     {
         if (!_loadingSettings && _settings != null)
@@ -443,6 +547,15 @@ public partial class MainWindowViewModel : ViewModelBase
         if (!_loadingSettings && _settings != null)
         {
             _settings.RemoteHostBindAddress = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteHostNameChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteHostName = value ?? "";
             _settings.Save();
         }
     }
@@ -1095,11 +1208,15 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteCts?.Dispose();
         _remoteCts = new CancellationTokenSource();
 
+        RemoteConnectedHostIp = string.Empty;
+        RemoteConnectedHostName = string.Empty;
+
         await _remoteClientService.ConnectAsync(new RemoteClientOptions
         {
             TargetHost = RemoteClientHost,
             TargetPort = RemoteClientPort,
-            SharedToken = RemoteSharedToken
+            SharedToken = RemoteSharedToken,
+            Callsign = RemoteCallsign
         }, _remoteCts.Token);
     }
 
@@ -1114,6 +1231,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         await _remoteHostService.StartAsync(new RemoteHostOptions
         {
+            HostName = RemoteHostName,
             BindAddress = RemoteHostBindAddress,
             ListenPort = RemoteHostPort,
             SharedToken = RemoteSharedToken,
@@ -1165,6 +1283,15 @@ public partial class MainWindowViewModel : ViewModelBase
         });
     }
 
+    private void RemoteClientService_HostIdentityChanged(object sender, RemoteHostIdentityEventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoteConnectedHostIp = e?.HostIp ?? "";
+            RemoteConnectedHostName = e?.HostName ?? "";
+        });
+    }
+
     private void RemoteHostService_HostStatusChanged(object sender, string status)
     {
         Dispatcher.UIThread.Post(() =>
@@ -1179,6 +1306,42 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             RemoteConnectedClients = count;
         });
+    }
+
+    private void RemoteHostService_ClientStatusesChanged(object sender, IReadOnlyList<RemoteClientStatusInfo> statuses)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var safeStatuses = statuses ?? Array.Empty<RemoteClientStatusInfo>();
+            RemoteHostClientStatuses = new ObservableCollection<RemoteClientStatusInfo>(safeStatuses);
+            UpdateRemoteHostClientDisplayRows(safeStatuses);
+        });
+    }
+
+    private void UpdateRemoteHostClientDisplayRows(IReadOnlyList<RemoteClientStatusInfo> statuses)
+    {
+        var rows = new List<RemoteHostClientDisplayRow>();
+        var source = statuses ?? Array.Empty<RemoteClientStatusInfo>();
+
+        foreach (var status in source.Take(5))
+        {
+            rows.Add(new RemoteHostClientDisplayRow
+            {
+                RemoteIp = status?.RemoteIp ?? string.Empty,
+                Callsign = status?.Callsign ?? string.Empty,
+                Status = status?.Status.ToString() ?? string.Empty,
+                LastActive = status == null
+                    ? string.Empty
+                    : status.LastUpdatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            });
+        }
+
+        while (rows.Count < 5)
+        {
+            rows.Add(new RemoteHostClientDisplayRow());
+        }
+
+        RemoteHostClientDisplayRows = new ObservableCollection<RemoteHostClientDisplayRow>(rows);
     }
 
     private void RemoteHostService_PaddleStateReceived(object sender, RemotePaddleStateEventArgs e)

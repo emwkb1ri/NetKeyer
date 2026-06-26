@@ -53,6 +53,8 @@ public class HelloPayload
 {
     public string AppName { get; set; } = "NetKeyer";
     public string AppVersion { get; set; } = "dev";
+    public string Callsign { get; set; } = "";
+    public string HostName { get; set; } = "";
 }
 
 public class AuthPayload

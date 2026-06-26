@@ -1,3 +1,5 @@
+using System;
+
 namespace NetKeyer.Services.Remote;
 
 public static class RemoteDefaults
@@ -12,6 +14,7 @@ public class RemoteClientOptions
     public string TargetHost { get; set; } = "127.0.0.1";
     public int TargetPort { get; set; } = RemoteDefaults.DefaultPort;
     public string SharedToken { get; set; } = "";
+    public string Callsign { get; set; } = "";
     public int ReconnectDelayMs { get; set; } = 1000;
 }
 
@@ -21,5 +24,6 @@ public class RemoteHostOptions
     public int ListenPort { get; set; } = RemoteDefaults.DefaultPort;
     public int MaxClients { get; set; } = 5;
     public string SharedToken { get; set; } = "";
+    public string HostName { get; set; } = Environment.MachineName;
     public int ClientIdleTimeoutMs { get; set; } = 5000;
 }

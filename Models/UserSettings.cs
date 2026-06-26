@@ -38,8 +38,10 @@ namespace NetKeyer.Models
 
         // Remote mode settings
         public RemoteConnectionMode RemoteMode { get; set; } = RemoteConnectionMode.Off;
+        public string RemoteCallsign { get; set; } = "";
         public string RemoteClientTargetHost { get; set; } = "127.0.0.1";
         public int RemoteClientTargetPort { get; set; } = RemoteDefaults.DefaultPort;
+        public string RemoteHostName { get; set; } = Environment.MachineName;
         public string RemoteHostBindAddress { get; set; } = "0.0.0.0";
         public int RemoteHostListenPort { get; set; } = RemoteDefaults.DefaultPort;
         public int RemoteHostMaxClients { get; set; } = 5;

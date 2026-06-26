@@ -7,6 +7,10 @@ public static class RemoteDefaults
     public const int DefaultPort = 49920;
     public const int ProtocolVersion = 1;
     public const int MaxFrameBytes = 64 * 1024;
+    public const int DefaultClientHoldMs = 1000;
+    public const int MinClientHoldMs = 500;
+    public const int MaxClientHoldMs = 30000;
+    public const int DefaultStaleFrameDropMs = 750;
 }
 
 public class RemoteClientOptions
@@ -26,4 +30,6 @@ public class RemoteHostOptions
     public string SharedToken { get; set; } = "";
     public string HostName { get; set; } = Environment.MachineName;
     public int ClientIdleTimeoutMs { get; set; } = 5000;
+    public int ActiveClientHoldMs { get; set; } = RemoteDefaults.DefaultClientHoldMs;
+    public int StaleFrameDropMs { get; set; } = RemoteDefaults.DefaultStaleFrameDropMs;
 }

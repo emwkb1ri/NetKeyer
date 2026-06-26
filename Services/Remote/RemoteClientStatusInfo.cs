@@ -18,4 +18,11 @@ public class RemoteClientStatusInfo
     public RemoteClientSessionStatus Status { get; set; } = RemoteClientSessionStatus.Connected;
     public DateTime FirstSeenUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastUpdatedUtc { get; set; } = DateTime.UtcNow;
+    public double LastLagMs { get; set; }
+    public double AvgLagMs { get; set; }
+    public double MaxLagMs { get; set; }
+    public double JitterMs { get; set; }
+    public long AcceptedFrames { get; set; }
+    public long AcceptedFramesLast60s { get; set; }
+    public long DroppedStaleFrames { get; set; }
 }

@@ -12,6 +12,7 @@ public class RemoteClientSession : IDisposable
     private readonly NetworkStream _stream;
     private readonly string _requiredToken;
     private readonly string _hostName;
+    private readonly Func<string, HeartbeatPayload> _heartbeatPayloadProvider;
     private bool _isAuthenticated;
 
     public string ClientId { get; } = Guid.NewGuid().ToString("N");
@@ -23,12 +24,13 @@ public class RemoteClientSession : IDisposable
     public event EventHandler<RemoteClientSession> SessionClosed;
     public event EventHandler<RemoteClientSession> SessionMetadataChanged;
 
-    public RemoteClientSession(TcpClient client, string requiredToken, string hostName)
+    public RemoteClientSession(TcpClient client, string requiredToken, string hostName, Func<string, HeartbeatPayload> heartbeatPayloadProvider)
     {
         _client = client;
         _stream = _client.GetStream();
         _requiredToken = requiredToken ?? "";
         _hostName = hostName ?? "";
+        _heartbeatPayloadProvider = heartbeatPayloadProvider;
         _isAuthenticated = string.IsNullOrWhiteSpace(_requiredToken);
         RemoteEndpoint = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
         RemoteIp = (client.Client.RemoteEndPoint as System.Net.IPEndPoint)?.Address.ToString() ?? "";
@@ -59,7 +61,7 @@ public class RemoteClientSession : IDisposable
                         break;
 
                     case RemoteMessageType.Heartbeat:
-                        // no-op for now
+                        await HandleHeartbeatAsync(ct);
                         break;
 
                     case RemoteMessageType.Disconnect:
@@ -116,12 +118,22 @@ public class RemoteClientSession : IDisposable
             return;
         }
 
+        long receivedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long apparentAgeMs = receivedAtUnixMs - envelope.SentAtUnixMs;
+        if (apparentAgeMs < 0)
+        {
+            apparentAgeMs = 0;
+        }
+
         PaddleStateReceived?.Invoke(this, new RemotePaddleStateEventArgs
         {
             ClientId = ClientId,
             RemoteEndpoint = RemoteEndpoint,
             State = state,
-            ReceivedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            Sequence = envelope.Sequence,
+            SentAtUnixMs = envelope.SentAtUnixMs,
+            ReceivedAtUnixMs = receivedAtUnixMs,
+            ApparentAgeMs = apparentAgeMs
         });
     }
 
@@ -151,6 +163,20 @@ public class RemoteClientSession : IDisposable
         catch
         {
             // Ignore if hello cannot be sent; caller loop will handle stream state.
+        }
+    }
+
+    private async Task HandleHeartbeatAsync(CancellationToken ct)
+    {
+        try
+        {
+            HeartbeatPayload payload = _heartbeatPayloadProvider?.Invoke(ClientId) ?? new HeartbeatPayload();
+            var envelope = RemoteProtocolJson.CreateEnvelope(RemoteMessageType.Heartbeat, 0, payload);
+            await RemoteFrameCodec.WriteEnvelopeAsync(_stream, envelope, ct);
+        }
+        catch
+        {
+            // Ignore heartbeat response failures; session lifecycle handles socket errors.
         }
     }
 

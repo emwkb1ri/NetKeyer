@@ -25,6 +25,7 @@ public class RemoteClientService : IRemoteClientService
 
     public event EventHandler<string> ConnectionStatusChanged;
     public event EventHandler<RemoteHostIdentityEventArgs> HostIdentityChanged;
+    public event EventHandler<RemoteHostTelemetryEventArgs> HostTelemetryChanged;
 
     public async Task ConnectAsync(RemoteClientOptions options, CancellationToken ct)
     {
@@ -182,6 +183,11 @@ public class RemoteClientService : IRemoteClientService
                     RaiseHostIdentity(_connectedHostIp, _connectedHostName);
                     DebugLogger.Log("remote", $"Host identity updated: ip={_connectedHostIp}, hostName={_connectedHostName}");
                 }
+                else if (envelope.Type == RemoteMessageType.Heartbeat)
+                {
+                    var heartbeat = RemoteProtocolJson.DeserializePayload<HeartbeatPayload>(envelope) ?? new HeartbeatPayload();
+                    RaiseHostTelemetry(heartbeat);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -229,6 +235,20 @@ public class RemoteClientService : IRemoteClientService
         {
             HostIp = hostIp ?? "",
             HostName = hostName ?? ""
+        });
+    }
+
+    private void RaiseHostTelemetry(HeartbeatPayload heartbeat)
+    {
+        HostTelemetryChanged?.Invoke(this, new RemoteHostTelemetryEventArgs
+        {
+            LastLagMs = heartbeat?.LastLagMs ?? 0,
+            AvgLagMs = heartbeat?.AvgLagMs ?? 0,
+            MaxLagMs = heartbeat?.MaxLagMs ?? 0,
+            JitterMs = heartbeat?.JitterMs ?? 0,
+            AcceptedFrames = heartbeat?.AcceptedFrames ?? 0,
+            AcceptedFramesLast60s = heartbeat?.AcceptedFramesLast60s ?? 0,
+            DroppedStaleFrames = heartbeat?.DroppedStaleFrames ?? 0
         });
     }
 

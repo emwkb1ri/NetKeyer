@@ -26,9 +26,13 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - WASAPI for Windows
 - **PTT Support**:
   - Supports PTT keying for non-CW modes
-- **Remote Keying Transport (Phase 1)**:
+- **Remote Keying Transport (Phase 2)**:
   - Remote Client mode sends local paddle state over TCP
   - Remote Host mode accepts up to 5 TCP clients
+  - Active-client ownership lock to prevent simultaneous multi-client keying contention
+  - Configurable client ownership hold time from 0.5 to 30.0 seconds (default 1.0 second)
+  - Stale-frame drop policy to reject delayed paddle frames before keying
+  - Host and client telemetry summaries for last lag, avg lag, max lag (60s), accepted frames (60s), and stale drops
   - Default TCP port is `49920`
   - Client keeps local sidetone active, host mutes local sidetone
 
@@ -131,7 +135,7 @@ dotnet run
 4. **Swap Paddles**: Reverse left/right paddle assignment if needed
 5. **Disconnect**: Return to setup page to change settings
 
-### Remote Mode (Phase 1)
+### Remote Mode (Phase 2)
 
 Use the **Remote Connection Mode** section on the setup page to select one of these modes:
 
@@ -143,6 +147,17 @@ Use the **Remote Connection Mode** section on the setup page to select one of th
   - Connects to a local/SmartLink radio and listens for remote paddle events
   - Mutes local sidetone while host mode is active
   - Accepts up to 5 simultaneous TCP client connections
+  - Includes active-client ownership lock with configurable hold time
+  - Drops stale remote frames before they reach keying
+
+Remote host setup options include:
+- **Max Clients**: limit concurrent remote clients (1 to 5)
+- **Client Hold Time**: ownership hold duration after last accepted key input (0.5s to 30.0s in 0.5s increments)
+
+Operating-page telemetry:
+- **Host Client Status** and **Client Host Status** blocks include a compact telemetry line.
+- Telemetry fields: last lag, avg lag, max lag (last 60 seconds), accepted frames in last 60 seconds, stale drops.
+- 60-second window metrics age out during idle periods (for example accepted 60s returns to 0 if no frames are received in the last 60 seconds).
 
 Defaults:
 - Port: `49920`

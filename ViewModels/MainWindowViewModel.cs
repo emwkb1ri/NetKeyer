@@ -260,6 +260,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _remoteMaxClients = 5;
 
     [ObservableProperty]
+    private decimal _remoteClientHoldSeconds = 1.0m;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RemoteClientConnectionStatusText))]
     private string _remoteStatus = "Remote mode off";
 
@@ -280,6 +283,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _remoteConnectedHostName = "";
+
+    [ObservableProperty]
+    private string _remoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
 
     public string RemoteConnectedHostIpDisplay
     {
@@ -390,6 +396,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RemoteHostPort = _settings.RemoteHostListenPort > 0 ? _settings.RemoteHostListenPort : RemoteDefaults.DefaultPort;
         RemoteSharedToken = _settings.RemoteSharedToken ?? "";
         RemoteMaxClients = _settings.RemoteHostMaxClients > 0 ? _settings.RemoteHostMaxClients : 5;
+        RemoteClientHoldSeconds = ConvertHoldMsToSeconds(_settings.RemoteHostClientHoldMs);
         _loadingSettings = false;
 
         // Initial discovery
@@ -453,6 +460,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteClientService = new RemoteClientService();
         _remoteClientService.ConnectionStatusChanged += RemoteClientService_ConnectionStatusChanged;
         _remoteClientService.HostIdentityChanged += RemoteClientService_HostIdentityChanged;
+        _remoteClientService.HostTelemetryChanged += RemoteClientService_HostTelemetryChanged;
 
         _remoteHostService = new RemoteHostService();
         _remoteHostService.HostStatusChanged += RemoteHostService_HostStatusChanged;
@@ -583,6 +591,22 @@ public partial class MainWindowViewModel : ViewModelBase
         if (!_loadingSettings && _settings != null && value > 0)
         {
             _settings.RemoteHostMaxClients = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteClientHoldSecondsChanged(decimal value)
+    {
+        decimal normalized = NormalizeHoldSeconds(value);
+        if (normalized != value)
+        {
+            RemoteClientHoldSeconds = normalized;
+            return;
+        }
+
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteHostClientHoldMs = ConvertHoldSecondsToMs(normalized);
             _settings.Save();
         }
     }
@@ -1210,6 +1234,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         RemoteConnectedHostIp = string.Empty;
         RemoteConnectedHostName = string.Empty;
+        RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
 
         await _remoteClientService.ConnectAsync(new RemoteClientOptions
         {
@@ -1226,6 +1251,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteCts?.Dispose();
         _remoteCts = new CancellationTokenSource();
         RemoteConnectedClients = 0;
+        RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
 
         MuteHostSidetone();
 
@@ -1235,8 +1261,27 @@ public partial class MainWindowViewModel : ViewModelBase
             BindAddress = RemoteHostBindAddress,
             ListenPort = RemoteHostPort,
             SharedToken = RemoteSharedToken,
-            MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients))
+            MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients)),
+            ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds)
         }, _remoteCts.Token);
+    }
+
+    private static decimal NormalizeHoldSeconds(decimal value)
+    {
+        decimal clamped = Math.Max(0.5m, Math.Min(30.0m, value));
+        return Math.Round(clamped * 2m, MidpointRounding.AwayFromZero) / 2m;
+    }
+
+    private static decimal ConvertHoldMsToSeconds(int holdMs)
+    {
+        decimal seconds = holdMs / 1000m;
+        return NormalizeHoldSeconds(seconds);
+    }
+
+    private static int ConvertHoldSecondsToMs(decimal holdSeconds)
+    {
+        decimal normalized = NormalizeHoldSeconds(holdSeconds);
+        return (int)(normalized * 1000m);
     }
 
     private async Task StopRemoteServicesAsync()
@@ -1258,6 +1303,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RestoreHostSidetone();
 
         RemoteConnectedClients = 0;
+        RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
         if (RemoteMode == RemoteConnectionMode.Off)
         {
             RemoteStatus = "Remote mode off";
@@ -1292,6 +1338,14 @@ public partial class MainWindowViewModel : ViewModelBase
         });
     }
 
+    private void RemoteClientService_HostTelemetryChanged(object sender, RemoteHostTelemetryEventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoteTelemetrySummary = FormatTelemetrySummary(e?.LastLagMs ?? 0, e?.AvgLagMs ?? 0, e?.MaxLagMs ?? 0, e?.AcceptedFramesLast60s ?? 0, e?.DroppedStaleFrames ?? 0, "host");
+        });
+    }
+
     private void RemoteHostService_HostStatusChanged(object sender, string status)
     {
         Dispatcher.UIThread.Post(() =>
@@ -1315,6 +1369,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var safeStatuses = statuses ?? Array.Empty<RemoteClientStatusInfo>();
             RemoteHostClientStatuses = new ObservableCollection<RemoteClientStatusInfo>(safeStatuses);
             UpdateRemoteHostClientDisplayRows(safeStatuses);
+            UpdateRemoteHostTelemetrySummary(safeStatuses);
         });
     }
 
@@ -1342,6 +1397,35 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         RemoteHostClientDisplayRows = new ObservableCollection<RemoteHostClientDisplayRow>(rows);
+    }
+
+    private void UpdateRemoteHostTelemetrySummary(IReadOnlyList<RemoteClientStatusInfo> statuses)
+    {
+        var source = statuses ?? Array.Empty<RemoteClientStatusInfo>();
+
+        var selected = source
+            .Where(s => s != null)
+            .OrderByDescending(s => s.Status == RemoteClientSessionStatus.Connected)
+            .ThenByDescending(s => s.LastUpdatedUtc)
+            .FirstOrDefault();
+
+        if (selected == null)
+        {
+            RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
+            return;
+        }
+
+        string identity = !string.IsNullOrWhiteSpace(selected.Callsign)
+            ? selected.Callsign
+            : (selected.RemoteIp ?? "client");
+
+        RemoteTelemetrySummary = FormatTelemetrySummary(selected.LastLagMs, selected.AvgLagMs, selected.MaxLagMs, selected.AcceptedFramesLast60s, selected.DroppedStaleFrames, identity);
+    }
+
+    private static string FormatTelemetrySummary(double lastLagMs, double avgLagMs, double maxLagMs, long acceptedFramesLast60s, long droppedStaleFrames, string identity)
+    {
+        string who = string.IsNullOrWhiteSpace(identity) ? "host" : identity;
+        return $"Telemetry ({who}): last lag {lastLagMs:F1} ms | avg lag {avgLagMs:F1} ms | max lag {maxLagMs:F1} ms | accepted 60s {acceptedFramesLast60s} | stale {droppedStaleFrames}";
     }
 
     private void RemoteHostService_PaddleStateReceived(object sender, RemotePaddleStateEventArgs e)

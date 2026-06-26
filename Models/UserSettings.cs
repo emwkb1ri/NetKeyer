@@ -45,6 +45,7 @@ namespace NetKeyer.Models
         public string RemoteHostBindAddress { get; set; } = "0.0.0.0";
         public int RemoteHostListenPort { get; set; } = RemoteDefaults.DefaultPort;
         public int RemoteHostMaxClients { get; set; } = 5;
+        public int RemoteHostClientHoldMs { get; set; } = RemoteDefaults.DefaultClientHoldMs;
         public string RemoteSharedToken { get; set; } = "";
 
         // Stored encrypted in the file (Base64)

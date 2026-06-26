@@ -55,7 +55,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - Steps 1-4 all green
 
 ## Step 6: Phase 2 Start (After Green)
-- Status: Pending
+- Status: Complete
 - Goal: begin arbitration and stale-frame handling.
 - Implement:
   - active-client ownership lock
@@ -79,3 +79,5 @@ Purpose: finish environment validation and complete the next implementation/test
 - 2026-06-25: Updated host mute behavior to decouple local NetKeyer mute from TXCWMonitorGain sync; SmartSDR/Flex sidetone is no longer auto-muted by host-mode local mute logic.
 - 2026-06-26: Added network status enhancements: host client list with IP/callsign/status history, client/host identity fields, and client host identity display.
 - 2026-06-26: Step 4 and Step 5 marked complete after LAN smoke validation and stabilization/UI refinements (window sizing, host/client status views, reconnect dedupe, client status formatting, dark-theme status bar readability).
+- 2026-06-26: Step 6 implementation started: added active-client ownership lock with configurable hold time (0.5s to 30.0s, default 1.0s), stale-frame drop policy on host receive path, and baseline remote lag/jitter/drop telemetry.
+- 2026-06-26: Step 6 completed: active-client ownership lock, stale-frame drop policy, host/client telemetry surfaces, rolling max lag (60s), and accepted-frames-last-60s idle decay updates are implemented and validated by successful build.

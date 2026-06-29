@@ -1,5 +1,22 @@
 # Remote Keying Feature changes
 
+## 2026-06-29
+
+### Changed
+- Remote telemetry lag measurement corrected for cross-system clock skew by keeping raw apparent-age values and normalizing to a per-client baseline before UI/log reporting.
+- Telemetry labels clarified to distinguish normalized lag metrics in logs while keeping concise labels in UI.
+
+### Improved
+- Remote telemetry entries are now logged by default under `remote-telemetry` without requiring NETKEYER_DEBUG category configuration.
+- Telemetry display upgraded to high-contrast bold magenta for improved visibility.
+- Telemetry UI reformatted to two lines to reduce truncation:
+  - Line 1: last lag, avg lag, max lag
+  - Line 2: accepted 60s, stale
+  - Second line aligned after the telemetry label colon.
+
+### Reliability
+- Telemetry values now track WAN delay variation more accurately (instead of appearing as persistent zeros under clock-offset conditions).
+
 ## 2026-06-24 (Phase 1)
 
 ### Added

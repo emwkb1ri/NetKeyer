@@ -421,10 +421,29 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <TextBlock Text="{Binding RemoteTelemetrySummary}"
-                                       FontSize="12"
-                                       Foreground="DimGray"
-                                       TextTrimming="CharacterEllipsis"/>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,2,0,0">
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="0"
+                                           Text="{Binding RemoteTelemetryLabel}"
+                                           FontSize="12"
+                                           Foreground="#FF00FF"
+                                           FontWeight="Bold"
+                                           Margin="0,0,4,0"/>
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="1"
+                                           Text="{Binding RemoteTelemetryLine1}"
+                                           FontSize="12"
+                                           Foreground="#FF00FF"
+                                           FontWeight="Bold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding RemoteTelemetryLine2}"
+                                           FontSize="12"
+                                           Foreground="#FF00FF"
+                                           FontWeight="Bold"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
@@ -456,10 +475,29 @@
                                            TextTrimming="CharacterEllipsis"/>
                             </Grid>
 
-                            <TextBlock Text="{Binding RemoteTelemetrySummary}"
-                                       FontSize="12"
-                                       Foreground="DimGray"
-                                       TextTrimming="CharacterEllipsis"/>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,2,0,0">
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="0"
+                                           Text="{Binding RemoteTelemetryLabel}"
+                                           FontSize="12"
+                                           Foreground="#FF00FF"
+                                           FontWeight="Bold"
+                                           Margin="0,0,4,0"/>
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="1"
+                                           Text="{Binding RemoteTelemetryLine1}"
+                                           FontSize="12"
+                                           Foreground="#FF00FF"
+                                           FontWeight="Bold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding RemoteTelemetryLine2}"
+                                           FontSize="12"
+                                           Foreground="#FF00FF"
+                                           FontWeight="Bold"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 

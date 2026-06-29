@@ -285,7 +285,13 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _remoteConnectedHostName = "";
 
     [ObservableProperty]
-    private string _remoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
+    private string _remoteTelemetryLabel = "Telemetry (host):";
+
+    [ObservableProperty]
+    private string _remoteTelemetryLine1 = "last lag --.- ms | avg lag --.- ms | max lag --.- ms";
+
+    [ObservableProperty]
+    private string _remoteTelemetryLine2 = "accepted 60s 0 | stale 0";
 
     public string RemoteConnectedHostIpDisplay
     {
@@ -1234,7 +1240,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         RemoteConnectedHostIp = string.Empty;
         RemoteConnectedHostName = string.Empty;
-        RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
+        ResetTelemetryDisplay("host");
 
         await _remoteClientService.ConnectAsync(new RemoteClientOptions
         {
@@ -1251,7 +1257,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteCts?.Dispose();
         _remoteCts = new CancellationTokenSource();
         RemoteConnectedClients = 0;
-        RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
+        ResetTelemetryDisplay("host");
 
         MuteHostSidetone();
 
@@ -1303,7 +1309,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RestoreHostSidetone();
 
         RemoteConnectedClients = 0;
-        RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
+        ResetTelemetryDisplay("host");
         if (RemoteMode == RemoteConnectionMode.Off)
         {
             RemoteStatus = "Remote mode off";
@@ -1342,7 +1348,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         Dispatcher.UIThread.Post(() =>
         {
-            RemoteTelemetrySummary = FormatTelemetrySummary(e?.LastLagMs ?? 0, e?.AvgLagMs ?? 0, e?.MaxLagMs ?? 0, e?.AcceptedFramesLast60s ?? 0, e?.DroppedStaleFrames ?? 0, "host");
+            UpdateTelemetryDisplay(e?.LastLagMs ?? 0, e?.AvgLagMs ?? 0, e?.MaxLagMs ?? 0, e?.AcceptedFramesLast60s ?? 0, e?.DroppedStaleFrames ?? 0, "host");
         });
     }
 
@@ -1411,7 +1417,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (selected == null)
         {
-            RemoteTelemetrySummary = "Telemetry: last lag --.- ms | avg lag --.- ms | max lag --.- ms | accepted 60s 0 | stale 0";
+            ResetTelemetryDisplay("host");
             return;
         }
 
@@ -1419,13 +1425,23 @@ public partial class MainWindowViewModel : ViewModelBase
             ? selected.Callsign
             : (selected.RemoteIp ?? "client");
 
-        RemoteTelemetrySummary = FormatTelemetrySummary(selected.LastLagMs, selected.AvgLagMs, selected.MaxLagMs, selected.AcceptedFramesLast60s, selected.DroppedStaleFrames, identity);
+        UpdateTelemetryDisplay(selected.LastLagMs, selected.AvgLagMs, selected.MaxLagMs, selected.AcceptedFramesLast60s, selected.DroppedStaleFrames, identity);
     }
 
-    private static string FormatTelemetrySummary(double lastLagMs, double avgLagMs, double maxLagMs, long acceptedFramesLast60s, long droppedStaleFrames, string identity)
+    private void ResetTelemetryDisplay(string identity)
     {
         string who = string.IsNullOrWhiteSpace(identity) ? "host" : identity;
-        return $"Telemetry ({who}): last lag {lastLagMs:F1} ms | avg lag {avgLagMs:F1} ms | max lag {maxLagMs:F1} ms | accepted 60s {acceptedFramesLast60s} | stale {droppedStaleFrames}";
+        RemoteTelemetryLabel = $"Telemetry ({who}):";
+        RemoteTelemetryLine1 = "last lag --.- ms | avg lag --.- ms | max lag --.- ms";
+        RemoteTelemetryLine2 = "accepted 60s 0 | stale 0";
+    }
+
+    private void UpdateTelemetryDisplay(double lastLagMs, double avgLagMs, double maxLagMs, long acceptedFramesLast60s, long droppedStaleFrames, string identity)
+    {
+        string who = string.IsNullOrWhiteSpace(identity) ? "host" : identity;
+        RemoteTelemetryLabel = $"Telemetry ({who}):";
+        RemoteTelemetryLine1 = $"last lag {lastLagMs:F1} ms | avg lag {avgLagMs:F1} ms | max lag {maxLagMs:F1} ms";
+        RemoteTelemetryLine2 = $"accepted 60s {acceptedFramesLast60s} | stale {droppedStaleFrames}";
     }
 
     private void RemoteHostService_PaddleStateReceived(object sender, RemotePaddleStateEventArgs e)

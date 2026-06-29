@@ -33,6 +33,7 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - Configurable client ownership hold time from 0.5 to 30.0 seconds (default 1.0 second)
   - Stale-frame drop policy to reject delayed paddle frames before keying
   - Host and client telemetry summaries for last lag, avg lag, max lag (60s), accepted frames (60s), and stale drops
+  - Telemetry lag values are normalized per client to remove static clock-skew bias while preserving observed network delay variation
   - Default TCP port is `49920`
   - Client keeps local sidetone active, host mutes local sidetone
 
@@ -155,9 +156,12 @@ Remote host setup options include:
 - **Client Hold Time**: ownership hold duration after last accepted key input (0.5s to 30.0s in 0.5s increments)
 
 Operating-page telemetry:
-- **Host Client Status** and **Client Host Status** blocks include a compact telemetry line.
-- Telemetry fields: last lag, avg lag, max lag (last 60 seconds), accepted frames in last 60 seconds, stale drops.
+- **Host Client Status** and **Client Host Status** blocks include a compact two-line telemetry display.
+- Telemetry fields:
+  - Line 1: last lag, avg lag, max lag (last 60 seconds)
+  - Line 2: accepted frames in last 60 seconds, stale drops
 - 60-second window metrics age out during idle periods (for example accepted 60s returns to 0 if no frames are received in the last 60 seconds).
+- Telemetry text is rendered with high-contrast styling for readability in operating view.
 
 Defaults:
 - Port: `49920`
@@ -219,6 +223,10 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 
 NetKeyer supports detailed debug logging controlled by the `NETKEYER_DEBUG` environment variable. This can help diagnose issues with specific subsystems.
 
+Remote telemetry note:
+- Core remote telemetry summaries are logged by default under category `remote-telemetry`, even when `NETKEYER_DEBUG` is not configured.
+- Setting `NETKEYER_DEBUG=remote` still enables additional remote transport/session diagnostic logs.
+
 **Log File Location**:
 
 Debug messages are automatically written to a log file in the NetKeyer application data folder:
@@ -241,6 +249,7 @@ You can easily access the log folder via **Help → View Debug Log...** in the a
 | `sidetone` | Audio sidetone provider (tone/silence state machine, timing) |
 | `audio` | Audio device management (initialization, enumeration, selection) |
 | `remote` | Remote TCP client/host transport, framing, and session status |
+| `remote-telemetry` | Always-on remote telemetry summaries (raw/baseline/normalized lag, jitter, accepted/stale counters) |
 
 **Usage Examples**:
 

@@ -32,6 +32,8 @@ public class RemoteHostService : IRemoteHostService
     {
         public readonly Queue<(DateTime TimestampUtc, double LagMs)> LagSamples = new();
         public readonly Queue<DateTime> AcceptedFrameTimestamps = new();
+        public long MinRawApparentAgeMs = long.MaxValue;
+        public double LastRawApparentAgeMs;
         public double LastLagMs;
         public double AvgLagMs;
         public double MaxLagMs;
@@ -154,12 +156,13 @@ public class RemoteHostService : IRemoteHostService
             return;
         }
 
-        long apparentAgeMs = Math.Max(0, e.ApparentAgeMs);
+        long rawApparentAgeMs = e.ApparentAgeMs;
+        long staleAgeMs = Math.Max(0, rawApparentAgeMs);
         int staleThresholdMs = Math.Max(1, _options?.StaleFrameDropMs ?? RemoteDefaults.DefaultStaleFrameDropMs);
-        if (apparentAgeMs > staleThresholdMs)
+        if (staleAgeMs > staleThresholdMs)
         {
-            UpdateTelemetry(e.ClientId, apparentAgeMs, accepted: false);
-            DebugLogger.Log("remote", $"Dropping stale paddle frame from {e.ClientId}: age={apparentAgeMs}ms threshold={staleThresholdMs}ms seq={e.Sequence}");
+            UpdateTelemetry(e.ClientId, rawApparentAgeMs, accepted: false);
+            DebugLogger.Log("remote", $"Dropping stale paddle frame from {e.ClientId}: age={staleAgeMs}ms threshold={staleThresholdMs}ms seq={e.Sequence}");
             return;
         }
 
@@ -169,7 +172,7 @@ public class RemoteHostService : IRemoteHostService
             return;
         }
 
-        UpdateTelemetry(e.ClientId, apparentAgeMs, accepted: true);
+        UpdateTelemetry(e.ClientId, rawApparentAgeMs, accepted: true);
 
         MarkClientActive(e?.ClientId);
         PaddleStateReceived?.Invoke(this, e);
@@ -448,7 +451,7 @@ public class RemoteHostService : IRemoteHostService
         }
     }
 
-    private void UpdateTelemetry(string clientId, long apparentLagMs, bool accepted)
+    private void UpdateTelemetry(string clientId, long rawApparentAgeMs, bool accepted)
     {
         if (string.IsNullOrWhiteSpace(clientId))
         {
@@ -459,7 +462,19 @@ public class RemoteHostService : IRemoteHostService
 
         lock (telemetry)
         {
-            double lag = Math.Max(0, apparentLagMs);
+            telemetry.LastRawApparentAgeMs = rawApparentAgeMs;
+            if (rawApparentAgeMs < telemetry.MinRawApparentAgeMs)
+            {
+                telemetry.MinRawApparentAgeMs = rawApparentAgeMs;
+            }
+
+            // Normalize against the best (minimum) observed apparent age for this client
+            // to remove constant clock skew and baseline path delay from displayed lag.
+            double lag = rawApparentAgeMs - telemetry.MinRawApparentAgeMs;
+            if (lag < 0)
+            {
+                lag = 0;
+            }
             double previousLag = telemetry.LastLagMs;
 
             // EWMA for stable lag/jitter telemetry without large memory usage.
@@ -516,8 +531,8 @@ public class RemoteHostService : IRemoteHostService
         }
 
         telemetry.NextLogAtUtc = now.AddSeconds(5);
-        DebugLogger.Log("remote",
-            $"Telemetry {clientId}: last={telemetry.LastLagMs:F1}ms avg={telemetry.AvgLagMs:F1}ms max60s={telemetry.MaxLagMs:F1}ms jitter={telemetry.JitterMs:F1}ms accepted60s={telemetry.AcceptedFramesLast60s} accepted={telemetry.AcceptedFrames} dropped_stale={telemetry.DroppedStaleFrames}");
+        DebugLogger.LogAlways("remote-telemetry",
+            $"Telemetry {clientId}: raw={telemetry.LastRawApparentAgeMs:F1}ms baseline={telemetry.MinRawApparentAgeMs}ms last_norm={telemetry.LastLagMs:F1}ms avg_norm={telemetry.AvgLagMs:F1}ms max_norm_60s={telemetry.MaxLagMs:F1}ms jitter={telemetry.JitterMs:F1}ms accepted60s={telemetry.AcceptedFramesLast60s} accepted={telemetry.AcceptedFrames} dropped_stale={telemetry.DroppedStaleFrames}");
     }
 
     private HeartbeatPayload BuildHeartbeatPayloadForClient(string clientId)

@@ -120,10 +120,6 @@ public class RemoteClientSession : IDisposable
 
         long receivedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         long apparentAgeMs = receivedAtUnixMs - envelope.SentAtUnixMs;
-        if (apparentAgeMs < 0)
-        {
-            apparentAgeMs = 0;
-        }
 
         PaddleStateReceived?.Invoke(this, new RemotePaddleStateEventArgs
         {

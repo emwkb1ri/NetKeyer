@@ -48,17 +48,7 @@ public static class DebugLogger
     {
         if (_config.Value.IsEnabled(category))
         {
-            // Log the debug file location on first use
-            lock (_startupLock)
-            {
-                if (!_loggedStartupMessage)
-                {
-                    _loggedStartupMessage = true;
-                    var startupMsg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [system] Debug logging enabled. Log file: {LogFilePath}";
-                    Console.WriteLine(startupMsg);
-                    _fileLogger.Value.Write(startupMsg);
-                }
-            }
+            EnsureStartupMessageLogged("Debug logging enabled");
 
             var timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{category}] {message}";
 
@@ -67,6 +57,35 @@ public static class DebugLogger
 
             // Write to file (always works, especially important for Windows GUI apps)
             _fileLogger.Value.Write(timestampedMessage);
+        }
+    }
+
+    /// <summary>
+    /// Log a message regardless of NETKEYER_DEBUG category filters.
+    /// Useful for important operational telemetry that should always be captured.
+    /// </summary>
+    public static void LogAlways(string category, string message)
+    {
+        EnsureStartupMessageLogged("Debug logging active");
+
+        var timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{category}] {message}";
+        Console.WriteLine(timestampedMessage);
+        _fileLogger.Value.Write(timestampedMessage);
+    }
+
+    private static void EnsureStartupMessageLogged(string prefix)
+    {
+        lock (_startupLock)
+        {
+            if (_loggedStartupMessage)
+            {
+                return;
+            }
+
+            _loggedStartupMessage = true;
+            var startupMsg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [system] {prefix}. Log file: {LogFilePath}";
+            Console.WriteLine(startupMsg);
+            _fileLogger.Value.Write(startupMsg);
         }
     }
 

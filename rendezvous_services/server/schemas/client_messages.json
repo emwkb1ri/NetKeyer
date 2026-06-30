@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "netkeyer.rendezvous.client_messages.v1",
+  "title": "Client endpoint accepted messages",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "client_id"],
+      "properties": {
+        "type": { "const": "register_client" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "client_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "list_hosts" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "client_id", "host_id"],
+      "properties": {
+        "type": { "const": "connect_request" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "client_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "host_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "success", "client_id", "host_id", "session_id"],
+      "properties": {
+        "type": { "const": "punch_result" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "success": { "type": "boolean" },
+        "client_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "host_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

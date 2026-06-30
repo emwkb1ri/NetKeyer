@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "netkeyer.rendezvous.host_messages.v1",
+  "title": "Host endpoint accepted messages",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "host_id", "max_clients"],
+      "properties": {
+        "type": { "const": "register_host" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "host_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "max_clients": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "metadata": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "success", "client_id", "host_id", "session_id"],
+      "properties": {
+        "type": { "const": "punch_result" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "success": { "type": "boolean" },
+        "client_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "host_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

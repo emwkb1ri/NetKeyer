@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "netkeyer.rendezvous.server_messages.v1",
+  "title": "Server -> host/client messages",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "hosts"],
+      "properties": {
+        "type": { "const": "host_list" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["host_id", "metadata", "current_clients", "max_clients"],
+            "properties": {
+              "host_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "metadata": { "type": "object", "additionalProperties": true },
+              "current_clients": { "type": "integer", "minimum": 0 },
+              "max_clients": { "type": "integer", "minimum": 1, "maximum": 5 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "client_id", "client_public_ip", "client_public_port", "session_id"],
+      "properties": {
+        "type": { "const": "incoming_client" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "client_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "client_public_ip": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "client_public_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "host_id", "host_public_ip", "host_public_port", "session_id"],
+      "properties": {
+        "type": { "const": "host_endpoint" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "host_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "host_public_ip": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "host_public_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "session_id"],
+      "properties": {
+        "type": { "const": "start_punch" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "relay_host", "relay_port", "session_id"],
+      "properties": {
+        "type": { "const": "use_relay" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "relay_host": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "relay_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "code", "message"],
+      "properties": {
+        "type": { "const": "error" },
+        "protocol_version": { "type": "integer", "minimum": 1, "default": 1 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

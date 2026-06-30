@@ -1,0 +1,377 @@
+NetKeyer Rendezvous & Relay Server — Full Technical Specification
+
+1. Overview
+NetKeyer requires a stateful rendezvous server that:
+
+Tracks online keyer hosts and keyer clients
+
+Provides clients with a list of available hosts
+
+Coordinates direct TCP hole punching between host and client
+
+Falls back to a relay server if direct connection fails
+
+Uses FastAPI + WebSockets for control signaling
+
+Runs inside Docker, optionally behind nginx
+
+All data exchanged between rendezvous server, hosts, and clients uses JSON messages over WebSockets.
+
+2. System Components
+2.1 Rendezvous Server (FastAPI)
+Responsibilities:
+
+Maintain state of connected hosts and clients
+
+Provide host list to clients
+
+Coordinate connection setup
+
+Trigger TCP hole punching
+
+Trigger relay fallback
+
+Clean up disconnected hosts/clients
+
+2.2 Keyer Host
+Responsibilities:
+
+Register with rendezvous server
+
+Accept up to 5 clients
+
+Participate in TCP hole punching
+
+Optionally connect to relay server
+
+2.3 Keyer Client
+Responsibilities:
+
+Register with rendezvous server
+
+Request host list
+
+Select host to connect to
+
+Participate in TCP hole punching
+
+Optionally connect to relay server
+
+2.4 Relay Server (Python)
+Responsibilities:
+
+Accept two TCP connections (host + client)
+
+Match them using a session ID
+
+Forward bytes bidirectionally
+
+No interpretation of data (pure pipe)
+
+3. Rendezvous Server Specification
+3.1 Technology Stack
+FastAPI
+
+uvicorn
+
+WebSockets
+
+Python 3.11+
+
+In-memory state (dictionary)
+
+Optional: Redis for persistence (future)
+
+3.2 WebSocket Endpoints
+/ws/host
+Used by keyer hosts.
+
+/ws/client
+Used by keyer clients.
+
+Both endpoints accept JSON messages defined in Section 4.
+
+3.3 Internal State Model
+python
+hosts = {
+    host_id: {
+        "ws": WebSocket,
+        "public_ip": str,
+        "public_port": int,
+        "max_clients": int,
+        "current_clients": int,
+        "metadata": dict,
+        "last_seen": datetime
+    }
+}
+
+clients = {
+    client_id: {
+        "ws": WebSocket,
+        "public_ip": str,
+        "public_port": int,
+        "connected_host": Optional[str],
+        "last_seen": datetime
+    }
+}
+
+3.4 Host Lifecycle
+Host connects to /ws/host
+
+Sends register_host
+
+Server stores host in hosts
+
+Host stays connected via WebSocket
+
+Host receives:
+
+incoming_client
+
+start_punch
+
+use_relay
+
+Host disconnect → server removes host
+
+3.5 Client Lifecycle
+Client connects to /ws/client
+
+Sends register_client
+
+Client requests host list
+
+Client selects host → sends connect_request
+
+Client receives:
+
+host_endpoint
+
+start_punch
+
+use_relay
+
+Client disconnect → server removes client
+
+4. JSON Message Schema
+4.1 Messages Sent from Host/Client → Server
+register_host
+json
+{
+  "type": "register_host",
+  "host_id": "string",
+  "max_clients": 5,
+  "metadata": {
+    "name": "string",
+    "band": "string"
+  }
+}
+register_client
+json
+{
+  "type": "register_client",
+  "client_id": "string"
+}
+list_hosts
+json
+{
+  "type": "list_hosts"
+}
+connect_request
+json
+{
+  "type": "connect_request",
+  "client_id": "string",
+  "host_id": "string"
+}
+punch_result
+Sent after TCP punching attempt.
+
+json
+{
+  "type": "punch_result",
+  "success": true,
+  "client_id": "string",
+  "host_id": "string"
+}
+
+4.2 Messages Sent from Server → Host/Client
+host_list
+json
+{
+  "type": "host_list",
+  "hosts": [
+    {
+      "host_id": "string",
+      "metadata": { "name": "string", "band": "string" },
+      "current_clients": 0,
+      "max_clients": 5
+    }
+  ]
+}
+incoming_client (to host)
+json
+{
+  "type": "incoming_client",
+  "client_id": "string",
+  "client_public_ip": "string",
+  "client_public_port": 12345
+}
+host_endpoint (to client)
+json
+{
+  "type": "host_endpoint",
+  "host_id": "string",
+  "host_public_ip": "string",
+  "host_public_port": 12345
+}
+start_punch
+Sent to both host and client.
+
+json
+{
+  "type": "start_punch",
+  "session_id": "string"
+}
+use_relay
+Sent when direct TCP punching fails.
+
+json
+{
+  "type": "use_relay",
+  "relay_host": "string",
+  "relay_port": 6000,
+  "session_id": "string"
+}
+
+5. TCP Hole Punching Specification
+5.1 Host Behavior
+Bind local TCP port (e.g., 5000)
+
+Begin listening
+
+On start_punch:
+
+Attempt outbound TCP connect to client’s public endpoint
+
+Continue listening for inbound connection
+
+First successful connection wins
+
+5.2 Client Behavior
+Bind local TCP port (e.g., 5001)
+
+Attempt outbound TCP connect to host’s public endpoint
+
+Optionally listen for inbound connection
+
+5.3 Timeout
+If no connection after 2 seconds, client and host send punch_result with success: false.
+
+Server then sends use_relay.
+
+6. Relay Server Specification
+6.1 Technology Stack
+Python 3.11+
+
+asyncio
+
+Raw TCP sockets
+
+6.2 Behavior
+Relay listens on TCP port (e.g., 6000)
+
+Host connects with:
+
+Code
+SESSION <session_id> HOST
+Client connects with:
+
+Code
+SESSION <session_id> CLIENT
+Relay pairs host + client sockets
+
+Relay forwards bytes bidirectionally until disconnect
+
+6.3 Session Protocol
+Initial handshake (line‑based):
+
+Code
+SESSION <session_id> <role>
+Roles:
+
+HOST
+
+CLIENT
+
+Relay stores:
+
+python
+sessions = {
+    session_id: {
+        "host": socket,
+        "client": socket
+    }
+}
+When both sockets present → start piping.
+
+7. Docker & nginx Deployment Notes
+7.1 Rendezvous Server
+Expose:
+
+/ws/host (WebSocket)
+
+/ws/client (WebSocket)
+
+nginx config must include:
+
+Code
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+
+7.2 Relay Server
+Use nginx stream module if proxying TCP:
+
+Code
+stream {
+    server {
+        listen 6000;
+        proxy_pass relay_backend;
+    }
+}
+
+8. Directory Structure (Recommended)
+Code
+rendezvous_services/
+│
+├── server/
+│   ├── main.py
+│   ├── models.py
+│   ├── state.py
+│   ├── websocket_handlers.py
+│   ├── schemas/
+│   │   ├── host_messages.json
+│   │   ├── client_messages.json
+│   │   └── server_messages.json
+│   └── Dockerfile
+│
+├── relay/
+│   ├── relay.py
+│   └── Dockerfile
+│
+└── README.md
+
+9. Ready for GitHub Copilot
+This specification is structured so Copilot can:
+
+Generate FastAPI WebSocket handlers
+
+Implement the state model
+
+Build the relay server
+
+Create Dockerfiles
+
+Build the JSON message classes
+
+Implement the connection logic

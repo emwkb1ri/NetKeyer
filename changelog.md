@@ -2,6 +2,13 @@
 
 ## 2026-06-29
 
+### Added
+- Rendezvous Phase 0 contract artifacts under `rendezvous_services`:
+  - Protocol contract freeze document and sequence-flow documentation.
+  - Versioned JSON schemas for host, client, and server message sets.
+  - Initial server-side Pydantic message models and endpoint-specific validators.
+  - Schema-conformance tests for required fields, constraints, and endpoint message routing.
+
 ### Changed
 - Remote telemetry lag measurement corrected for cross-system clock skew by keeping raw apparent-age values and normalizing to a per-client baseline before UI/log reporting.
 - Telemetry labels clarified to distinguish normalized lag metrics in logs while keeping concise labels in UI.

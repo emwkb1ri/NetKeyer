@@ -24,6 +24,9 @@ Implement a production-ready rendezvous control service and relay fallback servi
 ## Phase Plan
 
 ### Phase 0: Design Freeze and Contracts
+Status
+- Complete (2026-06-29)
+
 Deliverables
 - Message contract document (source of truth) for all JSON messages.
 - Validation rules and error semantics.
@@ -40,6 +43,19 @@ Implementation notes
 Exit criteria
 - Contract reviewed and no ambiguous fields.
 - Error handling and unknown message behavior documented.
+
+Completion summary (2026-06-29)
+- Added protocol contract and flow documentation:
+  - [rendezvous_services/PHASE0_PROTOCOL_CONTRACT.md](rendezvous_services/PHASE0_PROTOCOL_CONTRACT.md)
+  - [rendezvous_services/PHASE0_SEQUENCE_FLOWS.md](rendezvous_services/PHASE0_SEQUENCE_FLOWS.md)
+- Added JSON message schemas:
+  - [rendezvous_services/server/schemas/host_messages.json](rendezvous_services/server/schemas/host_messages.json)
+  - [rendezvous_services/server/schemas/client_messages.json](rendezvous_services/server/schemas/client_messages.json)
+  - [rendezvous_services/server/schemas/server_messages.json](rendezvous_services/server/schemas/server_messages.json)
+- Added versioned Pydantic contract models and validators:
+  - [rendezvous_services/server/models.py](rendezvous_services/server/models.py)
+- Added schema-conformance model tests:
+  - [rendezvous_services/server/tests/test_models.py](rendezvous_services/server/tests/test_models.py)
 
 ### Phase 1: Rendezvous Server Core
 Deliverables
@@ -228,4 +244,7 @@ Relay server
 - Protocol drift: keep strict schema validation and versioned contracts.
 
 ## Immediate Next Step
-- Start Phase 0 by creating server/client/host JSON models and sequence tests, then scaffold rendezvous websocket endpoints with no-op handlers and state store wiring.
+- Start Phase 1 by scaffolding rendezvous runtime files and wiring validated message handling:
+  - [rendezvous_services/server/state.py](rendezvous_services/server/state.py)
+  - [rendezvous_services/server/websocket_handlers.py](rendezvous_services/server/websocket_handlers.py)
+  - [rendezvous_services/server/main.py](rendezvous_services/server/main.py)

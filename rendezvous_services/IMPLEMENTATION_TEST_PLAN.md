@@ -160,6 +160,9 @@ Phase 1 completion checklist
 - [x] Run local multi-process websocket simulation and record results.
 
 ### Phase 2: Relay Server
+Status
+- Complete (2026-07-07)
+
 Deliverables
 - [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py).
 
@@ -173,6 +176,29 @@ Functional requirements
 Exit criteria
 - Byte-for-byte pipe verified with integration tests.
 - Correct behavior for reversed connect ordering (client first or host first).
+
+Progress summary (2026-07-07)
+- Implemented [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py) with:
+  - Line-based handshake parsing: `SESSION <session_id> <role>`.
+  - Session pairing by `session_id` and role (`HOST`/`CLIENT`).
+  - Bidirectional byte forwarding once both peers are connected.
+  - Duplicate-role rejection for an already-occupied session role.
+  - Pending-session timeout watchdog cleanup.
+  - Disconnect/error propagation that closes both peers and removes session state.
+- Added relay tests in [rendezvous_services/relay/tests/test_relay.py](rendezvous_services/relay/tests/test_relay.py):
+  - Invalid handshake rejection.
+  - Pairing and byte-for-byte bidirectional forwarding.
+  - Reversed connect ordering.
+  - Incomplete session timeout cleanup.
+  - Disconnect propagation and session cleanup.
+  - Duplicate-role rejection with explicit error-text assertion.
+  - Sustained relay throughput/stability validation.
+- Validation:
+  - Relay-only tests: `uv run python -m unittest discover -s relay/tests -v` (7 passed).
+  - Full suite: `uv run python -m unittest discover -v` (26 passed).
+
+Remaining to close Phase 2
+- No open items.
 
 ### Phase 3: NetKeyer App Integration
 Deliverables

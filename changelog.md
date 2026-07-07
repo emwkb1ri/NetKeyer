@@ -14,6 +14,17 @@
 - Rendezvous runtime pinning/config files:
   - [rendezvous_services/.python-version](rendezvous_services/.python-version) (`3.11`).
   - [rendezvous_services/pyproject.toml](rendezvous_services/pyproject.toml) with pinned Python/dependency ranges.
+- Phase 2 relay runtime scaffold in [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py):
+  - `SESSION <session_id> <role>` handshake parsing.
+  - Session pairing and bidirectional byte forwarding.
+  - Pending-session timeout garbage collection.
+  - Disconnect/error cleanup for both peers.
+- Relay test coverage in [rendezvous_services/relay/tests/test_relay.py](rendezvous_services/relay/tests/test_relay.py):
+  - Invalid handshake rejection.
+  - Pairing/forwarding and reversed connect order.
+  - Timeout cleanup and disconnect propagation.
+  - Duplicate-role rejection error-text assertion.
+  - Sustained relay throughput/stability test.
 
 ### Changed
 - Rendezvous relay default port updated to `49921` in:
@@ -30,6 +41,9 @@
   - `uv run python -m unittest discover -s server/tests -v`
   - Result: 19 tests passed.
 - Local route-level websocket simulation validated expected host-list and connect orchestration message flow through `/ws/host` and `/ws/client`.
+- Relay validation completed:
+  - `uv run python -m unittest discover -s relay/tests -v` (7 passed).
+  - `uv run python -m unittest discover -v` (26 passed, including relay + server).
 
 ## 2026-06-29
 

@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NetKeyer.Helpers;
@@ -37,6 +38,16 @@ public class RemoteClientService : IRemoteClientService
         await client.ConnectAsync(options.TargetHost, options.TargetPort, _internalCts.Token);
 
         var stream = client.GetStream();
+
+        if (!string.IsNullOrWhiteSpace(options.RelaySessionId) && !string.IsNullOrWhiteSpace(options.RelayRole))
+        {
+            string relayRole = options.RelayRole.Trim().ToUpperInvariant();
+            string handshake = $"SESSION {options.RelaySessionId.Trim()} {relayRole}\n";
+            byte[] bytes = Encoding.UTF8.GetBytes(handshake);
+            await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), _internalCts.Token);
+            await stream.FlushAsync(_internalCts.Token);
+            DebugLogger.Log("remote", $"Relay handshake sent: session={options.RelaySessionId.Trim()} role={relayRole}");
+        }
 
         lock (_sync)
         {

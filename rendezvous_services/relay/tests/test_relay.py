@@ -136,6 +136,28 @@ class TestRelayServer(unittest.IsolatedAsyncioTestCase):
         client_writer.close()
         await client_writer.wait_closed()
 
+    async def test_fallback_session_style_payload_exchange(self) -> None:
+        # Mirrors runtime fallback behavior where both peers attach via SESSION handshake.
+        session_id = "session-fallback"
+        host_reader, host_writer = await self._connect_with_handshake(session_id, "HOST")
+        client_reader, client_writer = await self._connect_with_handshake(session_id, "CLIENT")
+
+        host_payload = b"host->client relay payload"
+        client_payload = b"client->host relay payload"
+
+        host_writer.write(host_payload)
+        await host_writer.drain()
+        self.assertEqual(await asyncio.wait_for(client_reader.readexactly(len(host_payload)), timeout=1), host_payload)
+
+        client_writer.write(client_payload)
+        await client_writer.drain()
+        self.assertEqual(await asyncio.wait_for(host_reader.readexactly(len(client_payload)), timeout=1), client_payload)
+
+        host_writer.close()
+        await host_writer.wait_closed()
+        client_writer.close()
+        await client_writer.wait_closed()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NetKeyer.Helpers;
@@ -74,6 +75,46 @@ public class RemoteHostService : IRemoteHostService
         _acceptLoopTask = Task.Run(() => AcceptLoopAsync(_internalCts.Token));
     }
 
+    public async Task ConnectRelaySessionAsync(string relayHost, int relayPort, string sessionId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(relayHost))
+        {
+            throw new ArgumentException("Relay host is required.", nameof(relayHost));
+        }
+
+        if (relayPort <= 0)
+        {
+            throw new ArgumentException("Relay port must be greater than 0.", nameof(relayPort));
+        }
+
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new ArgumentException("Relay session ID is required.", nameof(sessionId));
+        }
+
+        if (_options == null)
+        {
+            throw new InvalidOperationException("Host service must be started before opening relay sessions.");
+        }
+
+        if (_sessions.Count >= _options.MaxClients)
+        {
+            throw new InvalidOperationException("Cannot open relay session because max clients has been reached.");
+        }
+
+        var relayClient = new TcpClient();
+        await relayClient.ConnectAsync(relayHost, relayPort, ct);
+        var stream = relayClient.GetStream();
+
+        string handshake = $"SESSION {sessionId.Trim()} HOST\n";
+        byte[] bytes = Encoding.UTF8.GetBytes(handshake);
+        await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct);
+        await stream.FlushAsync(ct);
+
+        AddAndRunSession(relayClient, _internalCts?.Token ?? ct);
+        DebugLogger.Log("remote", $"Host relay session connected: relay={relayHost}:{relayPort} session={sessionId}");
+    }
+
     public async Task StopAsync()
     {
         var cts = _internalCts;
@@ -124,19 +165,7 @@ public class RemoteHostService : IRemoteHostService
                     continue;
                 }
 
-                var session = new RemoteClientSession(client, _options.SharedToken, _options.HostName, BuildHeartbeatPayloadForClient);
-                session.PaddleStateReceived += Session_PaddleStateReceived;
-                session.SessionClosed += Session_SessionClosed;
-                session.SessionMetadataChanged += Session_SessionMetadataChanged;
-
-                _sessions[session.ClientId] = session;
-                UpsertClientStatus(session, RemoteClientSessionStatus.Connected);
-                RaiseClientCount();
-
-                _ = Task.Run(() => session.RunAsync(ct), ct);
-
-                DebugLogger.Log("remote", $"Accepted remote session {session.ClientId} from {session.RemoteEndpoint}");
-                RaiseStatus($"Listening on port {_options.ListenPort}. Connected clients: {_sessions.Count}");
+                AddAndRunSession(client, ct);
             }
         }
         catch (OperationCanceledException)
@@ -176,6 +205,23 @@ public class RemoteHostService : IRemoteHostService
 
         MarkClientActive(e?.ClientId);
         PaddleStateReceived?.Invoke(this, e);
+    }
+
+    private void AddAndRunSession(TcpClient client, CancellationToken ct)
+    {
+        var session = new RemoteClientSession(client, _options.SharedToken, _options.HostName, BuildHeartbeatPayloadForClient);
+        session.PaddleStateReceived += Session_PaddleStateReceived;
+        session.SessionClosed += Session_SessionClosed;
+        session.SessionMetadataChanged += Session_SessionMetadataChanged;
+
+        _sessions[session.ClientId] = session;
+        UpsertClientStatus(session, RemoteClientSessionStatus.Connected);
+        RaiseClientCount();
+
+        _ = Task.Run(() => session.RunAsync(ct), ct);
+
+        DebugLogger.Log("remote", $"Accepted remote session {session.ClientId} from {session.RemoteEndpoint}");
+        RaiseStatus($"Listening on port {_options.ListenPort}. Connected clients: {_sessions.Count}");
     }
 
     private void Session_SessionMetadataChanged(object sender, RemoteClientSession session)

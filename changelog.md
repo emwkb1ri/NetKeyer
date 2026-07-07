@@ -25,6 +25,15 @@
   - Timeout cleanup and disconnect propagation.
   - Duplicate-role rejection error-text assertion.
   - Sustained relay throughput/stability test.
+- Initial Phase 3 NetKeyer rendezvous integration:
+  - Added rendezvous signaling service in [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs).
+  - Added rendezvous control models/interface in [Services/Rendezvous/RendezvousControlModels.cs](Services/Rendezvous/RendezvousControlModels.cs) and [Services/Rendezvous/IRendezvousControlService.cs](Services/Rendezvous/IRendezvousControlService.cs).
+  - Added persisted rendezvous settings in [Models/UserSettings.cs](Models/UserSettings.cs) (`RemoteUseRendezvous`, `RemoteRendezvousServerUrl`, `RemoteRendezvousHostId`).
+  - Added rendezvous host discovery (`list_hosts`) support and client-side host selection wiring.
+- Completed Phase 3 relay fallback runtime integration:
+  - Added relay handshake support in [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs) (`SESSION <session_id> CLIENT`).
+  - Added host relay transport dial-out support in [Services/Remote/RemoteHostService.cs](Services/Remote/RemoteHostService.cs) and [Services/Remote/IRemoteHostService.cs](Services/Remote/IRemoteHostService.cs) (`SESSION <session_id> HOST`).
+  - Added rendezvous host relay callback wiring in [Services/Rendezvous/RendezvousControlModels.cs](Services/Rendezvous/RendezvousControlModels.cs) and [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs).
 
 ### Changed
 - Rendezvous relay default port updated to `49921` in:
@@ -34,6 +43,13 @@
   - Session ownership checks for host/client `punch_result` messages.
   - Explicit `session_mismatch` rejection for invalid host/client/session combinations.
   - Disconnect lifecycle cleanup now closes sessions owned by disconnecting host/client.
+- [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now supports opt-in rendezvous-assisted remote startup:
+  - Host registers with rendezvous on start.
+  - Client resolves host endpoint through rendezvous before direct TCP connect.
+  - Client sends initial punch result to rendezvous after connect attempt.
+  - Client now defaults to discovered rendezvous host selection during connect, with manual host ID only as fallback.
+- [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now performs direct-first remote client connect with automatic relay fallback when rendezvous emits `use_relay`.
+- Setup UI in [Views/MainWindow.axaml](Views/MainWindow.axaml) now includes rendezvous URL/host settings and client host discovery refresh/select controls.
 
 ### Reliability
 - Rendezvous state cleanup improved in [rendezvous_services/server/state.py](rendezvous_services/server/state.py) via `close_sessions_for_host` and `close_sessions_for_client` helpers to prevent stale session/capacity leakage.
@@ -44,6 +60,8 @@
 - Relay validation completed:
   - `uv run python -m unittest discover -s relay/tests -v` (7 passed).
   - `uv run python -m unittest discover -v` (26 passed, including relay + server).
+- NetKeyer relay integration validation completed:
+  - `dotnet build NetKeyer.csproj` succeeded after relay fallback transport updates.
 
 ## 2026-06-29
 

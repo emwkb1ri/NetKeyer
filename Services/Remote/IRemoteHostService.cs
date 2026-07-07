@@ -16,5 +16,6 @@ public interface IRemoteHostService : IDisposable
     event EventHandler<RemotePaddleStateEventArgs> PaddleStateReceived;
 
     Task StartAsync(RemoteHostOptions options, CancellationToken ct);
+    Task ConnectRelaySessionAsync(string relayHost, int relayPort, string sessionId, CancellationToken ct);
     Task StopAsync();
 }

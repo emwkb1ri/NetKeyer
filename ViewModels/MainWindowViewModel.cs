@@ -20,6 +20,7 @@ using NetKeyer.Midi;
 using NetKeyer.Models;
 using NetKeyer.Services;
 using NetKeyer.Services.Remote;
+using NetKeyer.Services.Rendezvous;
 using NetKeyer.SmartLink;
 using PortAudioSharp;
 
@@ -180,7 +181,12 @@ public partial class MainWindowViewModel : ViewModelBase
     // Remote connectivity
     private IRemoteClientService _remoteClientService;
     private IRemoteHostService _remoteHostService;
+    private IRendezvousControlService _rendezvousControlService;
+    private RendezvousHostRegistrationSession _rendezvousHostSession;
+    private RendezvousClientConnectionSession _rendezvousClientSession;
     private CancellationTokenSource _remoteCts;
+    private readonly HashSet<string> _relayHostSessions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _relayHostSessionsLock = new();
 
     [ObservableProperty]
     private bool _smartLinkAvailable = false;
@@ -258,6 +264,21 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _remoteMaxClients = 5;
+
+    [ObservableProperty]
+    private bool _remoteUseRendezvous = false;
+
+    [ObservableProperty]
+    private string _remoteRendezvousServerUrl = "";
+
+    [ObservableProperty]
+    private string _remoteRendezvousHostId = "";
+
+    [ObservableProperty]
+    private ObservableCollection<RendezvousHostSummary> _rendezvousDiscoveredHosts = new();
+
+    [ObservableProperty]
+    private RendezvousHostSummary _selectedRendezvousHost;
 
     [ObservableProperty]
     private decimal _remoteClientHoldSeconds = 1.0m;
@@ -402,6 +423,9 @@ public partial class MainWindowViewModel : ViewModelBase
         RemoteHostPort = _settings.RemoteHostListenPort > 0 ? _settings.RemoteHostListenPort : RemoteDefaults.DefaultPort;
         RemoteSharedToken = _settings.RemoteSharedToken ?? "";
         RemoteMaxClients = _settings.RemoteHostMaxClients > 0 ? _settings.RemoteHostMaxClients : 5;
+        RemoteUseRendezvous = _settings.RemoteUseRendezvous;
+        RemoteRendezvousServerUrl = _settings.RemoteRendezvousServerUrl ?? "";
+        RemoteRendezvousHostId = _settings.RemoteRendezvousHostId ?? "";
         RemoteClientHoldSeconds = ConvertHoldMsToSeconds(_settings.RemoteHostClientHoldMs);
         _loadingSettings = false;
 
@@ -473,6 +497,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteHostService.ConnectedClientCountChanged += RemoteHostService_ConnectedClientCountChanged;
         _remoteHostService.ClientStatusesChanged += RemoteHostService_ClientStatusesChanged;
         _remoteHostService.PaddleStateReceived += RemoteHostService_PaddleStateReceived;
+
+        _rendezvousControlService = new RendezvousControlService();
 
         UpdateRemoteHostClientDisplayRows(Array.Empty<RemoteClientStatusInfo>());
 
@@ -599,6 +625,120 @@ public partial class MainWindowViewModel : ViewModelBase
             _settings.RemoteHostMaxClients = value;
             _settings.Save();
         }
+    }
+
+    partial void OnRemoteUseRendezvousChanged(bool value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteUseRendezvous = value;
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteRendezvousServerUrlChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteRendezvousServerUrl = value ?? "";
+            _settings.Save();
+        }
+    }
+
+    partial void OnRemoteRendezvousHostIdChanged(string value)
+    {
+        if (!_loadingSettings && _settings != null)
+        {
+            _settings.RemoteRendezvousHostId = value ?? "";
+            _settings.Save();
+        }
+    }
+
+    partial void OnSelectedRendezvousHostChanged(RendezvousHostSummary value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        RemoteRendezvousHostId = value.HostId ?? "";
+    }
+
+    [RelayCommand]
+    private async Task RefreshRendezvousHostsAsync()
+    {
+        if (_rendezvousControlService == null)
+        {
+            return;
+        }
+
+        string rendezvousUrl = (RemoteRendezvousServerUrl ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(rendezvousUrl))
+        {
+            RemoteStatus = "Rendezvous URL is required for host discovery";
+            return;
+        }
+
+        try
+        {
+            var hosts = await FetchRendezvousHostsAsync(rendezvousUrl, CancellationToken.None);
+
+            RendezvousDiscoveredHosts = new ObservableCollection<RendezvousHostSummary>(hosts ?? Array.Empty<RendezvousHostSummary>());
+
+            if (RendezvousDiscoveredHosts.Count == 0)
+            {
+                SelectedRendezvousHost = null;
+                RemoteStatus = "No rendezvous hosts available";
+                return;
+            }
+
+            var selected = RendezvousDiscoveredHosts.FirstOrDefault(h => string.Equals(h.HostId, RemoteRendezvousHostId, StringComparison.OrdinalIgnoreCase));
+            SelectedRendezvousHost = selected ?? RendezvousDiscoveredHosts[0];
+            RemoteStatus = $"Discovered {RendezvousDiscoveredHosts.Count} rendezvous host(s)";
+        }
+        catch (Exception ex)
+        {
+            RemoteStatus = $"Rendezvous discovery failed: {ex.Message}";
+            DebugLogger.Log("rendezvous", $"Host discovery failed: {ex.Message}");
+        }
+    }
+
+    private async Task<IReadOnlyList<RendezvousHostSummary>> FetchRendezvousHostsAsync(string rendezvousUrl, CancellationToken ct)
+    {
+        string clientId = BuildRendezvousClientId();
+        return await _rendezvousControlService.ListHostsAsync(new RendezvousHostListRequestOptions
+        {
+            ServerUrl = rendezvousUrl,
+            ClientId = clientId
+        }, ct);
+    }
+
+    private async Task<string> ResolveRendezvousHostIdForConnectAsync(string rendezvousUrl, CancellationToken ct)
+    {
+        string selectedHostId = (SelectedRendezvousHost?.HostId ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(selectedHostId))
+        {
+            return selectedHostId;
+        }
+
+        var hosts = await FetchRendezvousHostsAsync(rendezvousUrl, ct);
+        RendezvousDiscoveredHosts = new ObservableCollection<RendezvousHostSummary>(hosts ?? Array.Empty<RendezvousHostSummary>());
+
+        if (RendezvousDiscoveredHosts.Count > 0)
+        {
+            var matching = RendezvousDiscoveredHosts.FirstOrDefault(h => string.Equals(h.HostId, RemoteRendezvousHostId, StringComparison.OrdinalIgnoreCase));
+            SelectedRendezvousHost = matching ?? RendezvousDiscoveredHosts[0];
+            return (SelectedRendezvousHost?.HostId ?? string.Empty).Trim();
+        }
+
+        string manualHostId = (RemoteRendezvousHostId ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(manualHostId))
+        {
+            DebugLogger.Log("rendezvous", $"No discovered hosts; falling back to manually entered host ID '{manualHostId}'");
+            return manualHostId;
+        }
+
+        throw new InvalidOperationException("No rendezvous hosts were discovered. Refresh host discovery or enter a host ID.");
     }
 
     partial void OnRemoteClientHoldSecondsChanged(decimal value)
@@ -1242,13 +1382,111 @@ public partial class MainWindowViewModel : ViewModelBase
         RemoteConnectedHostName = string.Empty;
         ResetTelemetryDisplay("host");
 
-        await _remoteClientService.ConnectAsync(new RemoteClientOptions
+        string targetHost = RemoteClientHost;
+        int targetPort = RemoteClientPort;
+
+        if (RemoteUseRendezvous)
         {
-            TargetHost = RemoteClientHost,
-            TargetPort = RemoteClientPort,
-            SharedToken = RemoteSharedToken,
-            Callsign = RemoteCallsign
-        }, _remoteCts.Token);
+            string rendezvousUrl = (RemoteRendezvousServerUrl ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(rendezvousUrl))
+            {
+                throw new InvalidOperationException("Rendezvous URL is required when rendezvous mode is enabled.");
+            }
+
+            string hostId = await ResolveRendezvousHostIdForConnectAsync(rendezvousUrl, _remoteCts.Token);
+
+            _rendezvousClientSession = await _rendezvousControlService.ConnectClientAsync(new RendezvousClientConnectOptions
+            {
+                ServerUrl = rendezvousUrl,
+                ClientId = BuildRendezvousClientId(),
+                HostId = hostId
+            }, _remoteCts.Token);
+
+            targetHost = _rendezvousClientSession.Endpoint.HostPublicIp;
+            targetPort = _rendezvousClientSession.Endpoint.HostPublicPort;
+            DebugLogger.Log("rendezvous", $"Resolved host endpoint via rendezvous: {targetHost}:{targetPort} (session {_rendezvousClientSession.Endpoint.SessionId})");
+        }
+
+        try
+        {
+            await _remoteClientService.ConnectAsync(new RemoteClientOptions
+            {
+                TargetHost = targetHost,
+                TargetPort = targetPort,
+                SharedToken = RemoteSharedToken,
+                Callsign = RemoteCallsign
+            }, _remoteCts.Token);
+
+            if (_rendezvousClientSession != null)
+            {
+                await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts.Token);
+            }
+        }
+        catch (Exception directConnectEx)
+        {
+            if (_rendezvousClientSession == null)
+            {
+                throw;
+            }
+
+            try
+            {
+                await _rendezvousClientSession.ReportPunchResultAsync(success: false, CancellationToken.None);
+            }
+            catch
+            {
+            }
+
+            bool relayAvailable = _rendezvousClientSession.HasRelayEndpoint
+                || await _rendezvousControlService.WaitForRelayAsync(_rendezvousClientSession, TimeSpan.FromSeconds(4), _remoteCts.Token);
+
+            if (!relayAvailable)
+            {
+                try
+                {
+                    await _rendezvousClientSession.DisposeAsync();
+                }
+                finally
+                {
+                    _rendezvousClientSession = null;
+                }
+
+                throw new InvalidOperationException("Direct connection failed and rendezvous relay fallback was not provided.", directConnectEx);
+            }
+
+            string relayHost = _rendezvousClientSession.RelayHost;
+            int relayPort = _rendezvousClientSession.RelayPort;
+            string relaySessionId = _rendezvousClientSession.Endpoint.SessionId;
+
+            DebugLogger.Log("rendezvous", $"Falling back to relay transport {relayHost}:{relayPort} (session {relaySessionId})");
+
+            try
+            {
+                await _remoteClientService.ConnectAsync(new RemoteClientOptions
+                {
+                    TargetHost = relayHost,
+                    TargetPort = relayPort,
+                    SharedToken = RemoteSharedToken,
+                    Callsign = RemoteCallsign,
+                    RelaySessionId = relaySessionId,
+                    RelayRole = "CLIENT"
+                }, _remoteCts.Token);
+            }
+            catch
+            {
+                try
+                {
+                    await _rendezvousClientSession.DisposeAsync();
+                }
+                finally
+                {
+                    _rendezvousClientSession = null;
+                }
+
+                throw;
+            }
+        }
     }
 
     private async Task StartRemoteHostAsync()
@@ -1270,6 +1508,96 @@ public partial class MainWindowViewModel : ViewModelBase
             MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients)),
             ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds)
         }, _remoteCts.Token);
+
+        lock (_relayHostSessionsLock)
+        {
+            _relayHostSessions.Clear();
+        }
+
+        if (RemoteUseRendezvous)
+        {
+            string rendezvousUrl = (RemoteRendezvousServerUrl ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(rendezvousUrl))
+            {
+                throw new InvalidOperationException("Rendezvous URL is required when rendezvous mode is enabled.");
+            }
+
+            string hostId = GetRendezvousHostId();
+            _rendezvousHostSession = await _rendezvousControlService.RegisterHostAsync(new RendezvousHostRegistrationOptions
+            {
+                ServerUrl = rendezvousUrl,
+                HostId = hostId,
+                MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients)),
+                OnUseRelayAsync = async (relayHost, relayPort, sessionId) =>
+                {
+                    if (string.IsNullOrWhiteSpace(sessionId))
+                    {
+                        return;
+                    }
+
+                    bool alreadyActive;
+                    lock (_relayHostSessionsLock)
+                    {
+                        alreadyActive = !_relayHostSessions.Add(sessionId);
+                    }
+
+                    if (alreadyActive)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        CancellationToken token = _remoteCts?.Token ?? CancellationToken.None;
+                        await _remoteHostService.ConnectRelaySessionAsync(relayHost, relayPort, sessionId, token);
+                    }
+                    catch (Exception ex)
+                    {
+                        lock (_relayHostSessionsLock)
+                        {
+                            _relayHostSessions.Remove(sessionId);
+                        }
+
+                        DebugLogger.Log("rendezvous", $"Failed to open host relay session {sessionId}: {ex.Message}");
+                    }
+                },
+                Metadata = new Dictionary<string, object>
+                {
+                    ["name"] = string.IsNullOrWhiteSpace(RemoteHostName) ? Environment.MachineName : RemoteHostName,
+                    ["callsign"] = RemoteCallsign ?? ""
+                }
+            }, _remoteCts.Token);
+
+            DebugLogger.Log("rendezvous", $"Registered host in rendezvous as '{hostId}'");
+        }
+    }
+
+    private string GetRendezvousHostId()
+    {
+        string configured = (RemoteRendezvousHostId ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured;
+        }
+
+        string fallback = (RemoteHostName ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(fallback))
+        {
+            return fallback;
+        }
+
+        return Environment.MachineName;
+    }
+
+    private string BuildRendezvousClientId()
+    {
+        string callsign = (RemoteCallsign ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(callsign))
+        {
+            callsign = Environment.UserName;
+        }
+
+        return $"{callsign}-{Environment.MachineName}";
     }
 
     private static decimal NormalizeHoldSeconds(decimal value)
@@ -1295,6 +1623,23 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteCts?.Cancel();
         _remoteCts?.Dispose();
         _remoteCts = null;
+
+        lock (_relayHostSessionsLock)
+        {
+            _relayHostSessions.Clear();
+        }
+
+        if (_rendezvousClientSession != null)
+        {
+            await _rendezvousClientSession.DisposeAsync();
+            _rendezvousClientSession = null;
+        }
+
+        if (_rendezvousHostSession != null)
+        {
+            await _rendezvousHostSession.DisposeAsync();
+            _rendezvousHostSession = null;
+        }
 
         if (_remoteClientService != null)
         {

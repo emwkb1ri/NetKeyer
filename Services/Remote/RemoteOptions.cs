@@ -20,6 +20,8 @@ public class RemoteClientOptions
     public string SharedToken { get; set; } = "";
     public string Callsign { get; set; } = "";
     public int ReconnectDelayMs { get; set; } = 1000;
+    public string RelaySessionId { get; set; } = "";
+    public string RelayRole { get; set; } = "";
 }
 
 public class RemoteHostOptions
@@ -32,4 +34,6 @@ public class RemoteHostOptions
     public int ClientIdleTimeoutMs { get; set; } = 5000;
     public int ActiveClientHoldMs { get; set; } = RemoteDefaults.DefaultClientHoldMs;
     public int StaleFrameDropMs { get; set; } = RemoteDefaults.DefaultStaleFrameDropMs;
+    public string RelaySessionId { get; set; } = "";
+    public string RelayRole { get; set; } = "";
 }

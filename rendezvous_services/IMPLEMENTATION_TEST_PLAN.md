@@ -193,14 +193,18 @@ Progress summary (2026-07-07)
   - Disconnect propagation and session cleanup.
   - Duplicate-role rejection with explicit error-text assertion.
   - Sustained relay throughput/stability validation.
+  - Automated fallback-style relay transport payload exchange validation (`test_fallback_session_style_payload_exchange`).
 - Validation:
-  - Relay-only tests: `uv run python -m unittest discover -s relay/tests -v` (7 passed).
+  - Relay-only tests: `uv run python -m unittest discover -s relay/tests -v` (8 passed).
   - Full suite: `uv run python -m unittest discover -v` (26 passed).
 
 Remaining to close Phase 2
 - No open items.
 
 ### Phase 3: NetKeyer App Integration
+Status
+- Complete (2026-07-07)
+
 Deliverables
 - New rendezvous-control service in NetKeyer (C#) for host/client modes.
 - UI wiring for:
@@ -229,6 +233,56 @@ Connection strategy
 Exit criteria
 - End-to-end connect from UI with direct path when possible.
 - Automatic relay fallback when direct path fails.
+
+Progress summary (2026-07-07)
+- Added initial NetKeyer rendezvous signaling service under [Services/Rendezvous](Services/Rendezvous):
+  - [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs)
+  - [Services/Rendezvous/RendezvousControlModels.cs](Services/Rendezvous/RendezvousControlModels.cs)
+  - [Services/Rendezvous/IRendezvousControlService.cs](Services/Rendezvous/IRendezvousControlService.cs)
+- Integrated opt-in rendezvous flow into [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs):
+  - Host mode can register presence to rendezvous (`register_host`) during remote-host startup.
+  - Client mode can resolve host endpoint via rendezvous (`register_client` + `connect_request`) before TCP connect.
+  - Client reports initial `punch_result` success/failure after direct TCP connect attempt.
+  - Rendezvous sessions are cleaned up alongside existing remote service stop flow.
+- Added rendezvous host discovery flow:
+  - Service support for `list_hosts` in [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs).
+  - Client setup command and state in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) to refresh/select discovered hosts.
+  - Setup-page rendezvous controls in [Views/MainWindow.axaml](Views/MainWindow.axaml) for URL, discovery refresh, and host selection.
+- Finalized rendezvous-first client connect behavior in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs):
+  - Client connect now prefers selected/discovered rendezvous host.
+  - If discovery is empty, manual host ID is used as fallback.
+  - If neither is available, connection fails with actionable guidance.
+- Added persisted rendezvous settings in [Models/UserSettings.cs](Models/UserSettings.cs):
+  - `RemoteUseRendezvous`
+  - `RemoteRendezvousServerUrl`
+  - `RemoteRendezvousHostId`
+- Validation:
+  - `dotnet build NetKeyer.csproj` succeeded.
+
+Completion updates (2026-07-07)
+- Completed relay fallback transport integration in NetKeyer runtime:
+  - Client flow in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now attempts direct connect first, reports `punch_result=false` on direct failure, waits for rendezvous `use_relay`, and reconnects using relay endpoint/session handshake.
+  - Client transport in [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs) now emits relay preamble handshake before framed protocol traffic:
+    - `SESSION <session_id> CLIENT`
+  - Host rendezvous signaling in [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs) now handles `use_relay` and forwards relay endpoint/session events to app runtime callbacks.
+  - Host transport runtime in [Services/Remote/RemoteHostService.cs](Services/Remote/RemoteHostService.cs) now supports outbound relay session connection and host relay preamble handshake:
+    - `SESSION <session_id> HOST`
+  - Host integration in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now opens relay transport sessions when rendezvous instructs relay fallback.
+- Validation:
+  - `dotnet build NetKeyer.csproj` succeeded after relay fallback integration.
+
+Remaining to close Phase 3
+- No open items.
+
+Phase 3 completion checklist
+- [x] Add C# rendezvous control service and session models for host/client registration/connect/list flows.
+- [x] Integrate rendezvous settings and host discovery UI wiring in NetKeyer setup flow.
+- [x] Implement rendezvous-first client host resolution with manual host ID fallback.
+- [x] Report client punch outcome (`punch_result`) to rendezvous control-plane.
+- [x] Add relay fallback transport path in client runtime after direct connect failure.
+- [x] Add relay handshake support in remote transport (`SESSION <session_id> <role>`).
+- [x] Add host-side relay session handling on rendezvous `use_relay` signaling.
+- [x] Validate integration with successful `dotnet build NetKeyer.csproj`.
 
 ### Phase 4: Deployment Packaging
 Deliverables
@@ -291,6 +345,9 @@ Relay server
 - Reconnect logic after transient disconnect.
 - Max client cap enforcement.
 
+Current automation note (2026-07-07)
+- Relay-side forced direct-fail fallback transport behavior is now covered by automated relay tests in [rendezvous_services/relay/tests/test_relay.py](rendezvous_services/relay/tests/test_relay.py), including `test_fallback_session_style_payload_exchange`.
+
 ### 4. WAN/NAT Behavior Tests
 - Same NAT (hairpin) and different NAT scenarios.
 - Simulated symmetric NAT behavior (expect higher relay fallback).
@@ -337,4 +394,4 @@ Relay server
 - Protocol drift: keep strict schema validation and versioned contracts.
 
 ## Immediate Next Step
-- Complete remaining Phase 1 exit checks, then begin Phase 2 relay implementation in [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py).
+- Begin Phase 4 deployment packaging (Docker + compose + nginx proxy wiring).

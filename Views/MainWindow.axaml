@@ -155,6 +155,31 @@
                                     <TextBox Text="{Binding RemoteCallsign}" Width="220"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <CheckBox Content="Use Rendezvous"
+                                              IsChecked="{Binding RemoteUseRendezvous}"
+                                              VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
+                                    <TextBlock Text="Rendezvous URL:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteRendezvousServerUrl}" Width="320"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
+                                    <TextBlock Text="Host Discovery:" Width="110" VerticalAlignment="Center"/>
+                                    <ComboBox ItemsSource="{Binding RendezvousDiscoveredHosts}"
+                                              SelectedItem="{Binding SelectedRendezvousHost}"
+                                              Width="320"
+                                              PlaceholderText="Refresh to discover hosts..."/>
+                                    <Button Content="Refresh"
+                                            Command="{Binding RefreshRendezvousHostsCommand}"
+                                            Width="70"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="4"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
+                                    <TextBlock Text="Selected Host ID:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteRendezvousHostId}" Width="320"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Target Host:" Width="110" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding RemoteClientHost}" Width="220"/>
                                 </StackPanel>
@@ -174,6 +199,19 @@
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Host Name:" Width="110" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding RemoteHostName}" Width="220"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <CheckBox Content="Use Rendezvous"
+                                              IsChecked="{Binding RemoteUseRendezvous}"
+                                              VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
+                                    <TextBlock Text="Rendezvous URL:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteRendezvousServerUrl}" Width="320"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
+                                    <TextBlock Text="Host ID:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteRendezvousHostId}" Width="320"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Bind Address:" Width="110" VerticalAlignment="Center"/>

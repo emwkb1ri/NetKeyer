@@ -15,3 +15,8 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.5.0",
+]

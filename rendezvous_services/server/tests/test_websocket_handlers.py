@@ -306,6 +306,136 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             handlers.PUNCH_TIMEOUT_SECONDS = previous_timeout
             await self._stop_handlers(host_task, client_task)
 
+    async def test_direct_success_cancels_timeout_and_avoids_relay(self) -> None:
+        previous_timeout = handlers.PUNCH_TIMEOUT_SECONDS
+        handlers.PUNCH_TIMEOUT_SECONDS = 0.2
+
+        host_task, client_task = await self._start_handlers()
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.02)
+
+            endpoint_msgs = [m for m in self.client_ws.sent if m.get("type") == "host_endpoint"]
+            self.assertTrue(endpoint_msgs)
+            session_id = endpoint_msgs[-1]["session_id"]
+
+            await self.host_ws.push(
+                {
+                    "type": "punch_result",
+                    "success": True,
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                    "session_id": session_id,
+                }
+            )
+
+            await asyncio.sleep(0.25)
+
+            self.assertNotIn("use_relay", self._sent_types(self.host_ws))
+            self.assertNotIn("use_relay", self._sent_types(self.client_ws))
+        finally:
+            handlers.PUNCH_TIMEOUT_SECONDS = previous_timeout
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_duplicate_host_registration_replaces_connection(self) -> None:
+        first_ws = FakeWebSocket("203.0.113.10", 51000)
+        second_ws = FakeWebSocket("203.0.113.11", 51001)
+
+        first_task = asyncio.create_task(
+            handlers.handle_host_ws(self.state, first_ws, relay_host="relay.test", relay_port=49921)
+        )
+        second_task = asyncio.create_task(
+            handlers.handle_host_ws(self.state, second_ws, relay_host="relay.test", relay_port=49921)
+        )
+        try:
+            await first_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-dup",
+                    "max_clients": 5,
+                    "metadata": {"name": "first"},
+                }
+            )
+            await second_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-dup",
+                    "max_clients": 3,
+                    "metadata": {"name": "second"},
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            host = await self.state.get_host("host-dup")
+            self.assertIsNotNone(host)
+            assert host is not None
+            self.assertIs(host.ws, second_ws)
+            self.assertEqual(host.max_clients, 3)
+            self.assertEqual(host.metadata.get("name"), "second")
+        finally:
+            await first_ws.disconnect()
+            await second_ws.disconnect()
+            await asyncio.wait_for(asyncio.gather(first_task, second_task), timeout=2)
+
+    async def test_duplicate_client_registration_replaces_connection(self) -> None:
+        first_ws = FakeWebSocket("198.51.100.22", 52000)
+        second_ws = FakeWebSocket("198.51.100.23", 52001)
+
+        first_task = asyncio.create_task(
+            handlers.handle_client_ws(self.state, first_ws, relay_host="relay.test", relay_port=49921)
+        )
+        second_task = asyncio.create_task(
+            handlers.handle_client_ws(self.state, second_ws, relay_host="relay.test", relay_port=49921)
+        )
+        try:
+            await first_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-dup",
+                }
+            )
+            await second_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-dup",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            client = await self.state.get_client("client-dup")
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertIs(client.ws, second_ws)
+            self.assertEqual(client.public_ip, "198.51.100.23")
+            self.assertEqual(client.public_port, 52001)
+        finally:
+            await first_ws.disconnect()
+            await second_ws.disconnect()
+            await asyncio.wait_for(asyncio.gather(first_task, second_task), timeout=2)
+
 
 if __name__ == "__main__":
     unittest.main()

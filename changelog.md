@@ -9,6 +9,8 @@
   - Not-registered and unknown-session rejection paths.
   - Timeout fallback signaling (`use_relay`) to both endpoints.
   - Disconnect cleanup validation for session removal and host capacity decrement.
+  - Direct-success arbitration validation (no relay fallback after successful punch).
+  - Duplicate host/client re-registration replacement semantics.
 - Rendezvous runtime pinning/config files:
   - [rendezvous_services/.python-version](rendezvous_services/.python-version) (`3.11`).
   - [rendezvous_services/pyproject.toml](rendezvous_services/pyproject.toml) with pinned Python/dependency ranges.
@@ -26,7 +28,8 @@
 - Rendezvous state cleanup improved in [rendezvous_services/server/state.py](rendezvous_services/server/state.py) via `close_sessions_for_host` and `close_sessions_for_client` helpers to prevent stale session/capacity leakage.
 - Phase 1 server tests executed successfully with pinned runtime:
   - `uv run python -m unittest discover -s server/tests -v`
-  - Result: 16 tests passed.
+  - Result: 19 tests passed.
+- Local route-level websocket simulation validated expected host-list and connect orchestration message flow through `/ws/host` and `/ws/client`.
 
 ## 2026-06-29
 

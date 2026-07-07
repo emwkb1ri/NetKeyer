@@ -84,7 +84,7 @@ Completion summary (2026-06-29)
 
 ### Phase 1: Rendezvous Server Core
 Status
-- In progress (core + initial hardening/tests complete as of 2026-07-07)
+- Complete (2026-07-07)
 
 Deliverables
 - [rendezvous_services/server/main.py](rendezvous_services/server/main.py): app bootstrap and routes.
@@ -134,14 +134,15 @@ Progress summary (2026-07-07)
 - Test coverage added and validated:
   - Contract/model validation tests in [rendezvous_services/server/tests/test_models.py](rendezvous_services/server/tests/test_models.py).
   - Handler behavior tests in [rendezvous_services/server/tests/test_websocket_handlers.py](rendezvous_services/server/tests/test_websocket_handlers.py).
-  - Verified passing test run: `uv run python -m unittest discover -s server/tests -v` (16 tests passed).
+  - Verified passing test run: `uv run python -m unittest discover -s server/tests -v` (19 tests passed).
+  - Verified local route-level websocket simulation via `fastapi.testclient`:
+    - Host list returned registered host metadata/capacity.
+    - Connect orchestration emitted expected message sequence:
+      - host: `incoming_client`, `start_punch`
+      - client: `host_endpoint`, `start_punch`
 
 Remaining to close Phase 1
-- See the open items in the **Phase 1 completion checklist** below.
-- Current outstanding checklist entries:
-  - `Add duplicate ID/re-registration behavior tests for host/client reconnection semantics.`
-  - `Add direct-success arbitration assertions (ensure no use_relay emitted after successful punch).`
-  - `Run local multi-process websocket simulation and record results.`
+- No open items. See completed checklist below.
 
 Phase 1 completion checklist
 - [x] Scaffold rendezvous runtime core files (`main.py`, `state.py`, `websocket_handlers.py`).
@@ -153,10 +154,10 @@ Phase 1 completion checklist
 - [x] Add session ownership checks for `punch_result` (`session_mismatch`).
 - [x] Add disconnect-driven session cleanup to prevent stale capacity leakage.
 - [x] Add/expand unit tests for message validation and handler flows.
-- [x] Validate pinned runtime setup and run server tests successfully (`16` passing).
-- [ ] Add duplicate ID/re-registration behavior tests for host/client reconnection semantics.
-- [ ] Add direct-success arbitration assertions (ensure no `use_relay` emitted after successful punch).
-- [ ] Run local multi-process websocket simulation and record results.
+- [x] Validate pinned runtime setup and run server tests successfully (`19` passing).
+- [x] Add duplicate ID/re-registration behavior tests for host/client reconnection semantics.
+- [x] Add direct-success arbitration assertions (ensure no `use_relay` emitted after successful punch).
+- [x] Run local multi-process websocket simulation and record results.
 
 ### Phase 2: Relay Server
 Deliverables

@@ -1,5 +1,33 @@
 # Remote Keying Feature changes
 
+## 2026-07-07
+
+### Added
+- Rendezvous Phase 1 websocket handler integration tests in [rendezvous_services/server/tests/test_websocket_handlers.py](rendezvous_services/server/tests/test_websocket_handlers.py), including:
+  - Connect orchestration signaling checks (`incoming_client`, `host_endpoint`, `start_punch`).
+  - Host capacity rejection (`host_full`).
+  - Not-registered and unknown-session rejection paths.
+  - Timeout fallback signaling (`use_relay`) to both endpoints.
+  - Disconnect cleanup validation for session removal and host capacity decrement.
+- Rendezvous runtime pinning/config files:
+  - [rendezvous_services/.python-version](rendezvous_services/.python-version) (`3.11`).
+  - [rendezvous_services/pyproject.toml](rendezvous_services/pyproject.toml) with pinned Python/dependency ranges.
+
+### Changed
+- Rendezvous relay default port updated to `49921` in:
+  - [rendezvous_services/server/main.py](rendezvous_services/server/main.py)
+  - [rendezvous_services/server/websocket_handlers.py](rendezvous_services/server/websocket_handlers.py)
+- Websocket hardening in [rendezvous_services/server/websocket_handlers.py](rendezvous_services/server/websocket_handlers.py):
+  - Session ownership checks for host/client `punch_result` messages.
+  - Explicit `session_mismatch` rejection for invalid host/client/session combinations.
+  - Disconnect lifecycle cleanup now closes sessions owned by disconnecting host/client.
+
+### Reliability
+- Rendezvous state cleanup improved in [rendezvous_services/server/state.py](rendezvous_services/server/state.py) via `close_sessions_for_host` and `close_sessions_for_client` helpers to prevent stale session/capacity leakage.
+- Phase 1 server tests executed successfully with pinned runtime:
+  - `uv run python -m unittest discover -s server/tests -v`
+  - Result: 16 tests passed.
+
 ## 2026-06-29
 
 ### Added

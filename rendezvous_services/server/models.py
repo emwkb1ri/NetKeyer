@@ -27,6 +27,15 @@ class HostPunchResultMessage(MessageBase):
     session_id: str = Field(min_length=1, max_length=128)
 
 
+class HostPortMapResultMessage(MessageBase):
+    type: Literal["port_map_result"]
+    success: bool
+    host_id: str = Field(min_length=1, max_length=128)
+    session_id: str = Field(min_length=1, max_length=128)
+    public_ip: str | None = Field(default=None, min_length=1, max_length=64)
+    public_port: int | None = Field(default=None, ge=1, le=65535)
+
+
 class RegisterClientMessage(MessageBase):
     type: Literal["register_client"]
     client_id: str = Field(min_length=1, max_length=128)
@@ -45,6 +54,13 @@ class ConnectRequestMessage(MessageBase):
 class ClientPunchResultMessage(MessageBase):
     type: Literal["punch_result"]
     success: bool
+    client_id: str = Field(min_length=1, max_length=128)
+    host_id: str = Field(min_length=1, max_length=128)
+    session_id: str = Field(min_length=1, max_length=128)
+
+
+class ClientRequestPortMapMessage(MessageBase):
+    type: Literal["request_port_map"]
     client_id: str = Field(min_length=1, max_length=128)
     host_id: str = Field(min_length=1, max_length=128)
     session_id: str = Field(min_length=1, max_length=128)
@@ -92,6 +108,12 @@ class UseRelayMessage(MessageBase):
     session_id: str = Field(min_length=1, max_length=128)
 
 
+class RequestPortMapMessage(MessageBase):
+    type: Literal["request_port_map"]
+    session_id: str = Field(min_length=1, max_length=128)
+    internal_port: int = Field(ge=1, le=65535)
+
+
 class ErrorMessage(MessageBase):
     type: Literal["error"]
     code: str = Field(min_length=1, max_length=64)
@@ -99,14 +121,29 @@ class ErrorMessage(MessageBase):
     session_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
-HostInboundMessage = Union[RegisterHostMessage, HostPunchResultMessage]
-ClientInboundMessage = Union[RegisterClientMessage, ListHostsMessage, ConnectRequestMessage, ClientPunchResultMessage]
-ServerOutboundMessage = Union[HostListMessage, IncomingClientMessage, HostEndpointMessage, StartPunchMessage, UseRelayMessage, ErrorMessage]
+HostInboundMessage = Union[RegisterHostMessage, HostPunchResultMessage, HostPortMapResultMessage]
+ClientInboundMessage = Union[
+    RegisterClientMessage,
+    ListHostsMessage,
+    ConnectRequestMessage,
+    ClientPunchResultMessage,
+    ClientRequestPortMapMessage,
+]
+ServerOutboundMessage = Union[
+    HostListMessage,
+    IncomingClientMessage,
+    HostEndpointMessage,
+    StartPunchMessage,
+    UseRelayMessage,
+    RequestPortMapMessage,
+    ErrorMessage,
+]
 
 
 _HOST_INBOUND_BY_TYPE = {
     "register_host": RegisterHostMessage,
     "punch_result": HostPunchResultMessage,
+    "port_map_result": HostPortMapResultMessage,
 }
 
 _CLIENT_INBOUND_BY_TYPE = {
@@ -114,6 +151,7 @@ _CLIENT_INBOUND_BY_TYPE = {
     "list_hosts": ListHostsMessage,
     "connect_request": ConnectRequestMessage,
     "punch_result": ClientPunchResultMessage,
+    "request_port_map": ClientRequestPortMapMessage,
 }
 
 _SERVER_OUTBOUND_BY_TYPE = {
@@ -122,6 +160,7 @@ _SERVER_OUTBOUND_BY_TYPE = {
     "host_endpoint": HostEndpointMessage,
     "start_punch": StartPunchMessage,
     "use_relay": UseRelayMessage,
+    "request_port_map": RequestPortMapMessage,
     "error": ErrorMessage,
 }
 

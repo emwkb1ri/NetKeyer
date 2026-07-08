@@ -12,6 +12,14 @@ public sealed class RendezvousHostRegistrationOptions
     public int MaxClients { get; set; } = 5;
     public Dictionary<string, object> Metadata { get; set; } = new();
     public Func<string, int, string, Task> OnUseRelayAsync { get; set; }
+    public Func<string, int, Task<RendezvousPortMapResult>> OnRequestPortMapAsync { get; set; }
+}
+
+public sealed class RendezvousPortMapResult
+{
+    public bool Success { get; set; }
+    public string PublicIp { get; set; } = "";
+    public int PublicPort { get; set; }
 }
 
 public sealed class RendezvousClientConnectOptions
@@ -63,19 +71,28 @@ public sealed class RendezvousHostRegistrationSession : IAsyncDisposable
 public sealed class RendezvousClientConnectionSession : IAsyncDisposable
 {
     private readonly Func<bool, System.Threading.CancellationToken, System.Threading.Tasks.Task> _reportPunchResultAsync;
+    private readonly Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>> _requestPortMapAsync;
     private readonly Func<ValueTask> _disposeAsync;
 
     public RendezvousClientConnectionSession(
         RendezvousResolvedEndpoint endpoint,
+        string clientId,
+        string hostId,
         Func<bool, System.Threading.CancellationToken, System.Threading.Tasks.Task> reportPunchResultAsync,
+        Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<bool>> requestPortMapAsync,
         Func<ValueTask> disposeAsync)
     {
         Endpoint = endpoint;
+        ClientId = clientId;
+        HostId = hostId;
         _reportPunchResultAsync = reportPunchResultAsync;
+        _requestPortMapAsync = requestPortMapAsync;
         _disposeAsync = disposeAsync;
     }
 
-    public RendezvousResolvedEndpoint Endpoint { get; }
+    public RendezvousResolvedEndpoint Endpoint { get; internal set; }
+    public string ClientId { get; }
+    public string HostId { get; }
     internal ClientWebSocket ControlSocket { get; set; }
     public string RelayHost { get; internal set; } = "";
     public int RelayPort { get; internal set; }
@@ -85,6 +102,9 @@ public sealed class RendezvousClientConnectionSession : IAsyncDisposable
 
     public System.Threading.Tasks.Task ReportPunchResultAsync(bool success, System.Threading.CancellationToken ct)
         => _reportPunchResultAsync(success, ct);
+
+    public System.Threading.Tasks.Task<bool> RequestPortMapAsync(System.Threading.CancellationToken ct)
+        => _requestPortMapAsync(ct);
 
     public ValueTask DisposeAsync() => _disposeAsync();
 }

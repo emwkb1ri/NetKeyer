@@ -181,6 +181,7 @@ public partial class MainWindowViewModel : ViewModelBase
     // Remote connectivity
     private IRemoteClientService _remoteClientService;
     private IRemoteHostService _remoteHostService;
+    private IHostPortMapper _hostPortMapper;
     private IRendezvousControlService _rendezvousControlService;
     private RendezvousHostRegistrationSession _rendezvousHostSession;
     private RendezvousClientConnectionSession _rendezvousClientSession;
@@ -543,6 +544,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteHostService.ConnectedClientCountChanged += RemoteHostService_ConnectedClientCountChanged;
         _remoteHostService.ClientStatusesChanged += RemoteHostService_ClientStatusesChanged;
         _remoteHostService.PaddleStateReceived += RemoteHostService_PaddleStateReceived;
+
+        _hostPortMapper = new HostPortMapper();
 
         _rendezvousControlService = new RendezvousControlService();
 
@@ -1500,6 +1503,8 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts.Token);
             }
+
+            DebugLogger.LogAlways("remote", $"Client transport connected (transport=direct) endpoint={targetHost}:{targetPort}");
         }
         catch (Exception directConnectEx)
         {
@@ -1515,15 +1520,58 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (directConnectEx is OperationCanceledException)
             {
-                DebugLogger.LogAlways("rendezvous", "Client direct connect timed out; requesting relay fallback");
+                DebugLogger.LogAlways("rendezvous", "Client direct connect timed out; requesting host automatic port mapping");
+            }
+            else
+            {
+                DebugLogger.LogAlways("rendezvous", $"Client direct connect failed; requesting host automatic port mapping: {directConnectEx.Message}");
             }
 
             try
             {
-                await _rendezvousClientSession.ReportPunchResultAsync(success: false, CancellationToken.None);
+                await _rendezvousClientSession.RequestPortMapAsync(_remoteCts.Token);
             }
             catch
             {
+            }
+
+            bool mappedEndpointAvailable = await _rendezvousControlService.WaitForMappedEndpointAsync(
+                _rendezvousClientSession,
+                TimeSpan.FromSeconds(6),
+                _remoteCts.Token);
+
+            if (mappedEndpointAvailable)
+            {
+                string mappedHost = _rendezvousClientSession.Endpoint.HostPublicIp;
+                int mappedPort = _rendezvousClientSession.Endpoint.HostPublicPort;
+                DebugLogger.LogAlways("rendezvous", $"Retrying direct connect using mapped endpoint {mappedHost}:{mappedPort}");
+
+                try
+                {
+                    await _remoteClientService.ConnectAsync(new RemoteClientOptions
+                    {
+                        TargetHost = mappedHost,
+                        TargetPort = mappedPort,
+                        SharedToken = RemoteSharedToken,
+                        Callsign = RemoteCallsign
+                    }, _remoteCts.Token);
+
+                    DebugLogger.LogAlways("remote", $"Client transport connected (transport=mapped-direct) endpoint={mappedHost}:{mappedPort}");
+
+                    await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts.Token);
+                    return;
+                }
+                catch (Exception mappedDirectEx)
+                {
+                    DebugLogger.LogAlways("rendezvous", $"Mapped direct connect failed; switching to relay fallback path: {mappedDirectEx.Message}");
+                    try
+                    {
+                        await _rendezvousClientSession.ReportPunchResultAsync(success: false, CancellationToken.None);
+                    }
+                    catch
+                    {
+                    }
+                }
             }
 
             bool relayAvailable = _rendezvousClientSession.HasRelayEndpoint
@@ -1560,6 +1608,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     RelaySessionId = relaySessionId,
                     RelayRole = "CLIENT"
                 }, _remoteCts.Token);
+
+                DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
             }
             catch
             {
@@ -1654,10 +1704,34 @@ public partial class MainWindowViewModel : ViewModelBase
                             DebugLogger.LogAlways("rendezvous", $"Failed to open host relay session {sessionId}: {ex.Message}");
                         }
                     },
+                    OnRequestPortMapAsync = async (sessionId, internalPort) =>
+                    {
+                        if (_hostPortMapper == null)
+                        {
+                            return new RendezvousPortMapResult();
+                        }
+
+                        try
+                        {
+                            HostPortMapResult mapResult = await _hostPortMapper.TryMapTcpPortAsync(internalPort, _remoteCts?.Token ?? CancellationToken.None);
+                            return new RendezvousPortMapResult
+                            {
+                                Success = mapResult.Success,
+                                PublicIp = mapResult.PublicIp,
+                                PublicPort = mapResult.PublicPort
+                            };
+                        }
+                        catch (Exception ex)
+                        {
+                            DebugLogger.LogAlways("rendezvous", $"Automatic host port mapping error for session {sessionId}: {ex.Message}");
+                            return new RendezvousPortMapResult();
+                        }
+                    },
                     Metadata = new Dictionary<string, object>
                     {
                         ["name"] = string.IsNullOrWhiteSpace(RemoteHostName) ? Environment.MachineName : RemoteHostName,
-                        ["callsign"] = RemoteCallsign ?? ""
+                        ["callsign"] = RemoteCallsign ?? "",
+                        ["listen_port"] = RemoteHostPort
                     }
                 }, _remoteCts.Token);
             }
@@ -2224,6 +2298,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Dispose sidetone generator
         _sidetoneGenerator?.Dispose();
+
+        _hostPortMapper?.Dispose();
 
         API.CloseSession();
         Environment.Exit(0);

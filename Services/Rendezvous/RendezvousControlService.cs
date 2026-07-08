@@ -93,7 +93,10 @@ public sealed class RendezvousControlService : IRendezvousControlService
 
         var session = new RendezvousClientConnectionSession(
             endpoint,
+            options.ClientId,
+            options.HostId,
             (success, token) => ReportPunchResultAsync(ws, options.ClientId, options.HostId, endpoint.SessionId, success, token),
+            token => RequestPortMapAsync(ws, options.ClientId, options.HostId, endpoint.SessionId, token),
             async () =>
             {
                 try
@@ -290,6 +293,30 @@ public sealed class RendezvousControlService : IRendezvousControlService
         }, ct);
     }
 
+    private static async Task<bool> RequestPortMapAsync(
+        ClientWebSocket ws,
+        string clientId,
+        string hostId,
+        string sessionId,
+        CancellationToken ct)
+    {
+        if (ws.State != WebSocketState.Open)
+        {
+            return false;
+        }
+
+        await SendJsonAsync(ws, new
+        {
+            protocol_version = 1,
+            type = "request_port_map",
+            client_id = clientId,
+            host_id = hostId,
+            session_id = sessionId
+        }, ct);
+
+        return true;
+    }
+
     public async Task<bool> WaitForRelayAsync(RendezvousClientConnectionSession session, TimeSpan timeout, CancellationToken ct)
     {
         if (session == null)
@@ -344,6 +371,77 @@ public sealed class RendezvousControlService : IRendezvousControlService
         return session.HasRelayEndpoint;
     }
 
+    public async Task<bool> WaitForMappedEndpointAsync(RendezvousClientConnectionSession session, TimeSpan timeout, CancellationToken ct)
+    {
+        if (session == null)
+        {
+            throw new ArgumentNullException(nameof(session));
+        }
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(timeout);
+
+        try
+        {
+            while (!timeoutCts.IsCancellationRequested)
+            {
+                if (session.ControlSocket == null || session.ControlSocket.State != WebSocketState.Open)
+                {
+                    return false;
+                }
+
+                JsonElement msg = await ReceiveJsonAsync(session.ControlSocket, timeoutCts.Token);
+                string type = msg.TryGetProperty("type", out var typeProp) ? typeProp.GetString() ?? "" : "";
+
+                if (string.Equals(type, "host_endpoint", StringComparison.OrdinalIgnoreCase))
+                {
+                    string sessionId = msg.TryGetProperty("session_id", out var sidProp) ? sidProp.GetString() ?? "" : "";
+                    if (!string.Equals(sessionId, session.Endpoint?.SessionId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    string hostIp = msg.TryGetProperty("host_public_ip", out var ipProp) ? ipProp.GetString() ?? "" : "";
+                    int hostPort = msg.TryGetProperty("host_public_port", out var portProp) && portProp.TryGetInt32(out var parsedPort)
+                        ? parsedPort
+                        : 0;
+
+                    if (string.IsNullOrWhiteSpace(hostIp) || hostPort <= 0)
+                    {
+                        continue;
+                    }
+
+                    session.Endpoint = new RendezvousResolvedEndpoint
+                    {
+                        HostPublicIp = hostIp,
+                        HostPublicPort = hostPort,
+                        SessionId = session.Endpoint?.SessionId ?? sessionId
+                    };
+                    return true;
+                }
+
+                if (string.Equals(type, "use_relay", StringComparison.OrdinalIgnoreCase))
+                {
+                    CaptureRelayMessage(session, msg);
+                    return false;
+                }
+
+                if (string.Equals(type, "error", StringComparison.OrdinalIgnoreCase))
+                {
+                    string code = msg.TryGetProperty("code", out var codeProp) ? codeProp.GetString() ?? "error" : "error";
+                    string message = msg.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "Rendezvous error" : "Rendezvous error";
+                    DebugLogger.LogAlways("rendezvous", $"Client signaling error while waiting for mapped endpoint ({code}): {message}");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        return false;
+    }
+
     private static async Task HostReceiveLoopAsync(ClientWebSocket ws, RendezvousHostRegistrationOptions options, CancellationToken ct)
     {
         try
@@ -371,6 +469,40 @@ public sealed class RendezvousControlService : IRendezvousControlService
                     {
                         await options.OnUseRelayAsync(relayHost, relayPort, sessionId);
                     }
+
+                    continue;
+                }
+
+                if (string.Equals(type, "request_port_map", StringComparison.OrdinalIgnoreCase))
+                {
+                    string sessionId = msg.TryGetProperty("session_id", out var sessionEl) ? sessionEl.GetString() ?? "" : "";
+                    int internalPort = msg.TryGetProperty("internal_port", out var portEl) && portEl.TryGetInt32(out var portValue)
+                        ? portValue
+                        : 0;
+
+                    RendezvousPortMapResult result = new RendezvousPortMapResult();
+                    if (options?.OnRequestPortMapAsync != null && !string.IsNullOrWhiteSpace(sessionId) && internalPort > 0)
+                    {
+                        try
+                        {
+                            result = await options.OnRequestPortMapAsync(sessionId, internalPort) ?? new RendezvousPortMapResult();
+                        }
+                        catch (Exception ex)
+                        {
+                            DebugLogger.LogAlways("rendezvous", $"Host automatic port mapping failed for {sessionId}: {ex.Message}");
+                        }
+                    }
+
+                    await SendJsonAsync(ws, new
+                    {
+                        protocol_version = 1,
+                        type = "port_map_result",
+                        success = result.Success,
+                        host_id = options?.HostId ?? "",
+                        session_id = sessionId,
+                        public_ip = string.IsNullOrWhiteSpace(result.PublicIp) ? null : result.PublicIp,
+                        public_port = result.PublicPort > 0 ? result.PublicPort : (int?)null
+                    }, ct);
 
                     continue;
                 }

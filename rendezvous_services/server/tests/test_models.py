@@ -38,6 +38,20 @@ class TestHostInboundValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_host_inbound({"type": "list_hosts"})
 
+    def test_host_port_map_result_valid(self) -> None:
+        msg = validate_host_inbound(
+            {
+                "type": "port_map_result",
+                "host_id": "host-alpha",
+                "session_id": "sess-1",
+                "success": True,
+                "public_ip": "198.51.100.10",
+                "public_port": 49920,
+            }
+        )
+        self.assertEqual(msg.type, "port_map_result")
+        self.assertTrue(msg.success)
+
 
 class TestClientInboundValidation(unittest.TestCase):
     def test_register_client_valid(self) -> None:
@@ -68,6 +82,17 @@ class TestClientInboundValidation(unittest.TestCase):
                     "host_id": "host-1",
                 }
             )
+
+    def test_request_port_map_valid(self) -> None:
+        msg = validate_client_inbound(
+            {
+                "type": "request_port_map",
+                "client_id": "client-1",
+                "host_id": "host-1",
+                "session_id": "sess-1",
+            }
+        )
+        self.assertEqual(msg.type, "request_port_map")
 
 
 class TestServerOutboundValidation(unittest.TestCase):
@@ -109,6 +134,17 @@ class TestServerOutboundValidation(unittest.TestCase):
                     "unexpected": "x",
                 }
             )
+
+    def test_request_port_map_valid(self) -> None:
+        msg = validate_server_outbound(
+            {
+                "type": "request_port_map",
+                "session_id": "sess-123",
+                "internal_port": 49920,
+            }
+        )
+        self.assertEqual(msg.type, "request_port_map")
+        self.assertEqual(msg.internal_port, 49920)
 
 
 if __name__ == "__main__":

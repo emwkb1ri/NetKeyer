@@ -74,7 +74,7 @@ public class RemoteClientService : IRemoteClientService
 
         RaiseStatus($"Connected to {options.TargetHost}:{options.TargetPort}");
         RaiseHostIdentity(_connectedHostIp, _connectedHostName);
-        DebugLogger.Log("remote", $"Client connected to {options.TargetHost}:{options.TargetPort}");
+        DebugLogger.LogAlways("remote", $"Client connected to {options.TargetHost}:{options.TargetPort}");
     }
 
     public async Task DisconnectAsync()

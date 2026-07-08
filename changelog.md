@@ -1,5 +1,42 @@
 # Remote Keying Feature changes
 
+## 2026-07-08
+
+### Added
+- Three-stage rendezvous connection negotiation flow:
+  - Initial direct transport attempt to rendezvous-provided host endpoint.
+  - Automatic host port mapping request phase (`request_port_map` / `port_map_result`) using UPnP first, then NAT-PMP.
+  - Deterministic relay fallback only when direct and mapped-direct attempts fail.
+- Host-side automatic TCP mapping helper:
+  - [Services/Remote/IHostPortMapper.cs](Services/Remote/IHostPortMapper.cs)
+  - [Services/Remote/HostPortMapper.cs](Services/Remote/HostPortMapper.cs)
+
+### Changed
+- Rendezvous server protocol and orchestration now support mapping negotiation before relay fallback:
+  - Added message handling/types in [rendezvous_services/server/models.py](rendezvous_services/server/models.py):
+    - `request_port_map` (client->server and server->host)
+    - `port_map_result` (host->server)
+  - Added mapping-aware session state transitions in [rendezvous_services/server/state.py](rendezvous_services/server/state.py).
+  - Updated orchestration in [rendezvous_services/server/websocket_handlers.py](rendezvous_services/server/websocket_handlers.py) to:
+    - request host mapping after direct timeout/fail,
+    - emit updated `host_endpoint` on mapping success,
+    - fall back to `use_relay` when mapping is unavailable or fails.
+- NetKeyer rendezvous client/host integration now includes map-request and mapped-endpoint retry handling:
+  - [Services/Rendezvous/RendezvousControlModels.cs](Services/Rendezvous/RendezvousControlModels.cs)
+  - [Services/Rendezvous/IRendezvousControlService.cs](Services/Rendezvous/IRendezvousControlService.cs)
+  - [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs)
+  - [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs)
+- Connection success logging is now explicit and always-on for operational visibility:
+  - [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs)
+  - [Services/Remote/RemoteHostService.cs](Services/Remote/RemoteHostService.cs)
+  - Added transport labels in connection success logs: `direct`, `mapped-direct`, `relay`.
+
+### Reliability
+- Rendezvous server test suite expanded and passing:
+  - `uv run python -m unittest discover -s server/tests -v`
+  - Result: 23 tests passed.
+- WAN validation confirmed mapped-endpoint negotiation path is operational before relay fallback.
+
 ## 2026-07-07
 
 ### Added

@@ -6,14 +6,17 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect
 
 from .models import (
+    ClientRequestPortMapMessage,
     ConnectRequestMessage,
     ErrorMessage,
     HostEndpointMessage,
+    HostPortMapResultMessage,
     HostListMessage,
     HostPunchResultMessage,
     HostSummary,
     IncomingClientMessage,
     ListHostsMessage,
+    RequestPortMapMessage,
     RegisterClientMessage,
     RegisterHostMessage,
     StartPunchMessage,
@@ -26,6 +29,7 @@ from .state import RendezvousState
 
 
 PUNCH_TIMEOUT_SECONDS = 2
+PORT_MAP_TIMEOUT_SECONDS = 4
 DEFAULT_RELAY_HOST = "relay"
 DEFAULT_RELAY_PORT = 49921
 
@@ -116,9 +120,33 @@ def _extract_host_name(host_header: str | None) -> str:
     return first
 
 
+def _resolve_host_endpoint_port(metadata: dict[str, Any], fallback_port: int) -> int:
+    if not metadata:
+        return fallback_port
+
+    value = metadata.get("listen_port")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback_port
+
+    if 1 <= parsed <= 65535:
+        return parsed
+
+    return fallback_port
+
+
 async def _punch_timeout_watchdog(state: RendezvousState, session_id: str, relay_host: str, relay_port: int) -> None:
     try:
         await asyncio.sleep(PUNCH_TIMEOUT_SECONDS)
+        await _request_port_map_for_session(state, session_id, relay_host=relay_host, relay_port=relay_port)
+    except asyncio.CancelledError:
+        return
+
+
+async def _port_map_timeout_watchdog(state: RendezvousState, session_id: str, relay_host: str, relay_port: int) -> None:
+    try:
+        await asyncio.sleep(PORT_MAP_TIMEOUT_SECONDS)
         session = await state.mark_relay_requested(session_id)
         if not session:
             return
@@ -126,6 +154,37 @@ async def _punch_timeout_watchdog(state: RendezvousState, session_id: str, relay
             await _send_relay_to_both(state, session_id, relay_host, relay_port)
     except asyncio.CancelledError:
         return
+
+
+async def _request_port_map_for_session(state: RendezvousState, session_id: str, relay_host: str, relay_port: int) -> None:
+    session = await state.mark_map_requested(session_id)
+    if not session:
+        return
+
+    if session.state != "map_requested":
+        return
+
+    host = await state.get_host(session.host_id)
+    if not host:
+        relay_state = await state.mark_relay_requested(session_id)
+        if relay_state and relay_state.state == "relay_requested":
+            await _send_relay_to_both(state, session_id, relay_host, relay_port)
+        return
+
+    listen_port = _resolve_host_endpoint_port(host.metadata, host.public_port)
+    await _send_model(
+        host.ws,
+        RequestPortMapMessage(
+            type="request_port_map",
+            session_id=session_id,
+            internal_port=listen_port,
+        ),
+    )
+
+    timeout_task = asyncio.create_task(
+        _port_map_timeout_watchdog(state, session_id, relay_host=relay_host, relay_port=relay_port)
+    )
+    await state.attach_timeout_task(session_id, timeout_task)
 
 
 async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_host: str, relay_port: int) -> None:
@@ -180,6 +239,50 @@ async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_hos
                 )
 
                 if session.state == "relay_requested":
+                    await _send_relay_to_both(state, msg.session_id, relay_host, relay_port)
+                continue
+
+            if isinstance(msg, HostPortMapResultMessage):
+                if not host_id:
+                    await _send_error(websocket, "not_registered", "Host must register before sending port_map_result")
+                    continue
+                if msg.host_id != host_id:
+                    await _send_error(websocket, "host_mismatch", "Host ID does not match registered host", msg.session_id)
+                    continue
+
+                session = await state.get_session(msg.session_id)
+                if not session:
+                    await _send_error(websocket, "not_found", "Unknown session", msg.session_id)
+                    continue
+                if session.host_id != host_id:
+                    await _send_error(websocket, "session_mismatch", "Session ownership mismatch", msg.session_id)
+                    continue
+
+                if msg.success and msg.public_port:
+                    updated = await state.set_mapped_endpoint(msg.session_id, msg.public_ip, msg.public_port)
+                    if not updated:
+                        continue
+
+                    client = await state.get_client(updated.client_id)
+                    host = await state.get_host(updated.host_id)
+                    if not client or not host:
+                        continue
+
+                    mapped_ip = (msg.public_ip or "").strip() or host.public_ip
+                    await _send_model(
+                        client.ws,
+                        HostEndpointMessage(
+                            type="host_endpoint",
+                            host_id=updated.host_id,
+                            host_public_ip=mapped_ip,
+                            host_public_port=msg.public_port,
+                            session_id=updated.session_id,
+                        ),
+                    )
+                    continue
+
+                relay_state = await state.mark_relay_requested(msg.session_id)
+                if relay_state and relay_state.state == "relay_requested":
                     await _send_relay_to_both(state, msg.session_id, relay_host, relay_port)
 
     except WebSocketDisconnect:
@@ -273,7 +376,7 @@ async def handle_client_ws(state: RendezvousState, websocket: WebSocket, relay_h
                         type="host_endpoint",
                         host_id=msg.host_id,
                         host_public_ip=host.public_ip,
-                        host_public_port=host.public_port,
+                        host_public_port=_resolve_host_endpoint_port(host.metadata, host.public_port),
                         session_id=session.session_id,
                     ),
                 )
@@ -286,6 +389,22 @@ async def handle_client_ws(state: RendezvousState, websocket: WebSocket, relay_h
                     _punch_timeout_watchdog(state, session.session_id, relay_host=relay_host, relay_port=relay_port)
                 )
                 await state.attach_timeout_task(session.session_id, timeout_task)
+                continue
+
+            if isinstance(msg, ClientRequestPortMapMessage):
+                if msg.client_id != client_id:
+                    await _send_error(websocket, "client_mismatch", "Client ID does not match registered client", msg.session_id)
+                    continue
+
+                session = await state.get_session(msg.session_id)
+                if not session:
+                    await _send_error(websocket, "not_found", "Unknown session", msg.session_id)
+                    continue
+                if session.client_id != client_id or session.host_id != msg.host_id:
+                    await _send_error(websocket, "session_mismatch", "Session ownership mismatch", msg.session_id)
+                    continue
+
+                await _request_port_map_for_session(state, msg.session_id, relay_host=relay_host, relay_port=relay_port)
                 continue
 
             # Client punch result

@@ -111,8 +111,8 @@ public class RemoteHostService : IRemoteHostService
         await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct);
         await stream.FlushAsync(ct);
 
-        AddAndRunSession(relayClient, _internalCts?.Token ?? ct);
-        DebugLogger.Log("remote", $"Host relay session connected: relay={relayHost}:{relayPort} session={sessionId}");
+        AddAndRunSession(relayClient, _internalCts?.Token ?? ct, "relay");
+        DebugLogger.LogAlways("remote", $"Host relay session connected (transport=relay): relay={relayHost}:{relayPort} session={sessionId}");
     }
 
     public async Task StopAsync()
@@ -165,7 +165,7 @@ public class RemoteHostService : IRemoteHostService
                     continue;
                 }
 
-                AddAndRunSession(client, ct);
+                AddAndRunSession(client, ct, "direct");
             }
         }
         catch (OperationCanceledException)
@@ -207,7 +207,7 @@ public class RemoteHostService : IRemoteHostService
         PaddleStateReceived?.Invoke(this, e);
     }
 
-    private void AddAndRunSession(TcpClient client, CancellationToken ct)
+    private void AddAndRunSession(TcpClient client, CancellationToken ct, string transport)
     {
         var session = new RemoteClientSession(client, _options.SharedToken, _options.HostName, BuildHeartbeatPayloadForClient);
         session.PaddleStateReceived += Session_PaddleStateReceived;
@@ -220,7 +220,8 @@ public class RemoteHostService : IRemoteHostService
 
         _ = Task.Run(() => session.RunAsync(ct), ct);
 
-        DebugLogger.Log("remote", $"Accepted remote session {session.ClientId} from {session.RemoteEndpoint}");
+        string label = string.IsNullOrWhiteSpace(transport) ? "unknown" : transport;
+        DebugLogger.LogAlways("remote", $"Accepted remote session {session.ClientId} from {session.RemoteEndpoint} (transport={label})");
         RaiseStatus($"Listening on port {_options.ListenPort}. Connected clients: {_sessions.Count}");
     }
 

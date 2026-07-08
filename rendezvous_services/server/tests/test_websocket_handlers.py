@@ -68,7 +68,7 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
                 "type": "register_host",
                 "host_id": "host-1",
                 "max_clients": 5,
-                "metadata": {"name": "Host1"},
+                "metadata": {"name": "Host1", "listen_port": 49920},
             }
         )
         await self.client_ws.push(
@@ -94,6 +94,10 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
         self.assertIn("start_punch", host_types)
         self.assertIn("host_endpoint", client_types)
         self.assertIn("start_punch", client_types)
+
+        endpoint_msgs = [m for m in self.client_ws.sent if m.get("type") == "host_endpoint"]
+        self.assertTrue(endpoint_msgs)
+        self.assertEqual(endpoint_msgs[-1].get("host_public_port"), 49920)
 
         await self._stop_handlers(host_task, client_task)
 
@@ -272,7 +276,9 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
 
     async def test_timeout_triggers_use_relay(self) -> None:
         previous_timeout = handlers.PUNCH_TIMEOUT_SECONDS
+        previous_map_timeout = handlers.PORT_MAP_TIMEOUT_SECONDS
         handlers.PUNCH_TIMEOUT_SECONDS = 0.05
+        handlers.PORT_MAP_TIMEOUT_SECONDS = 0.05
 
         host_task, client_task = await self._start_handlers()
         try:
@@ -298,12 +304,80 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
                 }
             )
 
-            await asyncio.sleep(0.15)
+            await asyncio.sleep(0.2)
 
+            self.assertIn("request_port_map", self._sent_types(self.host_ws))
             self.assertIn("use_relay", self._sent_types(self.host_ws))
             self.assertIn("use_relay", self._sent_types(self.client_ws))
         finally:
             handlers.PUNCH_TIMEOUT_SECONDS = previous_timeout
+            handlers.PORT_MAP_TIMEOUT_SECONDS = previous_map_timeout
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_port_map_success_emits_retry_host_endpoint(self) -> None:
+        host_task, client_task = await self._start_handlers()
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {"listen_port": 49920},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            endpoint_msgs = [m for m in self.client_ws.sent if m.get("type") == "host_endpoint"]
+            self.assertTrue(endpoint_msgs)
+            session_id = endpoint_msgs[-1]["session_id"]
+
+            await self.client_ws.push(
+                {
+                    "type": "request_port_map",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                    "session_id": session_id,
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            request_msgs = [m for m in self.host_ws.sent if m.get("type") == "request_port_map"]
+            self.assertTrue(request_msgs)
+            self.assertEqual(request_msgs[-1].get("internal_port"), 49920)
+
+            await self.host_ws.push(
+                {
+                    "type": "port_map_result",
+                    "host_id": "host-1",
+                    "session_id": session_id,
+                    "success": True,
+                    "public_ip": "198.51.100.77",
+                    "public_port": 62000,
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            endpoint_msgs = [m for m in self.client_ws.sent if m.get("type") == "host_endpoint"]
+            self.assertGreaterEqual(len(endpoint_msgs), 2)
+            self.assertEqual(endpoint_msgs[-1].get("host_public_ip"), "198.51.100.77")
+            self.assertEqual(endpoint_msgs[-1].get("host_public_port"), 62000)
+        finally:
             await self._stop_handlers(host_task, client_task)
 
     async def test_direct_success_cancels_timeout_and_avoids_relay(self) -> None:

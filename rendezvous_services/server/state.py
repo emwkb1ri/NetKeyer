@@ -44,6 +44,9 @@ class SessionState:
     state: str = "requested"
     host_punch_result: bool | None = None
     client_punch_result: bool | None = None
+    map_requested: bool = False
+    mapped_public_ip: str | None = None
+    mapped_public_port: int | None = None
     timeout_task: asyncio.Task | None = None
 
 
@@ -172,12 +175,44 @@ class RendezvousState:
                 if session.timeout_task:
                     session.timeout_task.cancel()
                     session.timeout_task = None
-            elif session.host_punch_result is False and session.client_punch_result is False:
+            elif session.map_requested:
                 session.state = "relay_requested"
                 if session.timeout_task:
                     session.timeout_task.cancel()
                     session.timeout_task = None
 
+            session.updated_at = datetime.now(UTC)
+            return session
+
+    async def mark_map_requested(self, session_id: str) -> SessionState | None:
+        async with self._lock:
+            session = self.sessions.get(session_id)
+            if not session:
+                return None
+            if session.state in {"direct_connected", "relay_connected", "closed"}:
+                return session
+
+            session.map_requested = True
+            session.state = "map_requested"
+            if session.timeout_task:
+                session.timeout_task.cancel()
+                session.timeout_task = None
+
+            session.updated_at = datetime.now(UTC)
+            return session
+
+    async def set_mapped_endpoint(self, session_id: str, public_ip: str | None, public_port: int) -> SessionState | None:
+        async with self._lock:
+            session = self.sessions.get(session_id)
+            if not session:
+                return None
+            if session.state in {"direct_connected", "relay_connected", "closed"}:
+                return session
+
+            session.map_requested = True
+            session.mapped_public_ip = public_ip
+            session.mapped_public_port = public_port
+            session.state = "map_ready"
             session.updated_at = datetime.now(UTC)
             return session
 

@@ -38,8 +38,9 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - Client keeps local sidetone active, host mutes local sidetone
 - **Rendezvous + Relay Signaling and Fallback (Phase 3/4)**:
   - Optional rendezvous-assisted host discovery and connection setup for remote client mode
-  - Automatic direct-first connect strategy with relay fallback when direct punch fails
+  - Automatic three-stage negotiation: direct -> mapped-direct (UPnP/NAT-PMP) -> relay fallback
   - Relay transport handshake support using `SESSION <session_id> <role>` (`HOST` / `CLIENT`)
+  - Always-on connection outcome logging with transport labels: `direct`, `mapped-direct`, `relay`
   - Dedicated service ports aligned with remote transport defaults:
     - Remote keying transport: `49920`
     - Relay service: `49921`
@@ -185,6 +186,16 @@ NetKeyer now includes deployment artifacts for standalone rendezvous control-pla
 
 - **Rendezvous server**: FastAPI + WebSocket signaling for host registration, host discovery, connect orchestration, and relay fallback signaling.
 - **Relay server**: asyncio TCP byte pipe that pairs host/client sockets by session ID and forwards bytes bidirectionally.
+
+### Connection Negotiation Summary
+
+When rendezvous mode is enabled, NetKeyer negotiates transport in this order:
+
+1. **Direct**: client attempts direct TCP to the host endpoint provided by rendezvous.
+2. **Mapped-direct**: on direct timeout/failure, rendezvous requests host automatic TCP mapping (UPnP first, then NAT-PMP) and returns an updated mapped endpoint for a retry.
+3. **Relay fallback**: if mapped endpoint is unavailable or retry fails, rendezvous signals both sides to switch to relay transport.
+
+This keeps the keying data path as close to direct as possible while still providing deterministic fallback.
 
 ### Container Summary
 

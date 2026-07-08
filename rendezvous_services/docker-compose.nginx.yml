@@ -1,0 +1,41 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: netkeyer-rendezvous-nginx
+    depends_on:
+      - rendezvous
+      - relay
+    ports:
+      - "8080:80"
+      - "49922:49922"
+    volumes:
+      - ./nginx/rendezvous.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/stream-relay.conf:/etc/nginx/stream-conf.d/stream-relay.conf:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat >/etc/nginx/nginx.conf <<'EOF'
+        user nginx;
+        worker_processes auto;
+        error_log /var/log/nginx/error.log warn;
+        pid /var/run/nginx.pid;
+
+        events {
+          worker_connections 1024;
+        }
+
+        http {
+          include /etc/nginx/mime.types;
+          default_type application/octet-stream;
+          sendfile on;
+          keepalive_timeout 65;
+          include /etc/nginx/conf.d/*.conf;
+        }
+
+        stream {
+          include /etc/nginx/stream-conf.d/*.conf;
+        }
+        EOF
+        nginx -g 'daemon off;'
+    restart: unless-stopped

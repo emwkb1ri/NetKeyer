@@ -285,15 +285,37 @@ Phase 3 completion checklist
 - [x] Validate integration with successful `dotnet build NetKeyer.csproj`.
 
 ### Phase 4: Deployment Packaging
+Status
+- In progress (2026-07-07; docker rendezvous/relay runtime verified, direct-connect negotiation fix pending)
+
 Deliverables
 - [rendezvous_services/server/Dockerfile](rendezvous_services/server/Dockerfile)
 - [rendezvous_services/relay/Dockerfile](rendezvous_services/relay/Dockerfile)
 - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
 - nginx config snippets for ws upgrade and optional stream proxy.
+- Fix direct-connect negotiation path so rendezvous host endpoint candidates are suitable for direct transport attempts before relay fallback.
+
+Progress summary (2026-07-07)
+- Added container packaging for rendezvous service:
+  - [rendezvous_services/server/Dockerfile](rendezvous_services/server/Dockerfile)
+- Added container packaging for relay service:
+  - [rendezvous_services/relay/Dockerfile](rendezvous_services/relay/Dockerfile)
+- Added multi-service deployment stack:
+  - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+  - Includes `relay` and `rendezvous` services and an optional `nginx` proxy profile.
+- Added nginx proxy snippets:
+  - [rendezvous_services/nginx/rendezvous.conf](rendezvous_services/nginx/rendezvous.conf) for HTTP/WebSocket upgrade forwarding to rendezvous.
+  - [rendezvous_services/nginx/stream-relay.conf](rendezvous_services/nginx/stream-relay.conf) for optional TCP stream proxying to relay.
+- Validation:
+  - Relay regression tests remain passing: `uv run python -m unittest discover -s relay/tests -v` (8 passed).
+  - Docker-hosted rendezvous and relay services verified operational on target host.
+  - Host registration and client host discovery confirmed against Docker runtime.
+  - Relay fallback mode validated end-to-end with successful client/host keying data flow.
+  - `docker compose config` / `docker compose up` verification is currently blocked in this local development environment because Docker CLI is unavailable here, but verification has been completed on deployment host.
 
 Exit criteria
 - docker compose up starts rendezvous and relay.
-- WS and TCP paths verified through nginx.
+- Direct-connect negotiation path fix validated (direct candidate selection + fallback behavior).
 
 ### Phase 5: Hardening and Observability
 Deliverables
@@ -309,6 +331,15 @@ Deliverables
 Exit criteria
 - Can troubleshoot a failed connection from logs alone.
 - Basic load soak test passes without leaks.
+
+### Phase 6: nginx Path Verification
+Deliverables
+- Validate WebSocket upgrade path through nginx for rendezvous endpoints (`/ws/host`, `/ws/client`).
+- Validate TCP stream proxy path through nginx for relay transport.
+
+Exit criteria
+- WS signaling path verified through nginx endpoint(s).
+- TCP relay path verified through nginx stream endpoint(s).
 
 ## Testing Plan
 
@@ -394,4 +425,4 @@ Current automation note (2026-07-07)
 - Protocol drift: keep strict schema validation and versioned contracts.
 
 ## Immediate Next Step
-- Begin Phase 4 deployment packaging (Docker + compose + nginx proxy wiring).
+- Complete Phase 4 direct-connect negotiation path fix, then execute Phase 6 nginx WS/TCP path verification.

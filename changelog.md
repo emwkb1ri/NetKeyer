@@ -34,6 +34,11 @@
   - Added relay handshake support in [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs) (`SESSION <session_id> CLIENT`).
   - Added host relay transport dial-out support in [Services/Remote/RemoteHostService.cs](Services/Remote/RemoteHostService.cs) and [Services/Remote/IRemoteHostService.cs](Services/Remote/IRemoteHostService.cs) (`SESSION <session_id> HOST`).
   - Added rendezvous host relay callback wiring in [Services/Rendezvous/RendezvousControlModels.cs](Services/Rendezvous/RendezvousControlModels.cs) and [Services/Rendezvous/RendezvousControlService.cs](Services/Rendezvous/RendezvousControlService.cs).
+- Completed Phase 4 deployment packaging assets:
+  - Added [rendezvous_services/server/Dockerfile](rendezvous_services/server/Dockerfile) for rendezvous container runtime.
+  - Added [rendezvous_services/relay/Dockerfile](rendezvous_services/relay/Dockerfile) for relay container runtime.
+  - Added [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml) with `relay`, `rendezvous`, and optional `nginx` profile.
+  - Added nginx snippets [rendezvous_services/nginx/rendezvous.conf](rendezvous_services/nginx/rendezvous.conf) (WebSocket proxy) and [rendezvous_services/nginx/stream-relay.conf](rendezvous_services/nginx/stream-relay.conf) (TCP stream proxy).
 
 ### Changed
 - Rendezvous relay default port updated to `49921` in:
@@ -50,6 +55,13 @@
   - Client now defaults to discovered rendezvous host selection during connect, with manual host ID only as fallback.
 - [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now performs direct-first remote client connect with automatic relay fallback when rendezvous emits `use_relay`.
 - Setup UI in [Views/MainWindow.axaml](Views/MainWindow.axaml) now includes rendezvous URL/host settings and client host discovery refresh/select controls.
+- Relay host advertisement for fallback signaling in [rendezvous_services/server/websocket_handlers.py](rendezvous_services/server/websocket_handlers.py) now derives an externally reachable host from websocket request headers when configured relay host is the internal Docker alias (`relay`), allowing host/client apps to use relay fallback without nginx stream proxy.
+- Rendezvous runtime diagnostics and host/client status behavior improvements:
+  - [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now emits always-on rendezvous startup/connect/fallback diagnostics via `DebugLogger.LogAlways`.
+  - [Views/MainWindow.axaml](Views/MainWindow.axaml) + [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now show host waiting status and rendezvous status on the same operating-page line.
+  - [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now normalizes IPv4-mapped IPv6 addresses in Host Client Status rows (removes `::ffff:` prefix from displayed IPv4 values).
+- Rendezvous container runtime in [rendezvous_services/server/Dockerfile](rendezvous_services/server/Dockerfile) now installs `uvicorn[standard]` to ensure WebSocket upgrade support is present in Docker deployments.
+- Relay fallback timing in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) now caps rendezvous direct-connect attempts to 2 seconds before fallback to avoid relay pairing timeout churn and improve host/client relay session convergence.
 
 ### Reliability
 - Rendezvous state cleanup improved in [rendezvous_services/server/state.py](rendezvous_services/server/state.py) via `close_sessions_for_host` and `close_sessions_for_client` helpers to prevent stale session/capacity leakage.
@@ -58,10 +70,13 @@
   - Result: 19 tests passed.
 - Local route-level websocket simulation validated expected host-list and connect orchestration message flow through `/ws/host` and `/ws/client`.
 - Relay validation completed:
-  - `uv run python -m unittest discover -s relay/tests -v` (7 passed).
+  - `uv run python -m unittest discover -s relay/tests -v` (8 passed).
   - `uv run python -m unittest discover -v` (26 passed, including relay + server).
 - NetKeyer relay integration validation completed:
   - `dotnet build NetKeyer.csproj` succeeded after relay fallback transport updates.
+- Docker-hosted rendezvous/relay runtime validation:
+  - Host registration and client host discovery verified against running Docker services.
+  - Relay fallback path verified operational end-to-end (host/client keying data confirmed through relay transport).
 
 ## 2026-06-29
 

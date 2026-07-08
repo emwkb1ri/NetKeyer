@@ -36,6 +36,15 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - Telemetry lag values are normalized per client to remove static clock-skew bias while preserving observed network delay variation
   - Default TCP port is `49920`
   - Client keeps local sidetone active, host mutes local sidetone
+- **Rendezvous + Relay Signaling and Fallback (Phase 3/4)**:
+  - Optional rendezvous-assisted host discovery and connection setup for remote client mode
+  - Automatic direct-first connect strategy with relay fallback when direct punch fails
+  - Relay transport handshake support using `SESSION <session_id> <role>` (`HOST` / `CLIENT`)
+  - Dedicated service ports aligned with remote transport defaults:
+    - Remote keying transport: `49920`
+    - Relay service: `49921`
+    - Optional nginx relay TCP stream proxy: `49922`
+    - Rendezvous HTTP/WebSocket service: `49923`
 
 ## Requirements
 
@@ -167,6 +176,119 @@ Defaults:
 - Port: `49920`
 - Client target host: `127.0.0.1`
 - Host bind address: `0.0.0.0`
+
+## Rendezvous and Relay Services
+
+NetKeyer now includes deployment artifacts for standalone rendezvous control-plane and relay data-plane services under [rendezvous_services](rendezvous_services).
+
+### Service Overview
+
+- **Rendezvous server**: FastAPI + WebSocket signaling for host registration, host discovery, connect orchestration, and relay fallback signaling.
+- **Relay server**: asyncio TCP byte pipe that pairs host/client sockets by session ID and forwards bytes bidirectionally.
+
+### Container Summary
+
+| Container | Purpose | Internal Port | Host Port (default) |
+|----------|---------|---------------|---------------------|
+| `netkeyer-rendezvous` | HTTP/WebSocket control-plane (`/health`, `/ws/host`, `/ws/client`) | `49923` | `49923` |
+| `netkeyer-relay` | Raw TCP relay service | `49921` | `49921` |
+| `netkeyer-rendezvous-nginx` (optional) | Reverse proxy for rendezvous + optional TCP stream proxy for relay | `80` + `49922` | `8080` + `49922` |
+
+## Docker Deployment (Rendezvous Services)
+
+Compose files are split so nginx is optional:
+
+- Base services (relay + rendezvous): [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+- Optional nginx overlay: [rendezvous_services/docker-compose.nginx.yml](rendezvous_services/docker-compose.nginx.yml)
+
+### Start relay + rendezvous only
+
+```bash
+cd rendezvous_services
+docker compose -f docker-compose.yml up -d
+```
+
+### Start relay + rendezvous + optional bundled nginx
+
+```bash
+cd rendezvous_services
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d
+```
+
+### Included nginx snippets
+
+- HTTP/WebSocket reverse proxy config: [rendezvous_services/nginx/rendezvous.conf](rendezvous_services/nginx/rendezvous.conf)
+- TCP stream relay proxy config: [rendezvous_services/nginx/stream-relay.conf](rendezvous_services/nginx/stream-relay.conf)
+
+## Using an Existing nginx Installation
+
+If you already run your own nginx, do **not** start the optional nginx compose overlay. Run only relay + rendezvous and add equivalent nginx config to your existing deployment.
+
+### 1. Run only core services
+
+```bash
+cd rendezvous_services
+docker compose -f docker-compose.yml up -d
+```
+
+### 2. Configure HTTP/WebSocket proxy to rendezvous
+
+Point nginx to `netkeyer-rendezvous:49923` (or the host where rendezvous is published).
+
+```nginx
+upstream rendezvous_backend {
+  server 127.0.0.1:49923;
+}
+
+server {
+  listen 80;
+  server_name _;
+
+  location /health {
+    proxy_pass http://rendezvous_backend/health;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location /ws/ {
+    proxy_pass http://rendezvous_backend/ws/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600;
+  }
+}
+```
+
+### 3. (Optional) Configure relay TCP stream proxy
+
+If you need nginx TCP stream proxying, add a `stream` block that forwards to relay on `49921`.
+
+```nginx
+stream {
+  upstream relay_backend {
+    server 127.0.0.1:49921;
+  }
+
+  server {
+    listen 49922;
+    proxy_pass relay_backend;
+  }
+}
+```
+
+### 4. NetKeyer client/server endpoint expectations
+
+- Rendezvous URL should target your nginx/public endpoint that serves `/ws/host` and `/ws/client`.
+- Relay host/port is provided to clients by rendezvous via `use_relay` signaling.
+- Ensure firewall/NAT rules allow inbound traffic for whichever public rendezvous/relay ports you publish.
 
 ## MIDI Configuration
 

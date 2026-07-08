@@ -60,9 +60,11 @@ async def _send_relay_to_both(state: RendezvousState, session_id: str, relay_hos
     host = await state.get_host(session.host_id)
     client = await state.get_client(session.client_id)
 
+    advertised_relay_host = _resolve_advertised_relay_host(relay_host, host.ws if host else None, client.ws if client else None)
+
     msg = UseRelayMessage(
         type="use_relay",
-        relay_host=relay_host,
+        relay_host=advertised_relay_host,
         relay_port=relay_port,
         session_id=session_id,
     )
@@ -71,6 +73,47 @@ async def _send_relay_to_both(state: RendezvousState, session_id: str, relay_hos
         await _send_model(host.ws, msg)
     if client:
         await _send_model(client.ws, msg)
+
+
+def _resolve_advertised_relay_host(configured_relay_host: str, host_ws: WebSocket | None, client_ws: WebSocket | None) -> str:
+    candidate = (configured_relay_host or "").strip()
+    if candidate and candidate.lower() != "relay":
+        return candidate
+
+    # Fall back to the host header used by external app websocket clients.
+    for ws in (host_ws, client_ws):
+        if ws is None:
+            continue
+
+        host_header = ws.headers.get("x-forwarded-host") or ws.headers.get("host")
+        parsed = _extract_host_name(host_header)
+        if parsed:
+            return parsed
+
+    return candidate or DEFAULT_RELAY_HOST
+
+
+def _extract_host_name(host_header: str | None) -> str:
+    if not host_header:
+        return ""
+
+    # Header may be a CSV list; use the first host.
+    first = host_header.split(",", 1)[0].strip()
+    if not first:
+        return ""
+
+    # IPv6 host with brackets, possibly including :port.
+    if first.startswith("["):
+        end = first.find("]")
+        if end > 1:
+            return first[1:end]
+
+    # Standard host:port form.
+    if ":" in first:
+        host, _ = first.rsplit(":", 1)
+        return host.strip()
+
+    return first
 
 
 async def _punch_timeout_watchdog(state: RendezvousState, session_id: str, relay_host: str, relay_port: int) -> None:

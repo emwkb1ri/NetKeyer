@@ -332,7 +332,7 @@ public sealed class RendezvousControlService : IRendezvousControlService
                 {
                     string code = msg.TryGetProperty("code", out var codeProp) ? codeProp.GetString() ?? "error" : "error";
                     string message = msg.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "Rendezvous error" : "Rendezvous error";
-                    DebugLogger.Log("rendezvous", $"Client signaling error while waiting for relay ({code}): {message}");
+                    DebugLogger.LogAlways("rendezvous", $"Client signaling error while waiting for relay ({code}): {message}");
                 }
             }
         }
@@ -357,7 +357,7 @@ public sealed class RendezvousControlService : IRendezvousControlService
                 {
                     string code = msg.TryGetProperty("code", out var codeProp) ? codeProp.GetString() ?? "error" : "error";
                     string message = msg.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "Rendezvous error" : "Rendezvous error";
-                    DebugLogger.Log("rendezvous", $"Host signaling error ({code}): {message}");
+                    DebugLogger.LogAlways("rendezvous", $"Host signaling error ({code}): {message}");
                     continue;
                 }
 
@@ -375,7 +375,7 @@ public sealed class RendezvousControlService : IRendezvousControlService
                     continue;
                 }
 
-                DebugLogger.Log("rendezvous", $"Host signaling message: {type}");
+                DebugLogger.LogAlways("rendezvous", $"Host signaling message: {type}");
             }
         }
         catch (OperationCanceledException)
@@ -383,11 +383,11 @@ public sealed class RendezvousControlService : IRendezvousControlService
         }
         catch (WebSocketException ex)
         {
-            DebugLogger.Log("rendezvous", $"Host signaling websocket error: {ex.Message}");
+            DebugLogger.LogAlways("rendezvous", $"Host signaling websocket error: {ex.Message}");
         }
         catch (Exception ex)
         {
-            DebugLogger.Log("rendezvous", $"Host signaling loop terminated: {ex.Message}");
+            DebugLogger.LogAlways("rendezvous", $"Host signaling loop terminated: {ex.Message}");
         }
     }
 

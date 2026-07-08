@@ -434,10 +434,10 @@
                         <StackPanel Spacing="6">
                             <TextBlock Text="Host Client Status" FontWeight="Bold" FontSize="14"/>
 
-                            <TextBlock Text="Waiting for client connection"
+                            <TextBlock Text="{Binding RemoteHostWaitingLineText}"
                                        FontSize="13"
                                        Foreground="DimGray"
-                                       IsVisible="{Binding IsWaitingForClientConnection}"/>
+                                       IsVisible="{Binding IsRemoteModeHost}"/>
 
                             <Grid ColumnDefinitions="2*,2*,*,2*">
                                 <TextBlock Grid.Column="0" Text="IP Address" FontWeight="SemiBold" FontSize="13"/>

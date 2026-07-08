@@ -1,4 +1,4 @@
-# NetKeyer - FlexRadio CW Keyer
+# NetKeyer+Remote - FlexRadio CW Keyer
 
 A cross-platform GUI application for CW (Morse code) keying with FlexRadio devices, supporting both serial port and MIDI input devices.
 
@@ -78,12 +78,14 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 ### 1. Build the native MIDI shim
 
 **Linux / macOS:**
+
 ```bash
 cd native
 ./build.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 cd native
 .\build.ps1
@@ -146,27 +148,37 @@ dotnet run
 4. **Swap Paddles**: Reverse left/right paddle assignment if needed
 5. **Disconnect**: Return to setup page to change settings
 
-### Remote Mode (Phase 2)
+### Remote Mode
 
 Use the **Remote Connection Mode** section on the setup page to select one of these modes:
 
 - **Standalone**: Existing behavior (local input keys local radio connection)
-- **Remote Client (Computer #1)**:
+- **Remote Client**:
   - Opens local input device and keeps local sidetone active
   - Sends paddle/straight/PTT state with timing ticks to a remote host via TCP
-- **Remote Host (Computer #2)**:
+- **Remote Host**:
   - Connects to a local/SmartLink radio and listens for remote paddle events
   - Mutes local sidetone while host mode is active
   - Accepts up to 5 simultaneous TCP client connections
   - Includes active-client ownership lock with configurable hold time
   - Drops stale remote frames before they reach keying
 
+Rendezvous setup inputs:
+- **Redezvous Server**: enter only host name or IP (for example, `netkeyer.ddns.net`).
+- **Port**: default `49923`.
+- The app generates the control URL in code as `http://<server>:<port>`.
+
 Remote host setup options include:
+
 - **Max Clients**: limit concurrent remote clients (1 to 5)
 - **Client Hold Time**: ownership hold duration after last accepted key input (0.5s to 30.0s in 0.5s increments)
 
 Operating-page telemetry:
-- **Host Client Status** and **Client Host Status** blocks include a compact two-line telemetry display.
+
+- **Host Status** and **Client Status** blocks include: 
+
+- Host and Client connection list and status
+- compact two-line telemetry display.
 - Telemetry fields:
   - Line 1: last lag, avg lag, max lag (last 60 seconds)
   - Line 2: accepted frames in last 60 seconds, stale drops
@@ -174,6 +186,7 @@ Operating-page telemetry:
 - Telemetry text is rendered with high-contrast styling for readability in operating view.
 
 Defaults:
+
 - Port: `49920`
 - Client target host: `127.0.0.1`
 - Host bind address: `0.0.0.0`
@@ -181,6 +194,11 @@ Defaults:
 ## Rendezvous and Relay Services
 
 NetKeyer now includes deployment artifacts for standalone rendezvous control-plane and relay data-plane services under [rendezvous_services](rendezvous_services).
+
+The rendezvous server and relay server are Python applications requiring Python 3.11.
+These Python apps are intended to run in Docker containers therfore Docker is required
+to be installed on the system hosting these apps.  The repository contains the necessary Docker files for deployment.  It may be be necessary to open ports
+49920-49923 on your router to allow the rendezvous server to be accessed over the WAN.
 
 ### Service Overview
 
@@ -304,38 +322,52 @@ stream {
 ## MIDI Configuration
 
 The MIDI note configuration dialog allows you to assign any MIDI note (0-127) to one or more functions:
+
 - **Left Paddle**: Generates dits in iambic mode
 - **Right Paddle**: Generates dahs in iambic mode
 - **Straight Key**: Direct key on/off control
 - **PTT**: Push-to-talk for non-CW modes
 
 Default mappings (compatible with HaliKey MIDI and CTR2):
+
 - Note 20: Left Paddle + Straight Key + PTT
 - Note 21: Right Paddle + Straight Key + PTT
 - Note 30: Straight Key only
 - Note 31: PTT only
+
+## About and Updates
+
+- Window and dialog titles use `NetKeyer+Remote` branding.
+- The About dialog credits show:
+  - `by Eric NR4O`
+  - `forked from NetKeyer by Andrew KC2G and contributors`
+- `Check for Updates` is currently disabled until a new update location is configured.
 
 ## Troubleshooting
 
 ### Connection Issues
 
 **Radio not found**:
+
 - Ensure radio is on the same network
 - Check firewall settings
 - Try SmartLink if local discovery fails
 
 **GUI client binding fails**:
+
 - Radio needs SmartSDR or another GUI client running
 - Wait a moment after connecting before binding
 
 ### Audio Issues
 
 **No sidetone**:
+
 - Check sidetone volume slider
 - Verify system audio is not muted
 - Check audio output device in your system mixer
 
 **High latency**:
+
 - Windows: Ensure WASAPI backend is being used
 - Linux: Check PulseAudio/PipeWire configuration
 - Adjust buffer size if needed
@@ -343,11 +375,13 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 ### Input Device Issues
 
 **Serial port not found**:
+
 - Check device permissions (Linux: add user to `dialout` group)
 - Verify device is connected
 - Click "Refresh" to rescan
 
 **MIDI device not responding**:
+
 - Verify MIDI device is connected and powered
 - Check MIDI note mappings match your device
 - Use "Configure MIDI Notes..." to adjust mappings
@@ -357,12 +391,14 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 NetKeyer supports detailed debug logging controlled by the `NETKEYER_DEBUG` environment variable. This can help diagnose issues with specific subsystems.
 
 Remote telemetry note:
+
 - Core remote telemetry summaries are logged by default under category `remote-telemetry`, even when `NETKEYER_DEBUG` is not configured.
 - Setting `NETKEYER_DEBUG=remote` still enables additional remote transport/session diagnostic logs.
 
 **Log File Location**:
 
 Debug messages are automatically written to a log file in the NetKeyer application data folder:
+
 - **Windows**: `%APPDATA%\NetKeyer\debug.log`
 - **Linux**: `~/.config/NetKeyer/debug.log`
 - **macOS**: `~/Library/Application Support/NetKeyer/debug.log`
@@ -387,6 +423,7 @@ You can easily access the log folder via **Help → View Debug Log...** in the a
 **Usage Examples**:
 
 **Linux/macOS**:
+
 ```bash
 # Enable all debug output
 NETKEYER_DEBUG=all dotnet run
@@ -399,6 +436,7 @@ NETKEYER_DEBUG=midi* dotnet run
 ```
 
 **Windows PowerShell**:
+
 ```powershell
 # Enable all debug output
 $env:NETKEYER_DEBUG="all"
@@ -410,6 +448,7 @@ dotnet run
 ```
 
 **Windows CMD**:
+
 ```cmd
 # Enable all debug output
 set NETKEYER_DEBUG=all
@@ -487,11 +526,13 @@ NetKeyer/
 ### Input Device Support
 
 **Serial Port (HaliKey v1)**:
+
 - HaliKey v1: CTS (left paddle) + DSR (right paddle)
 
 **MIDI Devices**:
+
 - Supports any MIDI controller with configurable note mappings
-    - Tested with HaliKey MIDI and CTR2-MIDI
+  - Tested with HaliKey MIDI and CTR2-MIDI
 - Note On/Off events trigger paddle/key/PTT state changes
 
 ### Iambic Keyer Implementation
@@ -511,11 +552,13 @@ NetKeyer/
 ### Settings Persistence
 
 User settings are stored in:
+
 - Linux: `~/.config/NetKeyer/settings.json`
 - Windows: `%APPDATA%\NetKeyer\settings.json`
 - macOS: `~/Library/Application Support/NetKeyer/settings.json`
 
 Stored settings include:
+
 - Selected radio (serial number and GUI client station)
 - Input device type and selection
 - MIDI note mappings

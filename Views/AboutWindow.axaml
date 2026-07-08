@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="330"
         x:Class="NetKeyer.Views.AboutWindow"
         x:DataType="vm:AboutWindowViewModel"
-        Title="About NetKeyer"
+        Title="About NetKeyer+Remote"
         Width="400" Height="330"
         MinWidth="400" MinHeight="330"
         MaxWidth="400" MaxHeight="330"
@@ -20,7 +20,7 @@
     <StackPanel Margin="20" Spacing="15" VerticalAlignment="Center">
 
         <!-- Application Name -->
-        <TextBlock Text="NetKeyer"
+        <TextBlock Text="NetKeyer+Remote"
                    FontSize="24"
                    FontWeight="Bold"
                    HorizontalAlignment="Center"/>
@@ -32,11 +32,16 @@
                    Foreground="Gray"/>
 
         <!-- Credits -->
-        <TextBlock Text="by Andrew KC2G and NetKeyer contributors"
+        <TextBlock Text="by Eric NR4O"
+               FontSize="12"
+               HorizontalAlignment="Center"
+               TextWrapping="Wrap"
+               Margin="0,10,0,0"/>
+        <TextBlock Text="forked from NetKeyer by Andrew KC2G and contributors"
                    FontSize="12"
                    HorizontalAlignment="Center"
                    TextWrapping="Wrap"
-                   Margin="0,10,0,0"/>
+               Margin="0,0,0,0"/>
 
         <!-- GitHub Link -->
         <Button Content="https://github.com/NetKeyer/NetKeyer"
@@ -69,7 +74,7 @@
                 HorizontalAlignment="Center"
                 HorizontalContentAlignment="Center"
                 Width="140"
-                IsEnabled="{Binding !IsCheckingForUpdates}"
+            IsEnabled="False"
                 Margin="0,5,0,0"/>
 
         <!-- Close Button -->

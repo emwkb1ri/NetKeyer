@@ -30,6 +30,18 @@
   - [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs)
   - [Services/Remote/RemoteHostService.cs](Services/Remote/RemoteHostService.cs)
   - Added transport labels in connection success logs: `direct`, `mapped-direct`, `relay`.
+- Setup and operating UI updates in [Views/MainWindow.axaml](Views/MainWindow.axaml) + [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs):
+  - Rendezvous input changed from a single URL field to separate `Redezvous Server` and `Port` fields.
+  - Rendezvous URL is now generated in code as `http://<server>:<port>` (default port `49923`) and legacy saved URL values are parsed into the new fields.
+  - Remote mode selection labels simplified to `Remote Client` and `Remote Host` (removed `(Computer #1)` / `(Computer #2)`).
+  - Operating page section labels renamed to `Host Status` and `Client Status`.
+- UI branding updates across window titles and About dialog:
+  - Main and dialog window titles now use `NetKeyer+Remote` branding.
+  - About dialog title and app name updated to `NetKeyer+Remote`.
+  - About credits updated to:
+    - `by Eric NR4O`
+    - `forked from NetKeyer by Andrew KC2G and contributors`
+  - `Check for Updates` button is intentionally disabled until a new update location is configured.
 
 ### Reliability
 - Rendezvous server test suite expanded and passing:

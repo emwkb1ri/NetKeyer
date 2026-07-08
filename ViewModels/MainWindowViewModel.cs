@@ -188,6 +188,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private CancellationTokenSource _remoteCts;
     private readonly HashSet<string> _relayHostSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _relayHostSessionsLock = new();
+    private bool _isSyncingRendezvousEndpoint;
+    private const int DefaultRendezvousPort = 49923;
 
     [ObservableProperty]
     private bool _smartLinkAvailable = false;
@@ -269,6 +271,12 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RemoteHostRendezvousStatusText), nameof(RemoteHostWaitingLineText))]
     private bool _remoteUseRendezvous = false;
+
+    [ObservableProperty]
+    private string _remoteRendezvousServer = "";
+
+    [ObservableProperty]
+    private int _remoteRendezvousPort = DefaultRendezvousPort;
 
     [ObservableProperty]
     private string _remoteRendezvousServerUrl = "";
@@ -471,7 +479,10 @@ public partial class MainWindowViewModel : ViewModelBase
         RemoteSharedToken = _settings.RemoteSharedToken ?? "";
         RemoteMaxClients = _settings.RemoteHostMaxClients > 0 ? _settings.RemoteHostMaxClients : 5;
         RemoteUseRendezvous = _settings.RemoteUseRendezvous;
-        RemoteRendezvousServerUrl = _settings.RemoteRendezvousServerUrl ?? "";
+        ParseRendezvousEndpoint(_settings.RemoteRendezvousServerUrl ?? "", out string rendezvousServer, out int rendezvousPort);
+        RemoteRendezvousServer = rendezvousServer;
+        RemoteRendezvousPort = rendezvousPort;
+        RemoteRendezvousServerUrl = BuildRendezvousServerUrl();
         RemoteRendezvousHostId = _settings.RemoteRendezvousHostId ?? "";
         RemoteClientHoldSeconds = ConvertHoldMsToSeconds(_settings.RemoteHostClientHoldMs);
         _loadingSettings = false;
@@ -688,8 +699,38 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(RemoteHostWaitingLineText));
     }
 
+    partial void OnRemoteRendezvousServerChanged(string value)
+    {
+        SyncRendezvousEndpointFromInputs();
+    }
+
+    partial void OnRemoteRendezvousPortChanged(int value)
+    {
+        if (value <= 0 || value > 65535)
+        {
+            if (!_isSyncingRendezvousEndpoint)
+            {
+                _isSyncingRendezvousEndpoint = true;
+                RemoteRendezvousPort = DefaultRendezvousPort;
+                _isSyncingRendezvousEndpoint = false;
+            }
+            return;
+        }
+
+        SyncRendezvousEndpointFromInputs();
+    }
+
     partial void OnRemoteRendezvousServerUrlChanged(string value)
     {
+        if (!_isSyncingRendezvousEndpoint)
+        {
+            ParseRendezvousEndpoint(value, out string serverName, out int serverPort);
+            _isSyncingRendezvousEndpoint = true;
+            RemoteRendezvousServer = serverName;
+            RemoteRendezvousPort = serverPort;
+            _isSyncingRendezvousEndpoint = false;
+        }
+
         if (!_loadingSettings && _settings != null)
         {
             _settings.RemoteRendezvousServerUrl = value ?? "";
@@ -724,10 +765,10 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        string rendezvousUrl = (RemoteRendezvousServerUrl ?? string.Empty).Trim();
+        string rendezvousUrl = BuildRendezvousServerUrl();
         if (string.IsNullOrWhiteSpace(rendezvousUrl))
         {
-            RemoteStatus = "Rendezvous URL is required for host discovery";
+            RemoteStatus = "Rendezvous server is required for host discovery";
             return;
         }
 
@@ -1439,11 +1480,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (RemoteUseRendezvous)
         {
-            string rendezvousUrl = (RemoteRendezvousServerUrl ?? string.Empty).Trim();
+            string rendezvousUrl = BuildRendezvousServerUrl();
 
             if (string.IsNullOrWhiteSpace(rendezvousUrl))
             {
-                throw new InvalidOperationException("Rendezvous URL is required when rendezvous mode is enabled.");
+                throw new InvalidOperationException("Rendezvous server is required when rendezvous mode is enabled.");
             }
 
             string hostId = await ResolveRendezvousHostIdForConnectAsync(rendezvousUrl, _remoteCts.Token);
@@ -1654,11 +1695,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (RemoteUseRendezvous)
         {
-            string rendezvousUrl = (RemoteRendezvousServerUrl ?? string.Empty).Trim();
+            string rendezvousUrl = BuildRendezvousServerUrl();
             if (string.IsNullOrWhiteSpace(rendezvousUrl))
             {
                 DebugLogger.LogAlways("rendezvous", "Host rendezvous registration skipped: URL is empty while Use Rendezvous is enabled");
-                throw new InvalidOperationException("Rendezvous URL is required when rendezvous mode is enabled.");
+                throw new InvalidOperationException("Rendezvous server is required when rendezvous mode is enabled.");
             }
 
             string hostId = GetRendezvousHostId();
@@ -1773,6 +1814,83 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         return $"{callsign}-{Environment.MachineName}";
+    }
+
+    private void SyncRendezvousEndpointFromInputs()
+    {
+        if (_isSyncingRendezvousEndpoint)
+        {
+            return;
+        }
+
+        string generatedUrl = BuildRendezvousServerUrl();
+        _isSyncingRendezvousEndpoint = true;
+        RemoteRendezvousServerUrl = generatedUrl;
+        _isSyncingRendezvousEndpoint = false;
+    }
+
+    private string BuildRendezvousServerUrl()
+    {
+        string serverName = (RemoteRendezvousServer ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(serverName))
+        {
+            return string.Empty;
+        }
+
+        int port = RemoteRendezvousPort;
+        if (port <= 0 || port > 65535)
+        {
+            port = DefaultRendezvousPort;
+        }
+
+        return $"http://{serverName}:{port}";
+    }
+
+    private static void ParseRendezvousEndpoint(string value, out string serverName, out int port)
+    {
+        serverName = string.Empty;
+        port = DefaultRendezvousPort;
+
+        string raw = (value ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return;
+        }
+
+        if (Uri.TryCreate(raw, UriKind.Absolute, out var absoluteUri))
+        {
+            serverName = absoluteUri.Host ?? string.Empty;
+            if (absoluteUri.Port > 0)
+            {
+                port = absoluteUri.Port;
+            }
+            return;
+        }
+
+        string candidate = raw;
+        if (candidate.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            candidate = candidate.Substring("http://".Length);
+        }
+        else if (candidate.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            candidate = candidate.Substring("https://".Length);
+        }
+
+        int separatorIndex = candidate.LastIndexOf(':');
+        if (separatorIndex > 0 && separatorIndex == candidate.IndexOf(':'))
+        {
+            string hostPart = candidate.Substring(0, separatorIndex).Trim();
+            string portPart = candidate.Substring(separatorIndex + 1).Trim();
+            if (int.TryParse(portPart, out int parsedPort) && parsedPort > 0 && parsedPort <= 65535)
+            {
+                serverName = hostPart;
+                port = parsedPort;
+                return;
+            }
+        }
+
+        serverName = candidate;
     }
 
     private static decimal NormalizeHoldSeconds(decimal value)

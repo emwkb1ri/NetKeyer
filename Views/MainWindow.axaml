@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="720"
         x:Class="NetKeyer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="NetKeyer - FlexRadio CW Keyer"
+        Title="NetKeyer+Remote - FlexRadio CW Keyer"
         Width="600" Height="720"
         MinWidth="500" MinHeight="690">
 
@@ -27,7 +27,7 @@
             <MenuItem Header="_Help">
                 <MenuItem Header="_Documentation" Command="{Binding OpenDocumentationCommand}"/>
                 <MenuItem Header="_View Debug Log..." Command="{Binding OpenDebugLogCommand}"/>
-                <MenuItem Header="_About NetKeyer..." Command="{Binding ShowAboutCommand}"/>
+                <MenuItem Header="_About NetKeyer+Remote..." Command="{Binding ShowAboutCommand}"/>
             </MenuItem>
         </Menu>
 
@@ -139,11 +139,11 @@
                                              GroupName="RemoteMode"
                                              IsChecked="{Binding IsRemoteModeOff}"
                                              Padding="2"/>
-                                <RadioButton Content="Remote Client (Computer #1)"
+                                <RadioButton Content="Remote Client"
                                              GroupName="RemoteMode"
                                              IsChecked="{Binding IsRemoteModeClient}"
                                              Padding="2"/>
-                                <RadioButton Content="Remote Host (Computer #2)"
+                                <RadioButton Content="Remote Host"
                                              GroupName="RemoteMode"
                                              IsChecked="{Binding IsRemoteModeHost}"
                                              Padding="2"/>
@@ -160,8 +160,10 @@
                                               VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
-                                    <TextBlock Text="Rendezvous URL:" Width="110" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding RemoteRendezvousServerUrl}" Width="320"/>
+                                    <TextBlock Text="Redezvous Server:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteRendezvousServer}" Width="240"/>
+                                    <TextBlock Text="Port:" Width="36" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding RemoteRendezvousPort}" Minimum="1" Maximum="65535" Width="80"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
                                     <TextBlock Text="Host Discovery:" Width="110" VerticalAlignment="Center"/>
@@ -206,8 +208,10 @@
                                               VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
-                                    <TextBlock Text="Rendezvous URL:" Width="110" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding RemoteRendezvousServerUrl}" Width="320"/>
+                                    <TextBlock Text="Redezvous Server:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding RemoteRendezvousServer}" Width="240"/>
+                                    <TextBlock Text="Port:" Width="36" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding RemoteRendezvousPort}" Minimum="1" Maximum="65535" Width="80"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
                                     <TextBlock Text="Host ID:" Width="110" VerticalAlignment="Center"/>
@@ -432,7 +436,7 @@
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3"
                             IsVisible="{Binding IsRemoteModeHost}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Host Client Status" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Text="Host Status" FontWeight="Bold" FontSize="14"/>
 
                             <TextBlock Text="{Binding RemoteHostWaitingLineText}"
                                        FontSize="13"
@@ -489,7 +493,7 @@
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3"
                             IsVisible="{Binding IsRemoteModeClient}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Client Host Status" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Text="Client Status" FontWeight="Bold" FontSize="14"/>
 
                             <Grid ColumnDefinitions="2*,2*,*">
                                 <TextBlock Grid.Column="0" Text="Host IP" FontWeight="SemiBold" FontSize="13"/>

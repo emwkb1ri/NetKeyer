@@ -30,9 +30,16 @@
   - [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs)
   - [Services/Remote/RemoteHostService.cs](Services/Remote/RemoteHostService.cs)
   - Added transport labels in connection success logs: `direct`, `mapped-direct`, `relay`.
+- CW operating controls now persist in settings only for Remote Client mode:
+  - `CwSpeed`, `SidetoneVolume`, and `CwPitch` are saved/restored for client mode sessions.
+  - Host and standalone flows remain radio-driven and do not persist these values locally.
 - Setup and operating UI updates in [Views/MainWindow.axaml](Views/MainWindow.axaml) + [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs):
   - Rendezvous input changed from a single URL field to separate `Redezvous Server` and `Port` fields.
   - Rendezvous URL is now generated in code as `http://<server>:<port>` (default port `49923`) and legacy saved URL values are parsed into the new fields.
+  - Setup label copy refined:
+    - `Redezvous Server` renamed to `ID Server`.
+    - Client-side `Selected Host ID` renamed to `Host ID`.
+  - Spinner arrows removed from both setup `Port` input controls for the ID server endpoint fields.
   - Remote mode selection labels simplified to `Remote Client` and `Remote Host` (removed `(Computer #1)` / `(Computer #2)`).
   - Operating page section labels renamed to `Host Status` and `Client Status`.
 - UI branding updates across window titles and About dialog:

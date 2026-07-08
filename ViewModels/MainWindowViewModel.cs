@@ -485,6 +485,14 @@ public partial class MainWindowViewModel : ViewModelBase
         RemoteRendezvousServerUrl = BuildRendezvousServerUrl();
         RemoteRendezvousHostId = _settings.RemoteRendezvousHostId ?? "";
         RemoteClientHoldSeconds = ConvertHoldMsToSeconds(_settings.RemoteHostClientHoldMs);
+
+        if (RemoteMode == RemoteConnectionMode.Client)
+        {
+            CwSpeed = _settings.RemoteClientCwSpeed > 0 ? _settings.RemoteClientCwSpeed : 20;
+            SidetoneVolume = Math.Max(0, Math.Min(100, _settings.RemoteClientSidetoneVolume));
+            CwPitch = _settings.RemoteClientCwPitch > 0 ? _settings.RemoteClientCwPitch : 600;
+        }
+
         _loadingSettings = false;
 
         // Initial discovery
@@ -599,6 +607,13 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             _settings.RemoteMode = value;
             _settings.Save();
+        }
+
+        if (value == RemoteConnectionMode.Client && _settings != null)
+        {
+            CwSpeed = _settings.RemoteClientCwSpeed > 0 ? _settings.RemoteClientCwSpeed : CwSpeed;
+            SidetoneVolume = Math.Max(0, Math.Min(100, _settings.RemoteClientSidetoneVolume));
+            CwPitch = _settings.RemoteClientCwPitch > 0 ? _settings.RemoteClientCwPitch : CwPitch;
         }
 
         if (value == RemoteConnectionMode.Off)
@@ -2458,6 +2473,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnCwSpeedChanged(int value)
     {
+        if (!_loadingSettings && _settings != null && RemoteMode == RemoteConnectionMode.Client)
+        {
+            _settings.RemoteClientCwSpeed = value;
+            _settings.Save();
+        }
+
         // Update sidetone generator WPM for ramp calculations
         _sidetoneGenerator?.SetWpm(value);
 
@@ -2470,6 +2491,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnCwPitchChanged(int value)
     {
+        if (!_loadingSettings && _settings != null && RemoteMode == RemoteConnectionMode.Client)
+        {
+            _settings.RemoteClientCwPitch = value;
+            _settings.Save();
+        }
+
         // Update sidetone frequency
         _sidetoneGenerator?.SetFrequency(value);
 
@@ -2479,6 +2506,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSidetoneVolumeChanged(int value)
     {
+        if (!_loadingSettings && _settings != null && RemoteMode == RemoteConnectionMode.Client)
+        {
+            _settings.RemoteClientSidetoneVolume = value;
+            _settings.Save();
+        }
+
         // Update sidetone volume
         _sidetoneGenerator?.SetVolume(value);
 

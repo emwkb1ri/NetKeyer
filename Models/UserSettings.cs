@@ -50,6 +50,9 @@ namespace NetKeyer.Models
         public bool RemoteUseRendezvous { get; set; } = false;
         public string RemoteRendezvousServerUrl { get; set; } = "";
         public string RemoteRendezvousHostId { get; set; } = "";
+        public int RemoteClientCwSpeed { get; set; } = 20;
+        public int RemoteClientSidetoneVolume { get; set; } = 50;
+        public int RemoteClientCwPitch { get; set; } = 600;
 
         // Stored encrypted in the file (Base64)
         public string SmartLinkRefreshTokenEncrypted { get; set; }

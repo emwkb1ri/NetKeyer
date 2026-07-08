@@ -160,10 +160,10 @@
                                               VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
-                                    <TextBlock Text="Redezvous Server:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBlock Text="ID Server:" Width="110" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding RemoteRendezvousServer}" Width="240"/>
                                     <TextBlock Text="Port:" Width="36" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding RemoteRendezvousPort}" Minimum="1" Maximum="65535" Width="80"/>
+                                    <NumericUpDown Value="{Binding RemoteRendezvousPort}" Minimum="1" Maximum="65535" Width="80" ShowButtonSpinner="False"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
                                     <TextBlock Text="Host Discovery:" Width="110" VerticalAlignment="Center"/>
@@ -178,7 +178,7 @@
                                             Padding="4"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
-                                    <TextBlock Text="Selected Host ID:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Host ID:" Width="110" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding RemoteRendezvousHostId}" Width="320"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -187,7 +187,7 @@
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Target Port:" Width="110" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding RemoteClientPort}" Minimum="1" Maximum="65535" Width="140"/>
+                                    <NumericUpDown Value="{Binding RemoteClientPort}" Minimum="1" Maximum="65535" Width="140" ShowButtonSpinner="False"/>
                                 </StackPanel>
                                 <TextBlock FontSize="12" Foreground="DimGray">
                                     <Run Text="Connected host: "/>
@@ -208,10 +208,10 @@
                                               VerticalAlignment="Center"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
-                                    <TextBlock Text="Redezvous Server:" Width="110" VerticalAlignment="Center"/>
+                                    <TextBlock Text="ID Server:" Width="110" VerticalAlignment="Center"/>
                                     <TextBox Text="{Binding RemoteRendezvousServer}" Width="240"/>
                                     <TextBlock Text="Port:" Width="36" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding RemoteRendezvousPort}" Minimum="1" Maximum="65535" Width="80"/>
+                                    <NumericUpDown Value="{Binding RemoteRendezvousPort}" Minimum="1" Maximum="65535" Width="80" ShowButtonSpinner="False"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding RemoteUseRendezvous}">
                                     <TextBlock Text="Host ID:" Width="110" VerticalAlignment="Center"/>
@@ -223,18 +223,18 @@
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Listen Port:" Width="110" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding RemoteHostPort}" Minimum="1" Maximum="65535" Width="140"/>
+                                    <NumericUpDown Value="{Binding RemoteHostPort}" Minimum="1" Maximum="65535" Width="140" ShowButtonSpinner="False"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Max Clients:" Width="110" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding RemoteMaxClients}" Minimum="1" Maximum="5" Width="140"/>
-                                    <TextBlock Text="Client Hold Time:" Width="120" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    <NumericUpDown Value="{Binding RemoteMaxClients}" Minimum="1" Maximum="5" Width="110"/>
+                                    <TextBlock Text="Hold Time:" Width="84" VerticalAlignment="Center" Margin="8,0,0,0"/>
                                     <NumericUpDown Value="{Binding RemoteClientHoldSeconds}"
                                                    Minimum="0.5"
                                                    Maximum="30.0"
                                                    Increment="0.5"
                                                    FormatString="F1"
-                                                   Width="90"/>
+                                                   Width="110"/>
                                     <TextBlock Text="sec" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </StackPanel>

@@ -370,6 +370,22 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 - On Windows, ensure the firewall rule applies to the active network profile, including Public when applicable.
 - Confirm router/NAT forwarding and mapping are targeting the same host and port.
 
+### First-Time Remote Setup Checklist
+
+Use this quick checklist before WAN testing:
+
+1. Configure the same shared token on Remote Host and Remote Client.
+2. Confirm Remote Host is listening on the expected port (default `49920`).
+3. On host, allow inbound TCP on the listen port in the OS firewall.
+4. On Windows host, ensure the firewall rule covers the active profile (Private/Public).
+5. Optional: Port forwarding, confirm router/NAT forwards the same port to the host.
+6. Start host first, then connect client.
+7. Verify expected logs:
+  - Host success: `Session <id> authenticated ...`
+  - Host refusal: `Connection refused ... shared token mismatch` or `missing shared token`
+  - Client refusal: `Host error payload: Connection refused: ...`
+8. If direct fails but relay succeeds, treat this as a network path issue (firewall/NAT), not a protocol failure.
+
 ### Audio Issues
 
 **No sidetone**:

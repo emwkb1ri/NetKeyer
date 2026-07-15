@@ -7,18 +7,25 @@
 - Relay pending-session timeout default increased from 10 seconds to 30 seconds in:
   - [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py)
   - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+- Exit command teardown in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) is now asynchronous and resilient:
+  - avoids UI-thread blocking during remote/rendezvous shutdown,
+  - suppresses setup-page SmartLink reconnect scheduling while exiting,
+  - disconnects SmartLink WAN session during exit,
+  - bounds `API.CloseSession()` with timeout so shutdown proceeds even if Flex session close stalls.
 
 ### Improved
 - Host authentication failure logging now clearly indicates connection refusal due to shared token mismatch in [Services/Remote/RemoteClientSession.cs](Services/Remote/RemoteClientSession.cs).
 - Client diagnostics are now clearer for rapid auth-refusal disconnects:
   - Always-on host error payload logging in [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs).
   - Client status guard preserves explicit host error messages instead of immediately replacing them with generic EOF disconnect text.
+- Host auth refusal messages now explicitly distinguish `shared token mismatch` vs `missing shared token` in [Services/Remote/RemoteClientSession.cs](Services/Remote/RemoteClientSession.cs).
 
 ### Troubleshooting
 - Verified field behavior during WAN validation:
   - Shared token mismatch causes host-side connection refusal.
   - Host firewall policy (especially Windows Public profile inbound rules) can prevent direct and mapped-direct TCP success even when automatic mapping reports success.
   - Relay fallback remains functional when direct paths are blocked.
+- Added first-time remote setup checklist and expanded remote troubleshooting guidance in [README.md](README.md), including expected log signatures for token mismatch and firewall-related direct-path failures.
 
 ## 2026-07-08
 

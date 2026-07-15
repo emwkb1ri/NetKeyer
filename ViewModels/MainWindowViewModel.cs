@@ -189,6 +189,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly HashSet<string> _relayHostSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _relayHostSessionsLock = new();
     private bool _isSyncingRendezvousEndpoint;
+    private bool _isExiting;
     private const int DefaultRendezvousPort = 49923;
 
     [ObservableProperty]
@@ -2388,7 +2389,7 @@ public partial class MainWindowViewModel : ViewModelBase
             UpdatePaddleLabels();
 
             // Re-establish SmartLink connection if authenticated (to refresh radio list)
-            if (_smartLinkManager != null && _smartLinkManager.IsAuthenticated)
+            if (!_isExiting && _smartLinkManager != null && _smartLinkManager.IsAuthenticated)
             {
                 Task.Run(async () =>
                 {
@@ -2409,13 +2410,32 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Exit()
+    private async Task Exit()
     {
+        if (_isExiting)
+        {
+            return;
+        }
+
+        _isExiting = true;
+
         try
         {
-            StopRemoteServicesAsync().GetAwaiter().GetResult();
+            Task stopRemoteTask = StopRemoteServicesAsync();
+            Task completedTask = await Task.WhenAny(stopRemoteTask, Task.Delay(TimeSpan.FromSeconds(5)));
+            if (completedTask != stopRemoteTask)
+            {
+                DebugLogger.LogAlways("remote", "Exit requested: remote service shutdown timed out after 5 seconds; continuing app shutdown");
+            }
+            else
+            {
+                await stopRemoteTask;
+            }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            DebugLogger.LogAlways("remote", $"Exit requested: remote teardown failed: {ex.Message}");
+        }
 
         // Clean up all keying state before exit
         _keyingController?.Stop();
@@ -2423,7 +2443,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (_connectedRadio != null)
         {
+            _connectedRadio.PropertyChanged -= Radio_PropertyChanged;
+            _transmitSliceMonitor.Detach();
+            _radioSettingsSynchronizer.DetachFromRadio();
             _connectedRadio.Disconnect();
+            _connectedRadio = null;
         }
 
         // Close input device
@@ -2438,7 +2462,41 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _hostPortMapper?.Dispose();
 
-        API.CloseSession();
+        try
+        {
+            _smartLinkManager?.CancelLogin();
+            _smartLinkManager?.WanServer?.Disconnect();
+        }
+        catch (Exception ex)
+        {
+            DebugLogger.LogAlways("system", $"Exit requested: SmartLink disconnect failed: {ex.Message}");
+        }
+
+        try
+        {
+            Task closeSessionTask = Task.Run(() => API.CloseSession());
+            Task completedTask = await Task.WhenAny(closeSessionTask, Task.Delay(TimeSpan.FromSeconds(3)));
+            if (completedTask != closeSessionTask)
+            {
+                DebugLogger.LogAlways("system", "Exit requested: API.CloseSession timed out after 3 seconds; continuing shutdown");
+            }
+            else
+            {
+                await closeSessionTask;
+            }
+        }
+        catch (Exception ex)
+        {
+            DebugLogger.LogAlways("system", $"Exit requested: API.CloseSession failed: {ex.Message}");
+        }
+
+        var desktopLifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        if (desktopLifetime != null)
+        {
+            desktopLifetime.Shutdown(0);
+            return;
+        }
+
         Environment.Exit(0);
     }
 

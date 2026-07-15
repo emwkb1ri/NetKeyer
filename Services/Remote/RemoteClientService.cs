@@ -21,6 +21,10 @@ public class RemoteClientService : IRemoteClientService
     private long _sequence;
     private string _connectedHostIp = "";
     private string _connectedHostName = "";
+    private string _lastHostErrorMessage = "";
+    private DateTime _lastHostErrorUtc = DateTime.MinValue;
+
+    private static readonly TimeSpan HostErrorStatusGuardWindow = TimeSpan.FromSeconds(2);
 
     public bool IsConnected => _client?.Connected == true && _stream != null;
 
@@ -58,6 +62,7 @@ public class RemoteClientService : IRemoteClientService
 
         _connectedHostIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? options.TargetHost;
         _connectedHostName = string.Empty;
+        ClearRecentHostError();
 
         await SendControlMessageAsync(RemoteMessageType.Hello, new HelloPayload
         {
@@ -121,6 +126,7 @@ public class RemoteClientService : IRemoteClientService
 
         _connectedHostIp = "";
         _connectedHostName = "";
+        ClearRecentHostError();
 
         RaiseStatus("Disconnected");
         RaiseHostIdentity("", "");
@@ -184,8 +190,10 @@ public class RemoteClientService : IRemoteClientService
                 if (envelope.Type == RemoteMessageType.Error)
                 {
                     var payload = RemoteProtocolJson.DeserializePayload<ErrorPayload>(envelope);
-                    RaiseStatus($"Host error: {payload?.Message ?? "Unknown"}");
-                    DebugLogger.Log("remote", $"Host error payload: {payload?.Message ?? "Unknown"}");
+                    string hostErrorMessage = payload?.Message ?? "Unknown";
+                    RememberHostError(hostErrorMessage);
+                    RaiseStatus($"Host error: {hostErrorMessage}");
+                    DebugLogger.LogAlways("remote", $"Host error payload: {hostErrorMessage}");
                 }
                 else if (envelope.Type == RemoteMessageType.Hello)
                 {
@@ -206,9 +214,80 @@ public class RemoteClientService : IRemoteClientService
         }
         catch (Exception ex)
         {
+            if (TryGetRecentHostErrorForStatusGuard(ex, out string recentHostError))
+            {
+                DebugLogger.LogAlways("remote", $"Client receive loop terminated after host error; preserving status 'Host error: {recentHostError}' (exception: {ex.Message})");
+                return;
+            }
+
             RaiseStatus($"Connection lost: {ex.Message}");
-            DebugLogger.Log("remote", $"Client receive loop terminated: {ex.Message}");
+            DebugLogger.LogAlways("remote", $"Client receive loop terminated: {ex.Message}");
         }
+    }
+
+    private void RememberHostError(string message)
+    {
+        lock (_sync)
+        {
+            _lastHostErrorMessage = message ?? "Unknown";
+            _lastHostErrorUtc = DateTime.UtcNow;
+        }
+    }
+
+    private void ClearRecentHostError()
+    {
+        lock (_sync)
+        {
+            _lastHostErrorMessage = "";
+            _lastHostErrorUtc = DateTime.MinValue;
+        }
+    }
+
+    private bool TryGetRecentHostErrorForStatusGuard(Exception ex, out string message)
+    {
+        message = "";
+
+        if (!IsLikelyEofDisconnect(ex))
+        {
+            return false;
+        }
+
+        lock (_sync)
+        {
+            if (string.IsNullOrWhiteSpace(_lastHostErrorMessage))
+            {
+                return false;
+            }
+
+            if (DateTime.UtcNow - _lastHostErrorUtc > HostErrorStatusGuardWindow)
+            {
+                return false;
+            }
+
+            message = _lastHostErrorMessage;
+            return true;
+        }
+    }
+
+    private static bool IsLikelyEofDisconnect(Exception ex)
+    {
+        if (ex is System.IO.EndOfStreamException)
+        {
+            return true;
+        }
+
+        string message = ex?.Message ?? "";
+        if (message.IndexOf("end of the stream", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return true;
+        }
+
+        if (message.IndexOf("read beyond end", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private async Task HeartbeatLoopAsync(CancellationToken ct)

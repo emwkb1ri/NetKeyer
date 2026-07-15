@@ -1604,13 +1604,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 try
                 {
+                    using var mappedConnectTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(_remoteCts.Token);
+                    mappedConnectTimeoutCts.CancelAfter(TimeSpan.FromSeconds(4));
+                    DebugLogger.LogAlways("rendezvous", "Mapped direct connect attempt timeout set to 4 seconds before relay fallback");
+
                     await _remoteClientService.ConnectAsync(new RemoteClientOptions
                     {
                         TargetHost = mappedHost,
                         TargetPort = mappedPort,
                         SharedToken = RemoteSharedToken,
                         Callsign = RemoteCallsign
-                    }, _remoteCts.Token);
+                    }, mappedConnectTimeoutCts.Token);
 
                     DebugLogger.LogAlways("remote", $"Client transport connected (transport=mapped-direct) endpoint={mappedHost}:{mappedPort}");
 

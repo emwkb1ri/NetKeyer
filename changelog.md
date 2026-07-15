@@ -1,5 +1,25 @@
 # Remote Keying Feature changes
 
+## 2026-07-15
+
+### Changed
+- Remote client mapped-direct retry now uses a short timeout before relay fallback to avoid long OS TCP timeout delays in rendezvous negotiation.
+- Relay pending-session timeout default increased from 10 seconds to 30 seconds in:
+  - [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py)
+  - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+
+### Improved
+- Host authentication failure logging now clearly indicates connection refusal due to shared token mismatch in [Services/Remote/RemoteClientSession.cs](Services/Remote/RemoteClientSession.cs).
+- Client diagnostics are now clearer for rapid auth-refusal disconnects:
+  - Always-on host error payload logging in [Services/Remote/RemoteClientService.cs](Services/Remote/RemoteClientService.cs).
+  - Client status guard preserves explicit host error messages instead of immediately replacing them with generic EOF disconnect text.
+
+### Troubleshooting
+- Verified field behavior during WAN validation:
+  - Shared token mismatch causes host-side connection refusal.
+  - Host firewall policy (especially Windows Public profile inbound rules) can prevent direct and mapped-direct TCP success even when automatic mapping reports success.
+  - Relay fallback remains functional when direct paths are blocked.
+
 ## 2026-07-08
 
 ### Added

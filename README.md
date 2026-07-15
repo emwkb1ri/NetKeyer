@@ -358,6 +358,18 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 - Radio needs SmartSDR or another GUI client running
 - Wait a moment after connecting before binding
 
+**Remote client connects then immediately disconnects**:
+
+- Verify the shared token matches exactly between Remote Host and Remote Client.
+- A token mismatch is refused by the host and now logs as connection refused due to shared token mismatch.
+- On client, this commonly appears as a host error followed by a quick disconnect.
+
+**Direct and mapped-direct never succeed (relay always used)**:
+
+- Verify the host machine firewall allows inbound TCP on the remote host listen port (default 49920).
+- On Windows, ensure the firewall rule applies to the active network profile, including Public when applicable.
+- Confirm router/NAT forwarding and mapping are targeting the same host and port.
+
 ### Audio Issues
 
 **No sidetone**:

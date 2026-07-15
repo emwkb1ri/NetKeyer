@@ -53,7 +53,10 @@ public class RemoteClientSession : IDisposable
                         break;
 
                     case RemoteMessageType.Auth:
-                        await HandleAuthAsync(envelope, ct);
+                        if (!await HandleAuthAsync(envelope, ct))
+                        {
+                            return;
+                        }
                         break;
 
                     case RemoteMessageType.PaddleState:
@@ -74,7 +77,7 @@ public class RemoteClientSession : IDisposable
         }
         catch (Exception ex)
         {
-            DebugLogger.Log("remote", $"Session {ClientId} closed with error: {ex.Message}");
+            DebugLogger.LogAlways("remote", $"Session {ClientId} closed with error: {ex.Message}");
         }
         finally
         {
@@ -91,16 +94,28 @@ public class RemoteClientSession : IDisposable
         await Task.CompletedTask;
     }
 
-    private async Task HandleAuthAsync(RemoteMessageEnvelope envelope, CancellationToken ct)
+    private async Task<bool> HandleAuthAsync(RemoteMessageEnvelope envelope, CancellationToken ct)
     {
         var auth = RemoteProtocolJson.DeserializePayload<AuthPayload>(envelope);
-        _isAuthenticated = string.IsNullOrWhiteSpace(_requiredToken) || auth?.Token == _requiredToken;
+        string providedToken = auth?.Token ?? "";
+        string expectedToken = _requiredToken ?? "";
+
+        _isAuthenticated = string.IsNullOrWhiteSpace(expectedToken)
+            || string.Equals(providedToken.Trim(), expectedToken.Trim(), StringComparison.Ordinal);
 
         if (!_isAuthenticated)
         {
-            await SendErrorAsync("Authentication failed", ct);
-            try { _client.Close(); } catch { }
+            string refusalReason = string.IsNullOrWhiteSpace(providedToken)
+                ? "missing shared token"
+                : "shared token mismatch";
+
+            DebugLogger.LogAlways("remote", $"Connection refused for session {ClientId} from {RemoteEndpoint}: {refusalReason}");
+            await SendErrorAsync($"Connection refused: {refusalReason}", ct);
+            return false;
         }
+
+        DebugLogger.LogAlways("remote", $"Session {ClientId} authenticated from {RemoteEndpoint}");
+        return true;
     }
 
     private async Task HandlePaddleStateAsync(RemoteMessageEnvelope envelope, CancellationToken ct)

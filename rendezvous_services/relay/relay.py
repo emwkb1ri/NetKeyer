@@ -244,7 +244,7 @@ class RelayServer:
 async def _main() -> None:
     relay_host = os.getenv("RELAY_HOST", "0.0.0.0")
     relay_port = int(os.getenv("RELAY_PORT", "49921"))
-    session_timeout_seconds = float(os.getenv("RELAY_SESSION_TIMEOUT_SECONDS", "10"))
+    session_timeout_seconds = float(os.getenv("RELAY_SESSION_TIMEOUT_SECONDS", "30"))
     handshake_timeout_seconds = float(os.getenv("RELAY_HANDSHAKE_TIMEOUT_SECONDS", "5"))
 
     server = RelayServer(

@@ -7,7 +7,7 @@ services:
     environment:
       RELAY_HOST: 0.0.0.0
       RELAY_PORT: 49921
-      RELAY_SESSION_TIMEOUT_SECONDS: 10
+      RELAY_SESSION_TIMEOUT_SECONDS: 30
       RELAY_HANDSHAKE_TIMEOUT_SECONDS: 5
     ports:
       - "49921:49921"

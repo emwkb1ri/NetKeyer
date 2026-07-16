@@ -261,6 +261,17 @@ public class IambicKeyer
         }
     }
 
+    public void SetSidetoneEnabled(bool enabled)
+    {
+        lock (_lock)
+        {
+            if (!enabled)
+            {
+                _sidetoneGenerator?.Stop();
+            }
+        }
+    }
+
     /// <summary>
     /// Called when a tone starts (including queued tones). Send radio key-down.
     /// </summary>
@@ -346,6 +357,7 @@ public class IambicKeyer
         if (_keyerDebug) DebugLogger.Log("keyer", $"[IambicKeyer] Starting/queueing {(isDit ? "dit" : "dah")} ({toneDurationMs}ms)");
 
         // Start tone (will queue if in silence, start immediately if idle)
+        // Tone events drive iambic radio key-down/key-up timing.
         _sidetoneGenerator?.StartTone(toneDurationMs);
 
         // Clear latches and track element

@@ -15,6 +15,7 @@ public class KeyingController
     private bool _isSidetoneOnlyMode = false;
     private bool _isIambicMode = true;
     private bool _isSidetoneEnabled = true;
+    private int _sidetoneVolume = 50;
 
     // Initialization parameters
     private Func<string> _timestampGenerator;
@@ -56,6 +57,11 @@ public class KeyingController
     {
         _sidetoneGenerator = sidetoneGenerator;
 
+        if (_sidetoneGenerator != null)
+        {
+            _sidetoneGenerator.SetVolume(_isSidetoneEnabled ? _sidetoneVolume : 0);
+        }
+
         // Update iambic keyer's sidetone generator without recreating the keyer
         _iambicKeyer?.UpdateSidetoneGenerator(_sidetoneGenerator);
     }
@@ -63,10 +69,19 @@ public class KeyingController
     public void SetSidetoneEnabled(bool enabled)
     {
         _isSidetoneEnabled = enabled;
+        _iambicKeyer?.SetSidetoneEnabled(enabled);
+
+        _sidetoneGenerator?.SetVolume(_isSidetoneEnabled ? _sidetoneVolume : 0);
         if (!_isSidetoneEnabled)
         {
             _sidetoneGenerator?.Stop();
         }
+    }
+
+    public void SetSidetoneVolume(int volumePercent)
+    {
+        _sidetoneVolume = Math.Max(0, Math.Min(100, volumePercent));
+        _sidetoneGenerator?.SetVolume(_isSidetoneEnabled ? _sidetoneVolume : 0);
     }
 
     public void SetTransmitMode(bool isCW)

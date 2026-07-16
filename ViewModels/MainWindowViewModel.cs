@@ -553,6 +553,7 @@ public partial class MainWindowViewModel : ViewModelBase
         );
         _keyingController.SetKeyingMode(IsIambicMode, IsIambicModeB);
         _keyingController.SetSpeed(CwSpeed);
+        _keyingController.SetSidetoneVolume(SidetoneVolume);
 
         _remoteClientService = new RemoteClientService();
         _remoteClientService.ConnectionStatusChanged += RemoteClientService_ConnectionStatusChanged;
@@ -2576,7 +2577,14 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         // Update sidetone volume
-        _sidetoneGenerator?.SetVolume(value);
+        if (_keyingController != null)
+        {
+            _keyingController.SetSidetoneVolume(value);
+        }
+        else
+        {
+            _sidetoneGenerator?.SetVolume(value);
+        }
 
         // Sync to radio
         _radioSettingsSynchronizer?.SyncSidetoneVolumeToRadio(value);
@@ -2657,6 +2665,7 @@ public partial class MainWindowViewModel : ViewModelBase
         );
         _keyingController.SetKeyingMode(IsIambicMode, IsIambicModeB);
         _keyingController.SetSpeed(CwSpeed);
+        _keyingController.SetSidetoneVolume(SidetoneVolume);
 
         _connectedRadio.PropertyChanged += Radio_PropertyChanged;
         _transmitSliceMonitor.AttachToRadio(_connectedRadio, _boundGuiClientHandle);

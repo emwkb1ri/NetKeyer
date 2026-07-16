@@ -135,6 +135,9 @@ public class RemoteClientSession : IDisposable
 
         long receivedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         long apparentAgeMs = receivedAtUnixMs - envelope.SentAtUnixMs;
+        long receivedAtTickMs = Environment.TickCount64;
+        long senderTickMs = state.SenderTickMs;
+        long senderTickAgeMs = receivedAtTickMs - senderTickMs;
 
         PaddleStateReceived?.Invoke(this, new RemotePaddleStateEventArgs
         {
@@ -142,6 +145,9 @@ public class RemoteClientSession : IDisposable
             RemoteEndpoint = RemoteEndpoint,
             State = state,
             Sequence = envelope.Sequence,
+            SenderTickMs = senderTickMs,
+            ReceivedAtTickMs = receivedAtTickMs,
+            SenderTickAgeMs = senderTickAgeMs,
             SentAtUnixMs = envelope.SentAtUnixMs,
             ReceivedAtUnixMs = receivedAtUnixMs,
             ApparentAgeMs = apparentAgeMs

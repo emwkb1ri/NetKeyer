@@ -1705,7 +1705,8 @@ public partial class MainWindowViewModel : ViewModelBase
             ListenPort = RemoteHostPort,
             SharedToken = RemoteSharedToken,
             MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients)),
-            ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds)
+            ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds),
+            UseSenderTickStaleGate = _settings?.RemoteHostUseSenderTickStaleGate ?? false
         }, _remoteCts.Token);
 
         lock (_relayHostSessionsLock)

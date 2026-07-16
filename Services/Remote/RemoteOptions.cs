@@ -34,6 +34,7 @@ public class RemoteHostOptions
     public int ClientIdleTimeoutMs { get; set; } = 5000;
     public int ActiveClientHoldMs { get; set; } = RemoteDefaults.DefaultClientHoldMs;
     public int StaleFrameDropMs { get; set; } = RemoteDefaults.DefaultStaleFrameDropMs;
+    public bool UseSenderTickStaleGate { get; set; } = false;
     public string RelaySessionId { get; set; } = "";
     public string RelayRole { get; set; } = "";
 }

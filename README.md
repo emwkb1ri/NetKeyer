@@ -370,6 +370,13 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 - On Windows, ensure the firewall rule applies to the active network profile, including Public when applicable.
 - Confirm router/NAT forwarding and mapping are targeting the same host and port.
 
+**Connected but host does not key radio (accepted=0, dropped_stale increases)**:
+
+- Check host telemetry counters. If `accepted` stays `0` and `dropped_stale` rises, paddle frames are being rejected by stale-frame gating.
+- NetKeyer now uses normalized lag by default for stale gating, which removes constant client/host wall-clock offset from stale decisions.
+- Ensure both host and client clocks are synchronized (NTP/Windows Time), especially when testing across multiple machines.
+- Optional staged mode: enable sender-tick stale gating in host settings by setting `RemoteHostUseSenderTickStaleGate` to `true` in `settings.json`.
+
 ### First-Time Remote Setup Checklist
 
 Use this quick checklist before WAN testing:
@@ -422,6 +429,7 @@ Remote telemetry note:
 
 - Core remote telemetry summaries are logged by default under category `remote-telemetry`, even when `NETKEYER_DEBUG` is not configured.
 - Setting `NETKEYER_DEBUG=remote` still enables additional remote transport/session diagnostic logs.
+- Stale-frame gate mode is logged on host startup as either `normalized-lag` (default) or `sender-tick`.
 
 **Log File Location**:
 

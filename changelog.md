@@ -7,6 +7,8 @@
 - Relay pending-session timeout default increased from 10 seconds to 30 seconds in:
   - [rendezvous_services/relay/relay.py](rendezvous_services/relay/relay.py)
   - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+- Remote host stale-frame gating now uses normalized lag by default (instead of raw apparent age), eliminating false stale drops caused by constant client/host clock offset.
+- Sender monotonic tick stale gating is staged behind host settings flag `RemoteHostUseSenderTickStaleGate` in `settings.json` (disabled by default).
 - Exit command teardown in [ViewModels/MainWindowViewModel.cs](ViewModels/MainWindowViewModel.cs) is now asynchronous and resilient:
   - avoids UI-thread blocking during remote/rendezvous shutdown,
   - suppresses setup-page SmartLink reconnect scheduling while exiting,
@@ -25,6 +27,7 @@
   - Shared token mismatch causes host-side connection refusal.
   - Host firewall policy (especially Windows Public profile inbound rules) can prevent direct and mapped-direct TCP success even when automatic mapping reports success.
   - Relay fallback remains functional when direct paths are blocked.
+- Local/LAN validation confirmed clock skew can still impact stale-drop behavior when systems are significantly unsynchronized; normalized default gating and optional sender-tick gating reduce this failure mode.
 - Added first-time remote setup checklist and expanded remote troubleshooting guidance in [README.md](README.md), including expected log signatures for token mismatch and firewall-related direct-path failures.
 
 ## 2026-07-08

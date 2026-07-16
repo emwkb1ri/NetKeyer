@@ -28,12 +28,14 @@ public class RemoteHostService : IRemoteHostService
     private RemoteHostOptions _options;
     private string _activeOwnerClientId;
     private DateTime _activeOwnerLeaseUntilUtc = DateTime.MinValue;
+    private bool _useSenderTickStaleGate;
 
     private sealed class TelemetryState
     {
         public readonly Queue<(DateTime TimestampUtc, double LagMs)> LagSamples = new();
         public readonly Queue<DateTime> AcceptedFrameTimestamps = new();
         public long MinRawApparentAgeMs = long.MaxValue;
+        public long MinRawSenderTickAgeMs = long.MaxValue;
         public double LastRawApparentAgeMs;
         public double LastLagMs;
         public double AvgLagMs;
@@ -58,6 +60,7 @@ public class RemoteHostService : IRemoteHostService
         await StopAsync();
 
         _options = options ?? new RemoteHostOptions();
+        _useSenderTickStaleGate = _options.UseSenderTickStaleGate;
         _internalCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         ResetActiveOwner();
 
@@ -71,6 +74,7 @@ public class RemoteHostService : IRemoteHostService
 
         RaiseStatus($"Listening on {bindIp}:{_options.ListenPort} (max {_options.MaxClients} clients)");
         DebugLogger.Log("remote", $"Host listening on {bindIp}:{_options.ListenPort}");
+        DebugLogger.LogAlways("remote", $"Stale frame gate mode: {(_useSenderTickStaleGate ? "sender-tick" : "normalized-lag")}");
 
         _acceptLoopTask = Task.Run(() => AcceptLoopAsync(_internalCts.Token));
     }
@@ -186,12 +190,15 @@ public class RemoteHostService : IRemoteHostService
         }
 
         long rawApparentAgeMs = e.ApparentAgeMs;
-        long staleAgeMs = Math.Max(0, rawApparentAgeMs);
+        long rawSenderTickAgeMs = e.SenderTickAgeMs;
         int staleThresholdMs = Math.Max(1, _options?.StaleFrameDropMs ?? RemoteDefaults.DefaultStaleFrameDropMs);
-        if (staleAgeMs > staleThresholdMs)
+
+        double staleLagMs = GetNormalizedStaleLagForDecision(e.ClientId, rawApparentAgeMs, rawSenderTickAgeMs);
+        if (staleLagMs > staleThresholdMs)
         {
             UpdateTelemetry(e.ClientId, rawApparentAgeMs, accepted: false);
-            DebugLogger.Log("remote", $"Dropping stale paddle frame from {e.ClientId}: age={staleAgeMs}ms threshold={staleThresholdMs}ms seq={e.Sequence}");
+            string gateSource = _useSenderTickStaleGate ? "sender-tick" : "normalized-lag";
+            DebugLogger.Log("remote", $"Dropping stale paddle frame from {e.ClientId}: lag={staleLagMs:F1}ms threshold={staleThresholdMs}ms mode={gateSource} raw={rawApparentAgeMs}ms tick_raw={rawSenderTickAgeMs}ms seq={e.Sequence}");
             return;
         }
 
@@ -205,6 +212,38 @@ public class RemoteHostService : IRemoteHostService
 
         MarkClientActive(e?.ClientId);
         PaddleStateReceived?.Invoke(this, e);
+    }
+
+    private double GetNormalizedStaleLagForDecision(string clientId, long rawApparentAgeMs, long rawSenderTickAgeMs)
+    {
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return 0;
+        }
+
+        var telemetry = _telemetryByClientId.GetOrAdd(clientId, _ => new TelemetryState());
+        lock (telemetry)
+        {
+            if (_useSenderTickStaleGate)
+            {
+                if (rawSenderTickAgeMs < telemetry.MinRawSenderTickAgeMs)
+                {
+                    telemetry.MinRawSenderTickAgeMs = rawSenderTickAgeMs;
+                }
+
+                double normalizedTickLag = rawSenderTickAgeMs - telemetry.MinRawSenderTickAgeMs;
+                return normalizedTickLag < 0 ? 0 : normalizedTickLag;
+            }
+
+            long baseline = telemetry.MinRawApparentAgeMs;
+            if (rawApparentAgeMs < baseline)
+            {
+                baseline = rawApparentAgeMs;
+            }
+
+            double normalizedLag = rawApparentAgeMs - baseline;
+            return normalizedLag < 0 ? 0 : normalizedLag;
+        }
     }
 
     private void AddAndRunSession(TcpClient client, CancellationToken ct, string transport)

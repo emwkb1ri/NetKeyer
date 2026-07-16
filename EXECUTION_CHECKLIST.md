@@ -64,6 +64,31 @@ Purpose: finish environment validation and complete the next implementation/test
 - Pass criteria:
   - design + initial implementation builds cleanly
 
+## Step 7: Telemetry Clarity Review (Future)
+- Status: Planned
+- Goal: evaluate telemetry metric semantics and improve clarity of on-screen lag display for direct vs relay comparisons.
+- Tasks:
+  - review how `raw`, `baseline`, `last_norm`, `avg_norm`, and `max_norm_60s` are computed and presented.
+  - validate whether normalized values are suitable for side-by-side transport comparison.
+  - consider adding additional display metrics (for example raw lag, median, p95) to reduce ambiguity.
+  - define acceptance criteria for understandable transport-to-transport lag interpretation.
+- Pass criteria:
+  - agreed telemetry definitions documented.
+  - UI/log display updated or confirmed as clear for direct and relay interpretation.
+
+## Step 8: UI Compaction + Full Screen Review (Future)
+- Status: Planned
+- Goal: improve information density and usability by compacting operating screens and conducting a complete UI review across all screens/dialogs.
+- Tasks:
+  - review operating-page layout for spacing, grouping, and visual hierarchy to reduce wasted space.
+  - identify opportunities to compact host/client status, telemetry, and control sections without reducing readability.
+  - perform a full walkthrough review of setup, operating, and dialog screens for consistency in labels, sizing, alignment, and interaction flow.
+  - document UI issues and prioritize quick wins versus larger redesign items.
+  - validate desktop usability at typical resolutions and ensure no regressions for key workflows.
+- Pass criteria:
+  - prioritized UI review findings documented.
+  - approved compact layout changes implemented or staged with clear follow-up tasks.
+
 ## Execution Log
 - 2026-06-25: Checklist created and execution started.
 - 2026-06-25: Step 1 passed. native/build.ps1 completed and native/windows-x64/netkeyer_midi_shim.dll exists.

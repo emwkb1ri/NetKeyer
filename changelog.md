@@ -1,5 +1,41 @@
 # Remote Keying Feature changes
 
+## 2026-07-29
+
+### UI
+- Completed Step 8 UI compaction and full-screen review updates across setup, operating, and dialog windows.
+- Operating-page layout refinements in [Views/MainWindow.axaml](Views/MainWindow.axaml):
+  - Host client table compacted to 3 rows.
+  - Host IP column narrowed to IPv4-sized width.
+  - Host and client status text moved from bottom bar into `Host Status` and `Client Status` title rows.
+  - Host/client connected-state indicators shown in green in status fields.
+  - `Disconnect` action moved into section headers for host/client modes.
+  - Redundant operating-page `Exit` button removed.
+- CW Settings compaction completed in [Views/MainWindow.axaml](Views/MainWindow.axaml):
+  - Replaced speed/sidetone/pitch sliders with compact numeric controls.
+  - Normalized control/label sizing and corrected radio-button clipping.
+  - Reflowed controls into 3 dense rows:
+    - Speed + Keyer Mode
+    - Sidetone + Iambic Type
+    - Pitch + Swap Paddles
+
+### Behavior
+- Exit paths are now unified to disconnect then shutdown for:
+  - in-window Exit action,
+  - File menu Exit,
+  - window close (X) path,
+  with close interception in [Views/MainWindow.axaml.cs](Views/MainWindow.axaml.cs).
+
+### Sizing
+- Main window sizing behavior updated for content-based autosize in setup and operating flows, including startup sizing correction in [Views/MainWindow.axaml.cs](Views/MainWindow.axaml.cs).
+- Dialog sizing updates:
+  - [Views/AboutWindow.axaml](Views/AboutWindow.axaml): dynamic content sizing.
+  - [Views/AudioDeviceDialog.axaml](Views/AudioDeviceDialog.axaml): dynamic content sizing.
+  - [Views/MidiConfigDialog.axaml](Views/MidiConfigDialog.axaml): dynamic content sizing with `MaxHeight` cap.
+
+### Validation
+- Repeated `dotnet build NetKeyer.csproj` validation completed successfully after each change set (no new blocking errors introduced).
+
 ## 2026-07-15
 
 ### Changed

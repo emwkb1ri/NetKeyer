@@ -1,5 +1,33 @@
 # NetKeyer Rendezvous/Relay Implementation and Testing Plan
 
+## 2026-07-29 UI Compaction Completion Summary (Step 8)
+
+Status
+
+- Complete
+
+Summary
+
+- Completed operating/setup/dialog UI compaction and consistency updates in the NetKeyer app.
+- Consolidated and de-duplicated status presentation:
+  - moved host/client connection status messages out of bottom bar into status panel title rows,
+  - retained color-coded connected-state visibility in status fields.
+- Completed CW Settings dense-layout redesign in operating view:
+  - numeric controls for speed/sidetone/pitch,
+  - compact 3-row arrangement with keyer/iambic/swap controls co-located by row.
+- Finalized operating action placement and shutdown consistency:
+  - disconnect actions moved into host/client status headers,
+  - redundant operating `Exit` button removed,
+  - exit behaviors unified (button/menu/window close).
+- Implemented dynamic content-based sizing across main and dialog windows, with MIDI dialog max-height protection.
+
+Verification focus
+
+- Confirm setup and operating windows auto-size correctly on initial startup and mode transitions.
+- Confirm host/client status readability and non-redundant message placement.
+- Confirm CW control interaction parity after layout compaction.
+- Confirm dialog sizing behavior remains usable with varying content density.
+
 ## Scope
 
 Implement a production-ready rendezvous control service and relay fallback service based on the specification in [rendezvous_services/NetKeyer-Rendezvous-specification.txt](rendezvous_services/NetKeyer-Rendezvous-specification.txt), then integrate host/client behavior in the NetKeyer app and validate end-to-end connectivity.

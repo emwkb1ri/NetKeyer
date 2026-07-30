@@ -77,7 +77,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - UI/log display updated or confirmed as clear for direct and relay interpretation.
 
 ## Step 8: UI Compaction + Full Screen Review (Future)
-- Status: Planned
+- Status: Complete (2026-07-29)
 - Goal: improve information density and usability by compacting operating screens and conducting a complete UI review across all screens/dialogs.
 - Tasks:
   - review operating-page layout for spacing, grouping, and visual hierarchy to reduce wasted space.
@@ -88,6 +88,25 @@ Purpose: finish environment validation and complete the next implementation/test
 - Pass criteria:
   - prioritized UI review findings documented.
   - approved compact layout changes implemented or staged with clear follow-up tasks.
+
+Completion summary (2026-07-29):
+- Operating-page compaction completed:
+  - Host status table reduced to 3 display rows.
+  - Host IP column narrowed to IPv4-sized width.
+  - Bottom-bar redundancy removed; host/client status messaging moved into Host Status / Client Status headers.
+  - Host and client status color cues added (connected shown in green).
+- CW Settings compact redesign completed:
+  - Sliders replaced with compact numeric controls.
+  - Controls and labels resized and normalized for readability.
+  - Layout reflowed into 3 dense rows (Speed+Keyer Mode, Sidetone+Iambic Type, Pitch+Swap Paddles).
+- Operating action placement finalized:
+  - Disconnect moved into Host Status and Client Status headers.
+  - Redundant operating-page Exit button removed.
+  - Exit button/menu/window close unified to the same disconnect-then-exit path.
+- Window sizing/consistency review completed:
+  - Main window now auto-sizes to content on startup and mode changes.
+  - About, Audio Output, and MIDI Note Mapping dialogs now auto-size to content.
+  - MIDI dialog height capped with MaxHeight to avoid excessive vertical growth.
 
 ## Execution Log
 - 2026-06-25: Checklist created and execution started.
@@ -109,3 +128,4 @@ Purpose: finish environment validation and complete the next implementation/test
 - 2026-06-29: Telemetry measurement path corrected for cross-system clock skew by preserving raw apparent-age deltas and normalizing lag to a per-client baseline; lag/jitter/max-lag values now reflect observed delay variation.
 - 2026-06-29: Telemetry logging updated to always emit remote telemetry entries by default (`remote-telemetry`) without requiring NETKEYER_DEBUG filters.
 - 2026-06-29: Telemetry UI readability/layout refinements: high-contrast bold magenta telemetry text and a two-line telemetry layout with aligned second-line indentation (`accepted 60s` and `stale` moved to line 2).
+- 2026-07-29: Step 8 completed. UI compaction and full-screen review updates implemented across setup/operating views and dialogs, including status de-duplication, compact CW layout, dynamic sizing behavior, and control placement refinements.

@@ -200,6 +200,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly object _relayHostSessionsLock = new();
     private bool _isSyncingRendezvousEndpoint;
     private bool _isExiting;
+    private bool _remoteHostTransmitModeCW = true;
     private const int DefaultRendezvousPort = 49923;
 
     public bool IsExiting => _isExiting;
@@ -1512,6 +1513,9 @@ public partial class MainWindowViewModel : ViewModelBase
         bool rightPaddleState = e.RightPaddle;
         bool straightKeyState = e.StraightKey;
         bool pttState = e.PTT;
+        bool pttClosureState = pttState || leftPaddleState || rightPaddleState || straightKeyState;
+        bool remoteClientPttOnlyMode = ShouldUseRemoteClientPttBehavior();
+        bool effectiveTransmitModeCW = IsEffectiveTransmitModeCW();
 
         DebugLogger.Log("input", $"[InputDeviceManager_PaddleStateChanged] Received event: L={leftPaddleState} R={rightPaddleState} SK={straightKeyState} PTT={pttState}");
 
@@ -1521,11 +1525,11 @@ public partial class MainWindowViewModel : ViewModelBase
             bool leftIndicatorState;
 
             // Check transmit mode first (CW vs PTT), then keying mode (iambic vs straight)
-            if (!(_transmitSliceMonitor.IsTransmitModeCW || _isSidetoneOnlyMode))
+            if (!effectiveTransmitModeCW)
             {
                 // PTT mode (non-CW radio modes) - use PTT state
                 // (InputDeviceManager sets this to OR of both paddles for serial input)
-                leftIndicatorState = pttState;
+                leftIndicatorState = pttClosureState;
             }
             else if (IsIambicMode)
             {
@@ -1539,7 +1543,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 leftIndicatorState = straightKeyState;
             }
 
-            DebugLogger.Log("input", $"[Indicator Update] IsIambic={IsIambicMode} IsCW={_transmitSliceMonitor.IsTransmitModeCW} Sidetone={_isSidetoneOnlyMode} | L={leftPaddleState} R={rightPaddleState} SK={straightKeyState} PTT={pttState} | LeftInd={leftIndicatorState}");
+            DebugLogger.Log("input", $"[Indicator Update] IsIambic={IsIambicMode} IsCW={effectiveTransmitModeCW} HostCW={_remoteHostTransmitModeCW} RemotePttOnly={remoteClientPttOnlyMode} Sidetone={_isSidetoneOnlyMode} | L={leftPaddleState} R={rightPaddleState} SK={straightKeyState} PTT={pttState} | LeftInd={leftIndicatorState}");
 
             LeftPaddleIndicatorColor = leftIndicatorState ? Brushes.LimeGreen : Brushes.Black;
             LeftPaddleStateText = leftIndicatorState ? "ON" : "OFF";
@@ -1547,12 +1551,27 @@ public partial class MainWindowViewModel : ViewModelBase
             RightPaddleStateText = rightPaddleState ? "ON" : "OFF";
         });
 
-        // Delegate keying logic to KeyingController
-        _keyingController?.HandlePaddleStateChange(leftPaddleState, rightPaddleState, straightKeyState, pttState);
+        // When remote host is non-CW, suppress local keyer/sidetone and send PTT-only intent remotely.
+        if (!remoteClientPttOnlyMode)
+        {
+            _keyingController?.HandlePaddleStateChange(leftPaddleState, rightPaddleState, straightKeyState, pttState);
+        }
+        else
+        {
+            _keyingController?.Stop();
+            _sidetoneGenerator?.Stop();
+        }
 
         if (RemoteMode == RemoteConnectionMode.Client)
         {
-            _ = SendRemotePaddleStateAsync(leftPaddleState, rightPaddleState, straightKeyState, pttState);
+            if (remoteClientPttOnlyMode)
+            {
+                _ = SendRemotePaddleStateAsync(false, false, false, pttClosureState);
+            }
+            else
+            {
+                _ = SendRemotePaddleStateAsync(leftPaddleState, rightPaddleState, straightKeyState, pttState);
+            }
         }
     }
 
@@ -1585,6 +1604,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _remoteCts?.Cancel();
         _remoteCts?.Dispose();
         _remoteCts = new CancellationTokenSource();
+        _remoteHostTransmitModeCW = true;
+        _keyingController?.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW);
 
         RemoteConnectedHostIp = string.Empty;
         RemoteConnectedHostName = string.Empty;
@@ -1807,6 +1828,8 @@ public partial class MainWindowViewModel : ViewModelBase
             ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds),
             UseSenderTickStaleGate = _settings?.RemoteHostUseSenderTickStaleGate ?? false
         }, _remoteCts.Token);
+
+        _remoteHostService.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW);
 
         lock (_relayHostSessionsLock)
         {
@@ -2063,6 +2086,9 @@ public partial class MainWindowViewModel : ViewModelBase
             await _remoteClientService.DisconnectAsync();
         }
 
+        _remoteHostTransmitModeCW = true;
+        _keyingController?.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW);
+
         if (_remoteHostService != null)
         {
             await _remoteHostService.StopAsync();
@@ -2094,6 +2120,18 @@ public partial class MainWindowViewModel : ViewModelBase
         Dispatcher.UIThread.Post(() =>
         {
             RemoteStatus = status;
+
+            bool disconnected = status.StartsWith("Disconnected", StringComparison.OrdinalIgnoreCase)
+                || status.StartsWith("Connection lost", StringComparison.OrdinalIgnoreCase)
+                || status.StartsWith("Host error", StringComparison.OrdinalIgnoreCase);
+
+            if (disconnected)
+            {
+                _remoteHostTransmitModeCW = true;
+                _keyingController?.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW);
+                _sidetoneGenerator?.Stop();
+                UpdatePaddleLabels();
+            }
         });
     }
 
@@ -2110,6 +2148,27 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         Dispatcher.UIThread.Post(() =>
         {
+            bool hostIsTransmitModeCW = e?.IsTransmitModeCW ?? true;
+            bool modeChanged = hostIsTransmitModeCW != _remoteHostTransmitModeCW;
+
+            _remoteHostTransmitModeCW = hostIsTransmitModeCW;
+
+            if (RemoteMode == RemoteConnectionMode.Client && _remoteClientService?.IsConnected == true)
+            {
+                _keyingController?.SetTransmitMode(hostIsTransmitModeCW);
+            }
+
+            if (modeChanged && !hostIsTransmitModeCW)
+            {
+                _keyingController?.Stop();
+                _sidetoneGenerator?.Stop();
+            }
+
+            if (modeChanged)
+            {
+                UpdatePaddleLabels();
+            }
+
             UpdateTelemetryDisplay(e?.LastLagMs ?? 0, e?.AvgLagMs ?? 0, e?.MaxLagMs ?? 0, e?.AcceptedFramesLast60s ?? 0, e?.DroppedStaleFrames ?? 0, "host");
         });
     }
@@ -2222,6 +2281,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
         Dispatcher.UIThread.Post(() =>
         {
+            bool isCwMode = IsEffectiveTransmitModeCW();
+            bool pttClosureState = e.State.Ptt || e.State.LeftPaddle || e.State.RightPaddle || e.State.StraightKey;
+
+            if (!isCwMode)
+            {
+                // In non-CW mode the left indicator represents PTT assertion.
+                LeftPaddleIndicatorColor = pttClosureState ? Brushes.LimeGreen : Brushes.Black;
+                LeftPaddleStateText = pttClosureState ? "ON" : "OFF";
+                RightPaddleIndicatorColor = Brushes.Black;
+                RightPaddleStateText = "OFF";
+                return;
+            }
+
             LeftPaddleIndicatorColor = e.State.LeftPaddle ? Brushes.LimeGreen : Brushes.Black;
             LeftPaddleStateText = e.State.LeftPaddle ? "ON" : "OFF";
             RightPaddleIndicatorColor = e.State.RightPaddle ? Brushes.LimeGreen : Brushes.Black;
@@ -2970,11 +3042,41 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void TransmitSliceMonitor_ModeChanged(object sender, TransmitModeChangedEventArgs e)
     {
-        // Update keying controller
-        _keyingController?.SetTransmitMode(e.IsTransmitModeCW);
+        if (RemoteMode == RemoteConnectionMode.Host)
+        {
+            _remoteHostService?.SetTransmitMode(e.IsTransmitModeCW);
+        }
+
+        // In remote-client mode, host telemetry controls the effective transmit mode when connected.
+        if (!(RemoteMode == RemoteConnectionMode.Client && _remoteClientService?.IsConnected == true))
+        {
+            _keyingController?.SetTransmitMode(e.IsTransmitModeCW);
+        }
 
         // Update UI when transmit mode changes
         Dispatcher.UIThread.Post(() => UpdatePaddleLabels());
+    }
+
+    private bool ShouldUseRemoteClientPttBehavior()
+    {
+        return RemoteMode == RemoteConnectionMode.Client
+            && _remoteClientService?.IsConnected == true
+            && !_remoteHostTransmitModeCW;
+    }
+
+    private bool IsEffectiveTransmitModeCW()
+    {
+        if (_isSidetoneOnlyMode)
+        {
+            return true;
+        }
+
+        if (RemoteMode == RemoteConnectionMode.Client && _remoteClientService?.IsConnected == true)
+        {
+            return _remoteHostTransmitModeCW;
+        }
+
+        return _transmitSliceMonitor.IsTransmitModeCW;
     }
 
     private void UpdatePaddleLabels()
@@ -3011,18 +3113,28 @@ public partial class MainWindowViewModel : ViewModelBase
                 RightPaddleVisible = false;
             }
         }
-        else if (!_transmitSliceMonitor.IsTransmitModeCW)
+        else if (!IsEffectiveTransmitModeCW())
         {
             // PTT mode (non-CW radio modes)
-            var txSlice = _transmitSliceMonitor.TransmitSlice;
-            string radioMode = txSlice?.DemodMode?.ToUpper() ?? "Unknown";
+            string radioMode;
+            if (RemoteMode == RemoteConnectionMode.Client && _remoteClientService?.IsConnected == true)
+            {
+                radioMode = "REMOTE";
+            }
+            else
+            {
+                var txSlice = _transmitSliceMonitor.TransmitSlice;
+                radioMode = txSlice?.DemodMode?.ToUpper() ?? "Unknown";
+            }
             modeStr = $"{radioMode} (PTT)";
 
             ConnectedRadioDisplay = $"{_connectedRadio.Nickname} ({_connectedRadio.Model})";
             LeftPaddleLabelText = "PTT";
             RightPaddleVisible = false;
             CwSettingsVisible = false;
-            ModeInstructions = $"Switch radio to CW mode to activate CW keying";
+            ModeInstructions = RemoteMode == RemoteConnectionMode.Client
+                ? "Remote host is not in CW mode; key input is sent as PTT"
+                : "Switch radio to CW mode to activate CW keying";
         }
         else
         {

@@ -332,6 +332,7 @@ public class RemoteClientService : IRemoteClientService
     {
         HostTelemetryChanged?.Invoke(this, new RemoteHostTelemetryEventArgs
         {
+            IsTransmitModeCW = heartbeat?.IsTransmitModeCW ?? true,
             LastLagMs = heartbeat?.LastLagMs ?? 0,
             AvgLagMs = heartbeat?.AvgLagMs ?? 0,
             MaxLagMs = heartbeat?.MaxLagMs ?? 0,

@@ -2,6 +2,13 @@
 
 A cross-platform GUI application for CW (Morse code) keying with FlexRadio devices, supporting both serial port and MIDI input devices.
 
+## Recent Changes
+
+- **Revision 2.1.27 (2026-07-30)**
+  - Fixed remote non-CW behavior so host transmit mode is communicated to clients and clients correctly follow CW vs non-CW operation.
+  - Fixed remote client non-CW keying to send PTT intent while suppressing local CW keyer/sidetone behavior.
+  - Fixed host operating-page bottom keying indicator behavior in non-CW mode: left indicator now represents PTT assertion (green when active), and the right indicator is intentionally hidden.
+
 ## Features
 
 - **Cross-Platform**: Runs on Linux, Windows, and macOS using Avalonia UI

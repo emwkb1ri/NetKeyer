@@ -1,5 +1,17 @@
 # Remote Keying Feature changes
 
+## 2026-07-30 (Revision 2.1.27)
+
+### Fixed
+- Corrected remote non-CW behavior so host transmit mode is communicated to connected clients via heartbeat telemetry, allowing clients to follow host CW vs non-CW state.
+- Corrected remote client non-CW keying path to send PTT intent while suppressing local CW keyer/sidetone behavior when host is not in CW mode.
+- Corrected host operating-page bottom status indicator behavior in non-CW mode:
+  - Left indicator now represents PTT assertion state and turns green when asserted.
+  - Right indicator is intentionally hidden in non-CW/PTT mode.
+
+### Changed
+- Program revision 2.1.27 implements the above PTT behavior corrections for host/client remote operation and status indication consistency.
+
 ## 2026-07-29
 
 ### UI

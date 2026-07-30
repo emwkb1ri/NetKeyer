@@ -74,6 +74,7 @@ public class PaddleStatePayload
 public class HeartbeatPayload
 {
     public long SenderTickMs { get; set; }
+    public bool IsTransmitModeCW { get; set; } = true;
     public double LastLagMs { get; set; }
     public double AvgLagMs { get; set; }
     public double MaxLagMs { get; set; }

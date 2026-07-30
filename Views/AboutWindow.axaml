@@ -7,9 +7,7 @@
         x:Class="NetKeyer.Views.AboutWindow"
         x:DataType="vm:AboutWindowViewModel"
         Title="About NetKeyer+Remote"
-        Width="400" Height="330"
-        MinWidth="400" MinHeight="330"
-        MaxWidth="400" MaxHeight="330"
+        SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 

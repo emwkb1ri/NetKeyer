@@ -44,7 +44,7 @@ namespace NetKeyer.Models
         public string RemoteHostName { get; set; } = Environment.MachineName;
         public string RemoteHostBindAddress { get; set; } = "0.0.0.0";
         public int RemoteHostListenPort { get; set; } = RemoteDefaults.DefaultPort;
-        public int RemoteHostMaxClients { get; set; } = 5;
+        public int RemoteHostMaxClients { get; set; } = 3;
         public int RemoteHostClientHoldMs { get; set; } = RemoteDefaults.DefaultClientHoldMs;
         public bool RemoteHostUseSenderTickStaleGate { get; set; } = false;
         public string RemoteSharedToken { get; set; } = "";

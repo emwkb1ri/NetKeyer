@@ -4,8 +4,7 @@
         x:Class="NetKeyer.Views.AudioDeviceDialog"
         x:DataType="vm:AudioDeviceDialogViewModel"
         Title="NetKeyer+Remote - Audio Output Device Selection"
-        Width="500" Height="350"
-        MinWidth="400" MinHeight="230"
+        SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 

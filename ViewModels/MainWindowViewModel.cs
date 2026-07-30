@@ -53,6 +53,16 @@ public class RemoteHostClientDisplayRow
     public string Callsign { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string LastActive { get; set; } = string.Empty;
+
+    public IBrush StatusBrush
+    {
+        get
+        {
+            return string.Equals(Status, "Connected", StringComparison.OrdinalIgnoreCase)
+                ? Brushes.Green
+                : Brushes.Black;
+        }
+    }
 }
 
 public partial class MainWindowViewModel : ViewModelBase
@@ -192,6 +202,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isExiting;
     private const int DefaultRendezvousPort = 49923;
 
+    public bool IsExiting => _isExiting;
+
     [ObservableProperty]
     private bool _smartLinkAvailable = false;
 
@@ -224,7 +236,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _rightPaddleVisible = true;  // Hide right paddle when appropriate
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRemoteModeOff), nameof(IsRemoteModeClient), nameof(IsRemoteModeHost), nameof(IsWaitingForClientConnection), nameof(RemoteHostWaitingLineText), nameof(RemoteHostRendezvousStatusText))]
+    [NotifyPropertyChangedFor(nameof(IsRemoteModeOff), nameof(IsRemoteModeClient), nameof(IsRemoteModeHost), nameof(IsWaitingForClientConnection), nameof(RemoteStatusBarText), nameof(RemoteClientTitleStatusText), nameof(RemoteHostTitleStatusText), nameof(RemoteHostConnectionStateText), nameof(RemoteHostWaitingLineText), nameof(RemoteHostRendezvousStatusText), nameof(RemoteHostRendezvousStatusBrush))]
     private RemoteConnectionMode _remoteMode = RemoteConnectionMode.Off;
 
     public bool IsRemoteModeOff
@@ -267,10 +279,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _remoteSharedToken = "";
 
     [ObservableProperty]
-    private int _remoteMaxClients = 5;
+    private int _remoteMaxClients = 3;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RemoteHostRendezvousStatusText), nameof(RemoteHostWaitingLineText))]
+    [NotifyPropertyChangedFor(nameof(RemoteHostRendezvousStatusText), nameof(RemoteHostRendezvousStatusBrush), nameof(RemoteHostWaitingLineText))]
     private bool _remoteUseRendezvous = false;
 
     [ObservableProperty]
@@ -295,11 +307,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private decimal _remoteClientHoldSeconds = 1.0m;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RemoteClientConnectionStatusText))]
+    [NotifyPropertyChangedFor(nameof(RemoteClientConnectionStatusText), nameof(RemoteClientConnectionStatusBrush), nameof(RemoteStatusBarText), nameof(RemoteClientTitleStatusText), nameof(RemoteHostTitleStatusText))]
     private string _remoteStatus = "Remote mode off";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWaitingForClientConnection), nameof(RemoteHostWaitingLineText))]
+    [NotifyPropertyChangedFor(nameof(IsWaitingForClientConnection), nameof(RemoteHostConnectionStateText), nameof(RemoteHostWaitingLineText))]
     private int _remoteConnectedClients = 0;
 
     [ObservableProperty]
@@ -384,6 +396,35 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public string RemoteStatusBarText
+    {
+        get
+        {
+            // Client/host/standalone status now appears in the respective status panel title rows.
+            return string.Empty;
+        }
+    }
+
+    public string RemoteClientTitleStatusText
+    {
+        get
+        {
+            return IsRemoteModeClient
+                ? (RemoteStatus ?? string.Empty)
+                : string.Empty;
+        }
+    }
+
+    public IBrush RemoteClientConnectionStatusBrush
+    {
+        get
+        {
+            return RemoteClientConnectionStatusText.Equals("Connected", StringComparison.OrdinalIgnoreCase)
+                ? Brushes.Green
+                : Brushes.Gray;
+        }
+    }
+
     public bool RemoteHostHasClients => RemoteHostClientStatuses.Count > 0;
     public bool IsWaitingForClientConnection => IsRemoteModeHost && RemoteConnectedClients == 0;
 
@@ -407,13 +448,69 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public string RemoteHostTitleStatusText
+    {
+        get
+        {
+            if (!IsRemoteModeHost)
+            {
+                return string.Empty;
+            }
+
+            return TryGetListeningPrefix(RemoteStatus, out string listeningPrefix)
+                ? listeningPrefix
+                : (RemoteStatus ?? string.Empty);
+        }
+    }
+
+    public IBrush RemoteHostRendezvousStatusBrush
+    {
+        get
+        {
+            return _rendezvousHostSession != null
+                ? Brushes.Green
+                : Brushes.Gray;
+        }
+    }
+
+    public string RemoteHostConnectionStateText
+    {
+        get
+        {
+            return IsWaitingForClientConnection
+                ? "Waiting for client connection"
+                : $"Connected clients: {RemoteConnectedClients}";
+        }
+    }
+
+    private static bool TryGetListeningPrefix(string status, out string listeningPrefix)
+    {
+        listeningPrefix = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return false;
+        }
+
+        const string prefix = "Listening on port ";
+        if (!status.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        int separatorIndex = status.IndexOf('.');
+        listeningPrefix = separatorIndex > 0
+            ? status.Substring(0, separatorIndex)
+            : status;
+
+        return true;
+    }
+
     public string RemoteHostWaitingLineText
     {
         get
         {
-            string hostState = IsWaitingForClientConnection
-                ? "Waiting for client connection"
-                : $"Connected clients: {RemoteConnectedClients}";
+            string hostState = RemoteHostConnectionStateText;
 
             string rendezvousState = RemoteHostRendezvousStatusText;
             if (string.IsNullOrWhiteSpace(rendezvousState))
@@ -478,7 +575,7 @@ public partial class MainWindowViewModel : ViewModelBase
             : _settings.RemoteHostBindAddress;
         RemoteHostPort = _settings.RemoteHostListenPort > 0 ? _settings.RemoteHostListenPort : RemoteDefaults.DefaultPort;
         RemoteSharedToken = _settings.RemoteSharedToken ?? "";
-        RemoteMaxClients = _settings.RemoteHostMaxClients > 0 ? _settings.RemoteHostMaxClients : 5;
+        RemoteMaxClients = _settings.RemoteHostMaxClients > 0 ? _settings.RemoteHostMaxClients : 3;
         RemoteUseRendezvous = _settings.RemoteUseRendezvous;
         ParseRendezvousEndpoint(_settings.RemoteRendezvousServerUrl ?? "", out string rendezvousServer, out int rendezvousPort);
         RemoteRendezvousServer = rendezvousServer;
@@ -713,6 +810,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(RemoteHostRendezvousStatusText));
+        OnPropertyChanged(nameof(RemoteHostRendezvousStatusBrush));
         OnPropertyChanged(nameof(RemoteHostWaitingLineText));
     }
 
@@ -1805,6 +1903,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             OnPropertyChanged(nameof(RemoteHostRendezvousStatusText));
+            OnPropertyChanged(nameof(RemoteHostRendezvousStatusBrush));
             OnPropertyChanged(nameof(RemoteHostWaitingLineText));
             DebugLogger.LogAlways("rendezvous", $"Registered host in rendezvous as '{hostId}'");
         }
@@ -1955,6 +2054,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await _rendezvousHostSession.DisposeAsync();
             _rendezvousHostSession = null;
             OnPropertyChanged(nameof(RemoteHostRendezvousStatusText));
+            OnPropertyChanged(nameof(RemoteHostRendezvousStatusBrush));
             OnPropertyChanged(nameof(RemoteHostWaitingLineText));
         }
 
@@ -2046,7 +2146,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var rows = new List<RemoteHostClientDisplayRow>();
         var source = statuses ?? Array.Empty<RemoteClientStatusInfo>();
 
-        foreach (var status in source.Take(5))
+        foreach (var status in source.Take(3))
         {
             rows.Add(new RemoteHostClientDisplayRow
             {
@@ -2059,7 +2159,7 @@ public partial class MainWindowViewModel : ViewModelBase
             });
         }
 
-        while (rows.Count < 5)
+        while (rows.Count < 3)
         {
             rows.Add(new RemoteHostClientDisplayRow());
         }

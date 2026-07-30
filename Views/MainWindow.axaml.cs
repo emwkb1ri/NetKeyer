@@ -1,20 +1,85 @@
+using System;
 using System.Runtime.InteropServices;
+using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using NetKeyer.ViewModels;
 
 namespace NetKeyer.Views;
 
 public partial class MainWindow : Window
 {
+    private MainWindowViewModel? _viewModel;
+
     public MainWindow()
     {
         InitializeComponent();
+        Closing += OnMainWindowClosing;
+        DataContextChanged += OnMainWindowDataContextChanged;
+        Opened += OnWindowOpened;
         
         // Set up native macOS menu bar
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             SetupMacOsNativeMenu();
         }
+    }
+
+    private void OnWindowOpened(object? sender, EventArgs e)
+    {
+        ApplyWindowSizingMode();
+
+        // Ensure startup autosize is based on finalized first-pass layout.
+        Dispatcher.UIThread.Post(ApplyWindowSizingMode, DispatcherPriority.Loaded);
+    }
+
+    private void OnMainWindowDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_viewModel != null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
+        _viewModel = DataContext as MainWindowViewModel;
+
+        if (_viewModel != null)
+        {
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        ApplyWindowSizingMode();
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.CurrentPage)
+            || e.PropertyName == nameof(MainWindowViewModel.RemoteMode))
+        {
+            ApplyWindowSizingMode();
+        }
+    }
+
+    private void ApplyWindowSizingMode()
+    {
+        SizeToContent = SizeToContent.WidthAndHeight;
+        MinWidth = 0;
+        MinHeight = 0;
+    }
+
+    private void OnMainWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        if (vm.IsExiting)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        vm.ExitCommand?.Execute(null);
     }
     
     private void SetupMacOsNativeMenu()

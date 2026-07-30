@@ -4,8 +4,8 @@
         x:Class="NetKeyer.Views.MidiConfigDialog"
         x:DataType="vm:MidiConfigDialogViewModel"
         Title="NetKeyer+Remote - MIDI Note Configuration"
-        Width="650" Height="550"
-        MinWidth="650" MinHeight="450"
+        SizeToContent="WidthAndHeight"
+        MaxHeight="760"
         WindowStartupLocation="CenterOwner"
         CanResize="true">
 

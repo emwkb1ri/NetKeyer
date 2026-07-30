@@ -6,9 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="720"
         x:Class="NetKeyer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="NetKeyer+Remote - FlexRadio CW Keyer"
-        Width="600" Height="720"
-        MinWidth="500" MinHeight="690">
+        Title="NetKeyer+Remote - FlexRadio CW Keyer">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -73,7 +71,7 @@
                            FontSize="12"
                            VerticalAlignment="Center"
                            Margin="12,0,12,0"
-                           Text="{Binding RemoteStatus}"
+                           Text="{Binding RemoteStatusBarText}"
                            TextTrimming="CharacterEllipsis"/>
 
                 <!-- Right: Paddle Status LEDs -->
@@ -81,11 +79,6 @@
                             Orientation="Horizontal" 
                             Spacing="8"
                             VerticalAlignment="Center">
-                    <TextBlock Text="{Binding RemoteConnectedClients, StringFormat=Connected clients: {0}}"
-                               FontSize="13"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0"
-                               IsVisible="{Binding IsRemoteModeHost}"/>
                     <Ellipse Width="16" 
                              Height="16"
                              Fill="{Binding LeftPaddleIndicatorColor}"
@@ -227,7 +220,12 @@
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="Max Clients:" Width="110" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding RemoteMaxClients}" Minimum="1" Maximum="5" Width="110"/>
+                                    <NumericUpDown Value="{Binding RemoteMaxClients}"
+                                                   Minimum="1"
+                                                   Maximum="5"
+                                                   Increment="1"
+                                                   FormatString="F0"
+                                                   Width="110"/>
                                     <TextBlock Text="Hold Time:" Width="84" VerticalAlignment="Center" Margin="8,0,0,0"/>
                                     <NumericUpDown Value="{Binding RemoteClientHoldSeconds}"
                                                    Minimum="0.5"
@@ -357,78 +355,105 @@
                     <!-- CW Settings Section -->
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3"
                             IsVisible="{Binding CwSettingsVisible}">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="CW Settings" FontWeight="Bold" FontSize="14"/>
+                        <StackPanel Spacing="3">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0"
+                                           Text="CW Settings"
+                                           FontWeight="Bold"
+                                           FontSize="14"
+                                           VerticalAlignment="Center"/>
+                                <Button Grid.Column="1"
+                                        Content="Disconnect"
+                                        Command="{Binding ToggleConnectionCommand}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Height="24"
+                                        FontSize="13"
+                                        Padding="8,0"
+                                    IsVisible="{Binding IsRemoteModeOff}"/>
+                            </Grid>
 
                             <!-- Speed -->
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="Speed (WPM):" Width="100" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding CwSpeed}" Width="25" VerticalAlignment="Center"/>
-                                <Slider Minimum="5" Maximum="60"
-                                        Value="{Binding CwSpeed}"
-                                        TickFrequency="5"
-                                        Width="250"
-                                        VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6" MinHeight="26">
+                                <TextBlock Text="Speed (WPM):" Width="100" VerticalAlignment="Center" FontSize="11"/>
+                                <NumericUpDown Value="{Binding CwSpeed}"
+                                               Minimum="5"
+                                               Maximum="60"
+                                               Increment="1"
+                                               FormatString="F0"
+                                               Width="108"
+                                               Height="24"
+                                               FontSize="11"
+                                               ShowButtonSpinner="True"/>
+                                <TextBlock Text="Keyer Mode:" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                <RadioButton Content="Iambic"
+                                             GroupName="KeyerMode"
+                                             IsChecked="{Binding IsIambicMode}"
+                                             FontSize="10"
+                                             MinHeight="22"
+                                             VerticalAlignment="Center"
+                                             Padding="2,1"/>
+                                <RadioButton Content="Straight Key"
+                                             GroupName="KeyerMode"
+                                             IsChecked="{Binding !IsIambicMode}"
+                                             FontSize="10"
+                                             MinHeight="22"
+                                             VerticalAlignment="Center"
+                                             Padding="2,1"/>
                             </StackPanel>
 
                             <!-- Sidetone Volume -->
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="Sidetone:" Width="100" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding SidetoneVolume}" Width="25" VerticalAlignment="Center"/>
-                                <Slider Minimum="0" Maximum="100"
-                                        Value="{Binding SidetoneVolume}"
-                                        TickFrequency="10"
-                                        Width="250"
-                                        VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6" MinHeight="26">
+                                <TextBlock Text="Sidetone:" Width="100" VerticalAlignment="Center" FontSize="11"/>
+                                <NumericUpDown Value="{Binding SidetoneVolume}"
+                                               Minimum="0"
+                                               Maximum="100"
+                                               Increment="1"
+                                               FormatString="F0"
+                                               Width="108"
+                                               Height="24"
+                                               FontSize="11"
+                                               ShowButtonSpinner="True"/>
+                                <TextBlock Text="Iambic Type:" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                <RadioButton Content="Mode A"
+                                             GroupName="IambicType"
+                                             IsChecked="{Binding !IsIambicModeB}"
+                                             IsEnabled="{Binding IsIambicMode}"
+                                             FontSize="10"
+                                             MinHeight="22"
+                                             VerticalAlignment="Center"
+                                             Padding="2,1"/>
+                                <RadioButton Content="Mode B"
+                                             GroupName="IambicType"
+                                             IsChecked="{Binding IsIambicModeB}"
+                                             IsEnabled="{Binding IsIambicMode}"
+                                             FontSize="10"
+                                             MinHeight="22"
+                                             VerticalAlignment="Center"
+                                             Padding="2,1"/>
                             </StackPanel>
 
                             <!-- Pitch -->
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="Pitch (Hz):" Width="100" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding CwPitch}" Width="25" VerticalAlignment="Center"/>
-                                <Slider Minimum="300" Maximum="1000"
-                                        Value="{Binding CwPitch}"
-                                        TickFrequency="50"
-                                        Width="250"
-                                        VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6" MinHeight="26">
+                                <TextBlock Text="Pitch (Hz):" Width="100" VerticalAlignment="Center" FontSize="11"/>
+                                <NumericUpDown Value="{Binding CwPitch}"
+                                               Minimum="300"
+                                               Maximum="1000"
+                                               Increment="10"
+                                               FormatString="F0"
+                                               Width="108"
+                                               Height="24"
+                                               FontSize="11"
+                                               ShowButtonSpinner="True"/>
+                                <CheckBox Content="Swap Paddles"
+                                          IsChecked="{Binding SwapPaddles}"
+                                          IsEnabled="{Binding IsIambicMode}"
+                                          FontSize="10"
+                                          MinHeight="22"
+                                          VerticalAlignment="Center"
+                                          Margin="8,0,0,0"
+                                          Padding="1"/>
                             </StackPanel>
-
-                            <!-- Mode Selection -->
-                            <StackPanel Spacing="3">
-                                <TextBlock Text="Keyer Mode:" FontSize="12"/>
-                                <StackPanel Orientation="Horizontal" Spacing="15">
-                                    <RadioButton Content="Iambic"
-                                                 GroupName="KeyerMode"
-                                                 IsChecked="{Binding IsIambicMode}"
-                                                 Padding="2"/>
-                                    <RadioButton Content="Straight Key"
-                                                 GroupName="KeyerMode"
-                                                 IsChecked="{Binding !IsIambicMode}"
-                                                 Padding="2"/>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <!-- Iambic Mode Selection (A vs B) -->
-                            <StackPanel Spacing="3">
-                                <TextBlock Text="Iambic Type:" FontSize="12"/>
-                                <StackPanel Orientation="Horizontal" Spacing="15">
-                                    <RadioButton Content="Mode A"
-                                                 GroupName="IambicType"
-                                                 IsChecked="{Binding !IsIambicModeB}"
-                                                 IsEnabled="{Binding IsIambicMode}"
-                                                 Padding="2"/>
-                                    <RadioButton Content="Mode B"
-                                                 GroupName="IambicType"
-                                                 IsChecked="{Binding IsIambicModeB}"
-                                                 IsEnabled="{Binding IsIambicMode}"
-                                                 Padding="2"/>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <!-- Swap Paddles -->
-                            <CheckBox Content="Swap Paddles (Left ↔ Right)"
-                                      IsChecked="{Binding SwapPaddles}"
-                                      Padding="2"/>
                         </StackPanel>
                     </Border>
 
@@ -436,28 +461,57 @@
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3"
                             IsVisible="{Binding IsRemoteModeHost}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Host Status" FontWeight="Bold" FontSize="14"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Text="Host Status"
+                                               FontWeight="Bold"
+                                               FontSize="14"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding RemoteHostTitleStatusText}"
+                                               FontSize="12"
+                                               Foreground="DimGray"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Content="Disconnect"
+                                        Command="{Binding ToggleConnectionCommand}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Height="24"
+                                        FontSize="13"
+                                        Padding="8,0"/>
+                            </Grid>
 
-                            <TextBlock Text="{Binding RemoteHostWaitingLineText}"
+                                <StackPanel Orientation="Horizontal"
+                                    Spacing="6"
+                                    IsVisible="{Binding IsRemoteModeHost}">
+                                <TextBlock Text="{Binding RemoteHostConnectionStateText}"
                                        FontSize="13"
-                                       Foreground="DimGray"
-                                       IsVisible="{Binding IsRemoteModeHost}"/>
+                                       Foreground="DimGray"/>
+                                <TextBlock Text="|"
+                                       FontSize="13"
+                                       Foreground="DimGray"/>
+                                <TextBlock Text="{Binding RemoteHostRendezvousStatusText}"
+                                       FontSize="13"
+                                       Foreground="{Binding RemoteHostRendezvousStatusBrush}"/>
+                                </StackPanel>
 
-                            <Grid ColumnDefinitions="2*,2*,*,2*">
+                            <Grid ColumnDefinitions="118,96,70,*" ColumnSpacing="6">
                                 <TextBlock Grid.Column="0" Text="IP Address" FontWeight="SemiBold" FontSize="13"/>
                                 <TextBlock Grid.Column="1" Text="Callsign" FontWeight="SemiBold" FontSize="13"/>
-                                <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" FontSize="13" Margin="-24,0,0,0"/>
+                                <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" FontSize="13"/>
                                 <TextBlock Grid.Column="3" Text="Last Active" FontWeight="SemiBold" FontSize="13"/>
                             </Grid>
 
                             <ItemsControl ItemsSource="{Binding RemoteHostClientDisplayRows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="2*,2*,*,2*" Height="24">
-                                            <TextBlock Grid.Column="0" Text="{Binding RemoteIp}" FontSize="13" VerticalAlignment="Center"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Callsign}" FontSize="13" VerticalAlignment="Center"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding Status}" FontSize="13" VerticalAlignment="Center" Margin="-24,0,0,0"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding LastActive}" FontSize="13" VerticalAlignment="Center"/>
+                                        <Grid ColumnDefinitions="118,96,70,*" ColumnSpacing="6" Height="24">
+                                            <TextBlock Grid.Column="0" Text="{Binding RemoteIp}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Callsign}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Status}" FontSize="13" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding LastActive}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -493,7 +547,28 @@
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="3"
                             IsVisible="{Binding IsRemoteModeClient}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Client Status" FontWeight="Bold" FontSize="14"/>
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0"
+                                           Text="Client Status"
+                                           FontWeight="Bold"
+                                           FontSize="14"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1"
+                                           Margin="8,0,0,0"
+                                           Text="{Binding RemoteClientTitleStatusText}"
+                                           FontSize="12"
+                                           Foreground="DimGray"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="2"
+                                        Content="Disconnect"
+                                        Command="{Binding ToggleConnectionCommand}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Height="24"
+                                        FontSize="13"
+                                        Padding="8,0"/>
+                            </Grid>
 
                             <Grid ColumnDefinitions="2*,2*,*">
                                 <TextBlock Grid.Column="0" Text="Host IP" FontWeight="SemiBold" FontSize="13"/>
@@ -513,6 +588,7 @@
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding RemoteClientConnectionStatusText}"
                                            FontSize="13"
+                                           Foreground="{Binding RemoteClientConnectionStatusBrush}"
                                            VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"/>
                             </Grid>
@@ -543,19 +619,6 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Disconnect and Exit Buttons -->
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,5,0,0">
-                        <Button Content="Disconnect"
-                                Command="{Binding ToggleConnectionCommand}"
-                                HorizontalContentAlignment="Center"
-                                Width="120"
-                                Padding="6"/>
-                        <Button Content="Exit"
-                                Command="{Binding ExitCommand}"
-                                HorizontalContentAlignment="Center"
-                                Width="100"
-                                Padding="6"/>
-                    </StackPanel>
                 </StackPanel>
 
             </StackPanel>

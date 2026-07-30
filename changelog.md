@@ -8,9 +8,13 @@
 - Corrected host operating-page bottom status indicator behavior in non-CW mode:
   - Left indicator now represents PTT assertion state and turns green when asserted.
   - Right indicator is intentionally hidden in non-CW/PTT mode.
+- Corrected transmit-mode synchronization to include non-CW to non-CW transitions (for example USB to LSB), so mode text updates immediately in the host operating status bar.
+- Corrected remote client operating-page mode display to show connected host identity and active host mode on connect, instead of remaining on generic sidetone-only text.
+- Corrected remote client non-CW LED behavior to follow host PTT-closure logic so the single non-CW indicator responds to either paddle/PTT closure path.
 
 ### Changed
 - Program revision 2.1.27 implements the above PTT behavior corrections for host/client remote operation and status indication consistency.
+- Program revision 2.1.27 also includes host-to-client transmit mode text propagation so the remote client bottom status bar mirrors host mode naming.
 
 ## 2026-07-29
 

@@ -30,6 +30,7 @@ public class RemoteHostService : IRemoteHostService
     private DateTime _activeOwnerLeaseUntilUtc = DateTime.MinValue;
     private bool _useSenderTickStaleGate;
     private volatile bool _isTransmitModeCW = true;
+    private volatile string _transmitMode = "CW";
 
     private sealed class TelemetryState
     {
@@ -56,9 +57,13 @@ public class RemoteHostService : IRemoteHostService
     public event EventHandler<IReadOnlyList<RemoteClientStatusInfo>> ClientStatusesChanged;
     public event EventHandler<RemotePaddleStateEventArgs> PaddleStateReceived;
 
-    public void SetTransmitMode(bool isCW)
+    public void SetTransmitMode(bool isCW, string transmitMode = "CW")
     {
         _isTransmitModeCW = isCW;
+        string normalizedMode = (transmitMode ?? string.Empty).Trim().ToUpperInvariant();
+        _transmitMode = string.IsNullOrWhiteSpace(normalizedMode)
+            ? (isCW ? "CW" : "UNKNOWN")
+            : normalizedMode;
     }
 
     public async Task StartAsync(RemoteHostOptions options, CancellationToken ct)
@@ -632,7 +637,8 @@ public class RemoteHostService : IRemoteHostService
         var payload = new HeartbeatPayload
         {
             SenderTickMs = Environment.TickCount64,
-            IsTransmitModeCW = _isTransmitModeCW
+            IsTransmitModeCW = _isTransmitModeCW,
+            TransmitMode = _transmitMode
         };
 
         if (string.IsNullOrWhiteSpace(clientId))

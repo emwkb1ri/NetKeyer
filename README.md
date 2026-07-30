@@ -6,7 +6,11 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 
 - **Revision 2.1.27 (2026-07-30)**
   - Fixed remote non-CW behavior so host transmit mode is communicated to clients and clients correctly follow CW vs non-CW operation.
+  - Fixed host transmit-mode synchronization to include non-CW to non-CW changes so mode text follows radio mode changes (for example USB to LSB).
+  - Added host transmit mode text to remote heartbeat telemetry so remote client bottom status mode labels mirror host mode naming.
   - Fixed remote client non-CW keying to send PTT intent while suppressing local CW keyer/sidetone behavior.
+  - Fixed remote client bottom status identity/mode display so connected state shows host identity and active mode immediately.
+  - Fixed remote client non-CW single LED logic to follow host PTT-closure behavior (responds to either paddle/PTT closure path).
   - Fixed host operating-page bottom keying indicator behavior in non-CW mode: left indicator now represents PTT assertion (green when active), and the right indicator is intentionally hidden.
 
 ## Features

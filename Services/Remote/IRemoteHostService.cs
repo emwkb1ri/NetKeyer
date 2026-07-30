@@ -17,6 +17,6 @@ public interface IRemoteHostService : IDisposable
 
     Task StartAsync(RemoteHostOptions options, CancellationToken ct);
     Task ConnectRelaySessionAsync(string relayHost, int relayPort, string sessionId, CancellationToken ct);
-    void SetTransmitMode(bool isCW);
+    void SetTransmitMode(bool isCW, string transmitMode = "CW");
     Task StopAsync();
 }

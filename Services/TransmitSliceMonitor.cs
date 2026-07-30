@@ -8,6 +8,7 @@ namespace NetKeyer.Services;
 public class TransmitModeChangedEventArgs : EventArgs
 {
     public bool IsTransmitModeCW { get; set; }
+    public string TransmitMode { get; set; } = "CW";
 }
 
 public class TransmitSliceMonitor
@@ -16,8 +17,10 @@ public class TransmitSliceMonitor
     private uint _boundGuiClientHandle;
     private Slice _monitoredTransmitSlice;
     private bool _isTransmitModeCW = true;
+    private string _transmitMode = "CW";
 
     public bool IsTransmitModeCW => _isTransmitModeCW;
+    public string TransmitMode => _transmitMode;
     public Slice TransmitSlice => _monitoredTransmitSlice;
 
     public event EventHandler<TransmitModeChangedEventArgs> TransmitModeChanged;
@@ -84,16 +87,18 @@ public class TransmitSliceMonitor
         {
             string mode = txSlice.DemodMode?.ToUpper() ?? "USB";
             bool wasCW = _isTransmitModeCW;
+            string previousMode = _transmitMode;
+            _transmitMode = mode;
             _isTransmitModeCW = (mode == "CW");
 
             DebugLogger.Log("slice", $"[TransmitSliceMode] Slice {txSlice.Index} mode: {mode}, isCW: {_isTransmitModeCW}");
 
-            if (wasCW != _isTransmitModeCW)
+            if (wasCW != _isTransmitModeCW || !string.Equals(previousMode, _transmitMode, StringComparison.Ordinal))
             {
                 DebugLogger.Log("slice", $"[TransmitSliceMode] Mode changed from {(wasCW ? "CW" : "non-CW")} to {(_isTransmitModeCW ? "CW" : "non-CW")}");
 
                 // Notify listeners
-                TransmitModeChanged?.Invoke(this, new TransmitModeChangedEventArgs { IsTransmitModeCW = _isTransmitModeCW });
+                TransmitModeChanged?.Invoke(this, new TransmitModeChangedEventArgs { IsTransmitModeCW = _isTransmitModeCW, TransmitMode = _transmitMode });
             }
         }
         else
@@ -101,12 +106,14 @@ public class TransmitSliceMonitor
             DebugLogger.Log("slice", $"[TransmitSliceMode] No transmit slice for our client, defaulting to CW mode");
 
             bool wasCW = _isTransmitModeCW;
+            string previousMode = _transmitMode;
             _isTransmitModeCW = true; // Default to CW mode if no transmit slice
+            _transmitMode = "CW";
 
-            if (wasCW != _isTransmitModeCW)
+            if (wasCW != _isTransmitModeCW || !string.Equals(previousMode, _transmitMode, StringComparison.Ordinal))
             {
                 // Notify listeners
-                TransmitModeChanged?.Invoke(this, new TransmitModeChangedEventArgs { IsTransmitModeCW = _isTransmitModeCW });
+                TransmitModeChanged?.Invoke(this, new TransmitModeChangedEventArgs { IsTransmitModeCW = _isTransmitModeCW, TransmitMode = _transmitMode });
             }
         }
     }

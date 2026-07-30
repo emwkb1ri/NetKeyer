@@ -5,6 +5,7 @@ namespace NetKeyer.Services.Remote;
 public class RemoteHostTelemetryEventArgs : EventArgs
 {
     public bool IsTransmitModeCW { get; init; } = true;
+    public string TransmitMode { get; init; } = "CW";
     public double LastLagMs { get; init; }
     public double AvgLagMs { get; init; }
     public double MaxLagMs { get; init; }

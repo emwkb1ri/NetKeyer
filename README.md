@@ -365,7 +365,9 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 - The About dialog credits show:
   - `by Eric NR4O`
   - `forked from NetKeyer by Andrew KC2G and contributors`
-- `Check for Updates` is currently disabled until a new update location is configured.
+- `Check for Updates` is enabled in the About dialog.
+- Update checks target GitHub Releases for this repository: `https://github.com/NetKeyer/NetKeyer`.
+- Update install/apply requires a Velopack-installed build. When running via `dotnet run`, update status will report development mode and skip install/apply.
 
 ## Troubleshooting
 

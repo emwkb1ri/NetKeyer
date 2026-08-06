@@ -17,6 +17,7 @@ public partial class AboutWindowViewModel : ViewModelBase
     private readonly Window _window;
 
     public string VersionText { get; }
+    public string RepositoryUrl => AppReleaseInfo.GitHubRepositoryUrl;
 
     [ObservableProperty]
     private string _updateStatus = "";
@@ -35,7 +36,7 @@ public partial class AboutWindowViewModel : ViewModelBase
         try
         {
             // Try to get version from Velopack first
-            var updateManager = new UpdateManager("https://github.com/NetKeyer/NetKeyer");
+            var updateManager = new UpdateManager(AppReleaseInfo.GitHubRepositoryUrl);
             if (updateManager.IsInstalled)
             {
                 var currentVersion = updateManager.CurrentVersion;
@@ -80,7 +81,7 @@ public partial class AboutWindowViewModel : ViewModelBase
             DebugLogger.Log("update", $"Current time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
             DebugLogger.Log("update", "Creating GithubSource...");
-            var source = new GithubSource("https://github.com/NetKeyer/NetKeyer", null, false);
+            var source = new GithubSource(AppReleaseInfo.GitHubRepositoryUrl, null, false);
             DebugLogger.Log("update", "GithubSource created successfully");
 
             DebugLogger.Log("update", "Creating UpdateManager...");
@@ -88,7 +89,7 @@ public partial class AboutWindowViewModel : ViewModelBase
             DebugLogger.Log("update", $"UpdateManager initialized");
             DebugLogger.Log("update", $"  IsInstalled: {mgr.IsInstalled}");
             DebugLogger.Log("update", $"  AppId: {mgr.AppId}");
-            DebugLogger.Log("update", $"  UpdateUrl: https://github.com/NetKeyer/NetKeyer");
+            DebugLogger.Log("update", $"  UpdateUrl: {AppReleaseInfo.GitHubRepositoryUrl}");
 
             if (!mgr.IsInstalled)
             {
@@ -105,7 +106,7 @@ public partial class AboutWindowViewModel : ViewModelBase
             DebugLogger.Log("update", $"64-bit Process: {Environment.Is64BitProcess}");
 
             DebugLogger.Log("update", "Calling CheckForUpdatesAsync() - this will query GitHub releases...");
-            DebugLogger.Log("update", $"GitHub URL: https://github.com/NetKeyer/NetKeyer");
+            DebugLogger.Log("update", $"GitHub URL: {AppReleaseInfo.GitHubRepositoryUrl}");
             DebugLogger.Log("update", $"Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
 
             // Add a 30-second timeout to prevent indefinite hanging
@@ -220,7 +221,7 @@ public partial class AboutWindowViewModel : ViewModelBase
     [RelayCommand]
     private void OpenGitHub()
     {
-        UrlHelper.OpenUrl("https://github.com/NetKeyer/NetKeyer");
+        UrlHelper.OpenUrl(AppReleaseInfo.GitHubRepositoryUrl);
     }
 
     [RelayCommand]

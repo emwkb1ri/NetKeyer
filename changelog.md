@@ -20,6 +20,7 @@
 
 ### Changed
 - Program revision 2.1.32 publishes Step 9 setup UI completion and host-mode keying/sidetone source refinement updates.
+- Re-enabled About dialog update checks and centralized the update repository URL used by both GitHub link navigation and Velopack update queries.
 
 ## 2026-07-30 (Revision 2.1.27)
 
@@ -151,7 +152,7 @@
   - About credits updated to:
     - `by Eric NR4O`
     - `forked from NetKeyer by Andrew KC2G and contributors`
-  - `Check for Updates` button is intentionally disabled until a new update location is configured.
+  - `Check for Updates` button was intentionally disabled in this revision pending update-location configuration.
 
 ### Reliability
 - Rendezvous server test suite expanded and passing:

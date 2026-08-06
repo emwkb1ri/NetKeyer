@@ -81,6 +81,36 @@ Upload all platform files to a GitHub Release:
 
 Auto-updates will work automatically since Velopack can read from GitHub Releases.
 
+### Pre-Publish Validation: Check for Updates
+
+Use this checklist before publishing a release to confirm About -> Check for Updates will work for end users.
+
+1. Build and package two sequential versions (example: `2.1.32` then `2.1.33`).
+2. Publish both versions to GitHub Releases with complete Velopack assets per platform/channel:
+    - installer (`Setup.exe`, `.AppImage`, `.dmg`)
+    - `*-full.nupkg`
+    - `*-delta.nupkg` (if produced)
+    - `RELEASES`
+3. Install the older version (`2.1.32`) using the Velopack installer package (do not use `dotnet run`).
+4. Launch the installed app and open Help -> About.
+5. Click `Check for Updates`.
+6. Confirm expected behavior:
+    - App reports update availability for `2.1.33`.
+    - Download progresses and completes.
+    - Restart/apply prompt appears.
+    - After restart, About shows the new revision.
+
+Expected non-release behavior:
+
+- If launched from development (`dotnet run`), update checks may report development-mode/not-installed and will not apply updates.
+
+Pre-publish sanity checks:
+
+- Ensure repo update URL constant points to the current fork repository:
+  - `Helpers/AppReleaseInfo.cs` -> `GitHubRepositoryUrl`
+- Keep `--packId "NetKeyer"` stable across releases to preserve update continuity.
+- Ensure release version monotonically increases (no downgrade/reuse of prior version number).
+
 ### Option 2: Custom Web Server
 
 Upload all files from `NetKeyer/Releases/` to a web-accessible directory:
@@ -173,7 +203,13 @@ Run: `dotnet tool install -g vpk`
 
 ### Updates Not Working
 
-Ensure all files from `NetKeyer/Releases/` are uploaded together, including the `RELEASES` manifest file.
+Check the following:
+
+- All files from `NetKeyer/Releases/<platform>/` were uploaded together, including `RELEASES`.
+- The installed app came from a Velopack installer, not a development run.
+- The newer release version is greater than the installed version.
+- `Helpers/AppReleaseInfo.cs` points to the correct GitHub repository URL for this fork.
+- `packId` has not changed between releases.
 
 ### Icon Not Showing
 

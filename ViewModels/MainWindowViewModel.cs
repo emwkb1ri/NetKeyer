@@ -202,6 +202,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isExiting;
     private bool _remoteHostTransmitModeCW = true;
     private string _remoteHostTransmitMode = "CW";
+    private bool? _hostSidetoneEnabledForLocalSource;
     private const int DefaultRendezvousPort = 49923;
 
     public bool IsExiting => _isExiting;
@@ -872,6 +873,38 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         RemoteRendezvousHostId = value.HostId ?? "";
+
+        string selectedHostAddress = ResolveSelectedHostAddress(value);
+        if (!string.IsNullOrWhiteSpace(selectedHostAddress))
+        {
+            RemoteClientHost = selectedHostAddress;
+        }
+
+        if (value.PublicPort > 0)
+        {
+            RemoteClientPort = value.PublicPort;
+        }
+    }
+
+    private static string ResolveSelectedHostAddress(RendezvousHostSummary value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(value.PublicIp))
+        {
+            return value.PublicIp.Trim();
+        }
+
+        string hostId = (value.HostId ?? string.Empty).Trim();
+        if (IPAddress.TryParse(hostId, out _))
+        {
+            return hostId;
+        }
+
+        return string.Empty;
     }
 
     [RelayCommand]
@@ -1289,6 +1322,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         _loadingSettings = false;
+        UpdatePaddleLabels();
     }
 
     [RelayCommand]
@@ -1316,6 +1350,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         _loadingSettings = false;
+        UpdatePaddleLabels();
     }
 
     [RelayCommand]
@@ -1509,6 +1544,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void InputDeviceManager_PaddleStateChanged(object sender, PaddleStateChangedEventArgs e)
     {
+        SetHostSidetoneForKeyingSource(isLocalInput: true);
+
         // Swap is now handled in InputDeviceManager
         bool leftPaddleState = e.LeftPaddle;
         bool rightPaddleState = e.RightPaddle;
@@ -2109,12 +2146,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void MuteHostSidetone()
     {
+        _hostSidetoneEnabledForLocalSource = false;
         _sidetoneGenerator?.Stop();
         _keyingController?.SetSidetoneEnabled(false);
     }
 
     private void RestoreHostSidetone()
     {
+        _hostSidetoneEnabledForLocalSource = null;
         _keyingController?.SetSidetoneEnabled(true);
     }
 
@@ -2291,6 +2330,9 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             return;
         }
+
+        // Remote-origin keying should never generate host sidetone.
+        SetHostSidetoneForKeyingSource(isLocalInput: false);
 
         _keyingController?.HandlePaddleStateChange(
             e.State.LeftPaddle,
@@ -3100,6 +3142,43 @@ public partial class MainWindowViewModel : ViewModelBase
         return _transmitSliceMonitor.IsTransmitModeCW;
     }
 
+    private void SetHostSidetoneForKeyingSource(bool isLocalInput)
+    {
+        if (RemoteMode != RemoteConnectionMode.Host || _connectedRadio == null)
+        {
+            _hostSidetoneEnabledForLocalSource = null;
+            return;
+        }
+
+        bool localDeviceOpen = _inputDeviceManager?.IsDeviceOpen == true;
+        bool enableSidetone = isLocalInput && localDeviceOpen;
+
+        if (_hostSidetoneEnabledForLocalSource.HasValue
+            && _hostSidetoneEnabledForLocalSource.Value == enableSidetone)
+        {
+            return;
+        }
+
+        _hostSidetoneEnabledForLocalSource = enableSidetone;
+
+        _keyingController?.SetSidetoneEnabled(enableSidetone);
+        if (!enableSidetone)
+        {
+            _sidetoneGenerator?.Stop();
+        }
+    }
+
+    private bool ShouldShowHostCwSettings()
+    {
+        if (RemoteMode != RemoteConnectionMode.Host || _connectedRadio == null)
+        {
+            return true;
+        }
+
+        // In host mode, CW settings are only useful when a local keying input is actively connected.
+        return _inputDeviceManager?.IsDeviceOpen == true;
+    }
+
     private void UpdatePaddleLabels()
     {
         // Build combined mode display string
@@ -3222,7 +3301,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 RightPaddleVisible = false;
             }
 
-            CwSettingsVisible = true;
+            CwSettingsVisible = ShouldShowHostCwSettings();
             ModeInstructions = "";
         }
 

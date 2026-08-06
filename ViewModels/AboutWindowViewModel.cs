@@ -41,7 +41,7 @@ public partial class AboutWindowViewModel : ViewModelBase
                 var currentVersion = updateManager.CurrentVersion;
                 if (currentVersion != null)
                 {
-                    return $"Version {currentVersion}";
+                    return $"Revision {currentVersion}";
                 }
             }
         }
@@ -57,7 +57,7 @@ public partial class AboutWindowViewModel : ViewModelBase
             var version = assembly.GetName().Version;
             if (version != null)
             {
-                return $"Version {version.Major}.{version.Minor}.{version.Build}";
+                return $"Revision {version.Major}.{version.Minor}.{version.Build}";
             }
         }
         catch
@@ -65,7 +65,7 @@ public partial class AboutWindowViewModel : ViewModelBase
             // If all else fails
         }
 
-        return "Version unknown";
+        return $"Revision {AppReleaseInfo.Revision}";
     }
 
     [RelayCommand]

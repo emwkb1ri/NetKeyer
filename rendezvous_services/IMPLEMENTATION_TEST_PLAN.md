@@ -1,5 +1,37 @@
 # NetKeyer Rendezvous/Relay Implementation and Testing Plan
 
+## 2026-08-06 Setup UI + Host Keying Completion Summary (Step 9)
+
+Status
+
+- Complete
+
+Summary
+
+- Released in program revision 2.1.32.
+- Completed Step 9 setup-screen UI enhancements in NetKeyer:
+  - Mode selection copy updated to Standalone / Client / Host.
+  - Dedicated Network Connection grouping introduced for remote/network settings.
+  - Client-mode setup labels updated to Select Host, Host IP, and Host Port.
+  - Radio Selection hidden when Client mode is selected.
+  - Network Connection hidden when Standalone mode is selected.
+  - Host selection now populates Host IP and Host Port when discovered endpoint metadata is available.
+- Completed host-mode keying/sidetone behavior updates:
+  - Host CW Settings visibility is now gated by local key-input connection state.
+  - Local host keying from connected HaliKey enables sidetone.
+  - Remote-origin keying suppresses host sidetone.
+  - Sidetone source switching is transition-based to avoid per-frame toggling and keying jitter.
+
+Verification focus
+
+- In Setup view, confirm Connection Mode and Network Connection grouping/labels reflect Step 9 updates.
+- Confirm visibility rules:
+  - Client mode hides Radio Selection.
+  - Standalone mode hides Network Connection.
+- In Host operating view, confirm CW Settings visibility tracks local key-input connection state.
+- Confirm local host keying produces sidetone while remote keying never produces host sidetone.
+- Confirm no key-up/key-down timing regression after sidetone source transition gating.
+
 ## 2026-07-29 UI Compaction Completion Summary (Step 8)
 
 Status

@@ -108,6 +108,46 @@ Completion summary (2026-07-29):
   - About, Audio Output, and MIDI Note Mapping dialogs now auto-size to content.
   - MIDI dialog height capped with MaxHeight to avoid excessive vertical growth.
 
+## Step 9: UI Enhancements (Future)
+- Status: Complete (2026-08-06)
+- Goal: streamline setup-page mode and network layout while improving client-mode clarity.
+- Tasks:
+  - Change radio button label 'Remote Client' to 'Client'.
+  - Change radio button label 'Remote Host' to 'Host'.
+  - Change the title 'Remote Connection Mode' to 'Connection Mode'.
+  - Change the 'Connection Mode' box group to include the three mode select radio buttons.
+  - Create a new grouping box titled 'Network Connection' that includes the 'Callsign:' input box, 'Use Rednezvous' checkbox, 'ID Server', 'Host Discovery:', 'Host ID', 'Target Host', 'Target Port', and 'Shared Token'.
+  - Remove Radio Selection box from setup UI when Client mode selected.
+  - Remove 'Network Connection' box from setup UI when 'Standalone' mode selected.
+  - On 'Client' mode window:
+    - change 'Host Discovery:' label to 'Select Host:'
+    - change 'Target Host:' label to 'Host IP:'.
+    - chnage 'Target Port:' label to 'Host Port:'.
+    - when a host is selected, update the 'Host IP:' field with it's IP address
+- Pass criteria:
+  - Setup-page grouping and labels match the updated mode/network structure.
+  - Conditional visibility behavior is correct for Standalone, Host, and Client modes.
+  - Client-mode network labels and control ordering match the specified wording/layout.
+
+Completion summary (2026-08-06):
+- Released in program revision 2.1.32.
+- Setup-page grouping and mode-label updates completed:
+  - Connection Mode section uses labels Standalone / Client / Host.
+  - Mode selector ordering finalized as Standalone, Client, Host.
+- Network Connection section created and wired:
+  - Callsign, Use Rendezvous, ID Server/Port, Host ID, Host IP/Host Port, and Shared Token grouped under Network Connection.
+  - Client host discovery label updated to Select Host.
+  - Selecting a discovered host updates Host IP and Host Port when endpoint metadata is available.
+- Mode-conditional visibility updates completed:
+  - Radio Selection is hidden when Client mode is selected.
+  - Network Connection is hidden when Standalone mode is selected.
+- Host-mode operating behavior refinements completed:
+  - CW Settings are hidden in Host mode when no local key input device is connected.
+  - Host sidetone behavior is now source-aware:
+    - local HaliKey keying enables sidetone,
+    - remote keying suppresses sidetone,
+    - transition gating avoids per-frame sidetone toggles that caused keying jitter.
+
 ## Execution Log
 - 2026-06-25: Checklist created and execution started.
 - 2026-06-25: Step 1 passed. native/build.ps1 completed and native/windows-x64/netkeyer_midi_shim.dll exists.
@@ -131,3 +171,4 @@ Completion summary (2026-07-29):
 - 2026-07-29: Step 8 completed. UI compaction and full-screen review updates implemented across setup/operating views and dialogs, including status de-duplication, compact CW layout, dynamic sizing behavior, and control placement refinements.
 - 2026-07-30: Remote non-CW/PTT behavior corrections documented as program revision 2.1.27 in [changelog.md](changelog.md) and [README.md](README.md), including host transmit-mode propagation to clients, client PTT-only behavior in non-CW mode, and host bottom-bar PTT indicator alignment.
 - 2026-07-30: Added additional revision 2.1.27 documentation updates in [changelog.md](changelog.md) and [README.md](README.md) for non-CW-to-non-CW mode text synchronization, remote client host-identity mode display at connect, and remote client non-CW LED parity with host PTT-closure behavior.
+- 2026-08-06: Step 9 completed and documented as program revision 2.1.32 in [changelog.md](changelog.md) and [README.md](README.md). Setup-page Connection Mode/Network Connection UX updates, client-mode visibility/label refinements, host-discovery Host IP/Port fill behavior, host CW Settings visibility gating, and source-aware host sidetone/keying behavior are implemented and validated.

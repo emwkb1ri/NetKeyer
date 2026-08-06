@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using NetKeyer.Helpers;
 
 namespace NetKeyer.Services.Remote;
 
@@ -52,7 +53,7 @@ public static class RemoteProtocolJson
 public class HelloPayload
 {
     public string AppName { get; set; } = "NetKeyer";
-    public string AppVersion { get; set; } = "dev";
+    public string AppVersion { get; set; } = AppReleaseInfo.Revision;
     public string Callsign { get; set; } = "";
     public string HostName { get; set; } = "";
 }

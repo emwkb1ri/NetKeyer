@@ -1,5 +1,26 @@
 # Remote Keying Feature changes
 
+## 2026-08-06 (Revision 2.1.32)
+
+### Added
+- Completed Step 9 setup-page UI enhancement set:
+  - Connection Mode labels now use Standalone / Client / Host.
+  - New Network Connection group consolidates client/host network settings.
+  - Client labels updated to Select Host, Host IP, and Host Port.
+  - Selecting a discovered host now fills Host IP and Host Port when endpoint metadata is available.
+  - Radio Selection is hidden in Client mode.
+  - Network Connection is hidden in Standalone mode.
+
+### Fixed
+- Corrected host operating-page CW Settings visibility in host mode so CW Settings are hidden when no local key input device is connected.
+- Corrected host-mode sidetone/keying source behavior:
+  - local host keying from a connected local HaliKey enables sidetone,
+  - remote keying never generates sidetone on the host instance,
+  - source transitions no longer perform per-frame sidetone toggles (prevents delayed/erratic keying regression).
+
+### Changed
+- Program revision 2.1.32 publishes Step 9 setup UI completion and host-mode keying/sidetone source refinement updates.
+
 ## 2026-07-30 (Revision 2.1.27)
 
 ### Fixed

@@ -39,6 +39,8 @@ public sealed class RendezvousHostSummary
 {
     public string HostId { get; set; } = "";
     public string Name { get; set; } = "";
+    public string PublicIp { get; set; } = "";
+    public int PublicPort { get; set; }
     public int CurrentClients { get; set; }
     public int MaxClients { get; set; }
 

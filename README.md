@@ -4,6 +4,19 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 
 ## Recent Changes
 
+- **Revision 2.1.32 (2026-08-06)**
+  - Completed Step 9 setup-page UI enhancements:
+    - Connection Mode now uses Standalone / Client / Host labels.
+    - Added Network Connection grouping for remote networking controls.
+    - Updated client labels to Select Host, Host IP, and Host Port.
+    - Selecting a discovered host now fills Host IP and Host Port when endpoint metadata is available.
+    - Radio Selection is hidden in Client mode.
+    - Network Connection is hidden in Standalone mode.
+  - Refined host-mode operating behavior:
+    - CW Settings are hidden in host mode unless a local key input device is connected.
+    - Local host keying enables sidetone, while remote-origin keying suppresses host sidetone.
+    - Sidetone source switching is transition-based to prevent keying jitter/regression.
+
 - **Revision 2.1.27 (2026-07-30)**
   - Fixed remote non-CW behavior so host transmit mode is communicated to clients and clients correctly follow CW vs non-CW operation.
   - Fixed host transmit-mode synchronization to include non-CW to non-CW changes so mode text follows radio mode changes (for example USB to LSB).
@@ -161,13 +174,13 @@ dotnet run
 
 ### Remote Mode
 
-Use the **Remote Connection Mode** section on the setup page to select one of these modes:
+Use the **Connection Mode** section on the setup page to select one of these modes:
 
 - **Standalone**: Existing behavior (local input keys local radio connection)
-- **Remote Client**:
+- **Client**:
   - Opens local input device and keeps local sidetone active
   - Sends paddle/straight/PTT state with timing ticks to a remote host via TCP
-- **Remote Host**:
+- **Host**:
   - Connects to a local/SmartLink radio and listens for remote paddle events
   - Mutes local sidetone while host mode is active
   - Accepts up to 5 simultaneous TCP client connections

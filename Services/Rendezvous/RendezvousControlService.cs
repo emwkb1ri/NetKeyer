@@ -171,11 +171,37 @@ public sealed class RendezvousControlService : IRendezvousControlService
                         int maxClients = hostEl.TryGetProperty("max_clients", out var mcEl) && mcEl.TryGetInt32(out var mcVal) ? mcVal : 0;
 
                         string name = "";
+                        string publicIp = hostEl.TryGetProperty("public_ip", out var pipEl) ? pipEl.GetString() ?? "" : "";
+                        int publicPort = hostEl.TryGetProperty("public_port", out var pportEl) && pportEl.TryGetInt32(out var pportVal) ? pportVal : 0;
                         if (hostEl.TryGetProperty("metadata", out var metadataEl)
                             && metadataEl.ValueKind == JsonValueKind.Object
-                            && metadataEl.TryGetProperty("name", out var nameEl))
+                            )
                         {
-                            name = nameEl.GetString() ?? "";
+                            if (metadataEl.TryGetProperty("name", out var nameEl))
+                            {
+                                name = nameEl.GetString() ?? "";
+                            }
+
+                            if (string.IsNullOrWhiteSpace(publicIp))
+                            {
+                                if (metadataEl.TryGetProperty("public_ip", out var metadataPublicIpEl))
+                                {
+                                    publicIp = metadataPublicIpEl.GetString() ?? "";
+                                }
+                                else if (metadataEl.TryGetProperty("host_public_ip", out var metadataHostPublicIpEl))
+                                {
+                                    publicIp = metadataHostPublicIpEl.GetString() ?? "";
+                                }
+                                else if (metadataEl.TryGetProperty("listen_address", out var metadataListenAddressEl))
+                                {
+                                    publicIp = metadataListenAddressEl.GetString() ?? "";
+                                }
+                            }
+
+                            if (publicPort <= 0 && metadataEl.TryGetProperty("listen_port", out var metadataListenPortEl) && metadataListenPortEl.TryGetInt32(out var metadataListenPort))
+                            {
+                                publicPort = metadataListenPort;
+                            }
                         }
 
                         if (!string.IsNullOrWhiteSpace(hostId))
@@ -184,6 +210,8 @@ public sealed class RendezvousControlService : IRendezvousControlService
                             {
                                 HostId = hostId,
                                 Name = name,
+                                PublicIp = publicIp,
+                                PublicPort = publicPort,
                                 CurrentClients = currentClients,
                                 MaxClients = maxClients
                             });

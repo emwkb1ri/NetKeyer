@@ -5,7 +5,7 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 ## Recent Changes
 
 - **Revision 2.1.32 (2026-08-06)**
-  - Completed Step 9 setup-page UI enhancements:
+  - Completed setup-page UI enhancements:
     - Connection Mode now uses Standalone / Client / Host labels.
     - Added Network Connection grouping for remote networking controls.
     - Updated client labels to Select Host, Host IP, and Host Port.
@@ -50,7 +50,7 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - WASAPI for Windows
 - **PTT Support**:
   - Supports PTT keying for non-CW modes
-- **Remote Keying Transport (Phase 2)**:
+- **Remote Keying Transport**:
   - Remote Client mode sends local paddle state over TCP
   - Remote Host mode accepts up to 5 TCP clients
   - Active-client ownership lock to prevent simultaneous multi-client keying contention

@@ -2674,62 +2674,76 @@ public partial class MainWindowViewModel : ViewModelBase
             DebugLogger.LogAlways("remote", $"Exit requested: remote teardown failed: {ex.Message}");
         }
 
-        // Clean up all keying state before exit
-        _keyingController?.Stop();
-        _sidetoneGenerator?.Stop();
-
-        if (_connectedRadio != null)
-        {
-            _connectedRadio.PropertyChanged -= Radio_PropertyChanged;
-            _transmitSliceMonitor.Detach();
-            _radioSettingsSynchronizer.DetachFromRadio();
-            _connectedRadio.Disconnect();
-            _connectedRadio = null;
-        }
-
-        // Close input device
-        _inputDeviceManager?.Dispose();
-
-        // Dispose keep-awake stream
-        _keepAwakeStream?.Stop();
-        _keepAwakeStream?.Dispose();
-
-        // Dispose sidetone generator
-        _sidetoneGenerator?.Dispose();
-
-        _hostPortMapper?.Dispose();
-
+        // Run potentially blocking teardown work off the UI thread with a hard timeout.
         try
         {
-            _smartLinkManager?.CancelLogin();
-            _smartLinkManager?.WanServer?.Disconnect();
-        }
-        catch (Exception ex)
-        {
-            DebugLogger.LogAlways("system", $"Exit requested: SmartLink disconnect failed: {ex.Message}");
-        }
-
-        try
-        {
-            Task closeSessionTask = Task.Run(() => API.CloseSession());
-            Task completedTask = await Task.WhenAny(closeSessionTask, Task.Delay(TimeSpan.FromSeconds(3)));
-            if (completedTask != closeSessionTask)
+            Task teardownTask = Task.Run(() =>
             {
-                DebugLogger.LogAlways("system", "Exit requested: API.CloseSession timed out after 3 seconds; continuing shutdown");
+                try { _keyingController?.Stop(); } catch { }
+                try { _sidetoneGenerator?.Stop(); } catch { }
+
+                if (_connectedRadio != null)
+                {
+                    try { _connectedRadio.PropertyChanged -= Radio_PropertyChanged; } catch { }
+                    try { _transmitSliceMonitor.Detach(); } catch { }
+                    try { _radioSettingsSynchronizer.DetachFromRadio(); } catch { }
+                    try { _connectedRadio.Disconnect(); } catch { }
+                    _connectedRadio = null;
+                }
+
+                try { _inputDeviceManager?.Dispose(); } catch { }
+
+                try { _keepAwakeStream?.Stop(); } catch { }
+                try { _keepAwakeStream?.Dispose(); } catch { }
+
+                try { _sidetoneGenerator?.Dispose(); } catch { }
+                try { _hostPortMapper?.Dispose(); } catch { }
+
+                try
+                {
+                    _smartLinkManager?.CancelLogin();
+                    _smartLinkManager?.WanServer?.Disconnect();
+                }
+                catch (Exception ex)
+                {
+                    DebugLogger.LogAlways("system", $"Exit requested: SmartLink disconnect failed: {ex.Message}");
+                }
+
+                try
+                {
+                    API.CloseSession();
+                }
+                catch (Exception ex)
+                {
+                    DebugLogger.LogAlways("system", $"Exit requested: API.CloseSession failed: {ex.Message}");
+                }
+            });
+
+            Task teardownCompleted = await Task.WhenAny(teardownTask, Task.Delay(TimeSpan.FromSeconds(5)));
+            if (teardownCompleted != teardownTask)
+            {
+                DebugLogger.LogAlways("system", "Exit requested: local teardown timed out after 5 seconds; forcing app shutdown");
             }
             else
             {
-                await closeSessionTask;
+                await teardownTask;
             }
         }
         catch (Exception ex)
         {
-            DebugLogger.LogAlways("system", $"Exit requested: API.CloseSession failed: {ex.Message}");
+            DebugLogger.LogAlways("system", $"Exit requested: local teardown failed: {ex.Message}");
         }
 
         var desktopLifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
         if (desktopLifetime != null)
         {
+            // Fail-safe: force process exit if the UI lifetime shutdown path stalls.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                Environment.Exit(0);
+            });
+
             desktopLifetime.Shutdown(0);
             return;
         }

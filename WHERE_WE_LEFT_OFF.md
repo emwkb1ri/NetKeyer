@@ -2,7 +2,7 @@
 
 ## Current status
 - Remote mode Phase 1 foundation is present in this branch.
-- Default remote TCP port was changed to 49920.
+- Default remote TCP port is 49923.
 - Core remote service scaffolding exists under Services/Remote.
 - Main settings and sidetone gating hooks were added.
 
@@ -15,7 +15,7 @@
 
 ## Implemented artifacts now present
 - Services/Remote/RemoteConnectionMode.cs
-- Services/Remote/RemoteOptions.cs (DefaultPort = 49920)
+- Services/Remote/RemoteOptions.cs (DefaultPort = 49923)
 - Services/Remote/RemoteProtocolModels.cs
 - Services/Remote/RemoteFrameCodec.cs
 - Services/Remote/RemoteClientService.cs

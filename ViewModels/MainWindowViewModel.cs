@@ -203,7 +203,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _remoteHostTransmitModeCW = true;
     private string _remoteHostTransmitMode = "CW";
     private bool? _hostSidetoneEnabledForLocalSource;
-    private const int DefaultRendezvousPort = 49923;
+    private const int DefaultRendezvousPort = 49920;
 
     public bool IsExiting => _isExiting;
 

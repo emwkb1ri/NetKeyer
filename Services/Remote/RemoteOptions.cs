@@ -4,7 +4,7 @@ namespace NetKeyer.Services.Remote;
 
 public static class RemoteDefaults
 {
-    public const int DefaultPort = 49920;
+    public const int DefaultPort = 49923;
     public const int ProtocolVersion = 1;
     public const int MaxFrameBytes = 64 * 1024;
     public const int DefaultClientHoldMs = 1000;

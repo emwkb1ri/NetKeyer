@@ -4,6 +4,14 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 
 ## Recent Changes
 
+- **Revision 2.1.34 (2026-08-08)**
+  - Swapped default port roles for remote transport vs rendezvous control plane:
+    - Remote keying transport default is now `49923`.
+    - Rendezvous HTTP/WebSocket control-plane default is now `49920`.
+    - Relay service remains `49921`.
+    - Optional nginx relay TCP stream proxy remains `49922`.
+  - Updated Docker and nginx deployment defaults under `rendezvous_services` to match the new rendezvous control-plane port.
+
 - **Revision 2.1.32 (2026-08-06)**
   - Completed setup-page UI enhancements:
     - Connection Mode now uses Standalone / Client / Host labels.
@@ -58,7 +66,7 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - Stale-frame drop policy to reject delayed paddle frames before keying
   - Host and client telemetry summaries for last lag, avg lag, max lag (60s), accepted frames (60s), and stale drops
   - Telemetry lag values are normalized per client to remove static clock-skew bias while preserving observed network delay variation
-  - Default TCP port is `49920`
+  - Default TCP port is `49923`
   - Client keeps local sidetone active, host mutes local sidetone
 - **Rendezvous + Relay Signaling and Fallback (Phase 3/4)**:
   - Optional rendezvous-assisted host discovery and connection setup for remote client mode
@@ -66,10 +74,10 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - Relay transport handshake support using `SESSION <session_id> <role>` (`HOST` / `CLIENT`)
   - Always-on connection outcome logging with transport labels: `direct`, `mapped-direct`, `relay`
   - Dedicated service ports aligned with remote transport defaults:
-    - Remote keying transport: `49920`
+    - Rendezvous HTTP/WebSocket service: `49920`
     - Relay service: `49921`
     - Optional nginx relay TCP stream proxy: `49922`
-    - Rendezvous HTTP/WebSocket service: `49923`
+    - Remote keying transport: `49923`
 
 ## Requirements
 
@@ -189,7 +197,7 @@ Use the **Connection Mode** section on the setup page to select one of these mod
 
 Rendezvous setup inputs:
 - **Redezvous Server**: enter only host name or IP (for example, `netkeyer.ddns.net`).
-- **Port**: default `49923`.
+- **Port**: default `49920`.
 - The app generates the control URL in code as `http://<server>:<port>`.
 
 Remote host setup options include:
@@ -211,7 +219,7 @@ Operating-page telemetry:
 
 Defaults:
 
-- Port: `49920`
+- Port: `49923`
 - Client target host: `127.0.0.1`
 - Host bind address: `0.0.0.0`
 
@@ -243,7 +251,7 @@ This keeps the keying data path as close to direct as possible while still provi
 
 | Container | Purpose | Internal Port | Host Port (default) |
 |----------|---------|---------------|---------------------|
-| `netkeyer-rendezvous` | HTTP/WebSocket control-plane (`/health`, `/ws/host`, `/ws/client`) | `49923` | `49923` |
+| `netkeyer-rendezvous` | HTTP/WebSocket control-plane (`/health`, `/ws/host`, `/ws/client`) | `49920` | `49920` |
 | `netkeyer-relay` | Raw TCP relay service | `49921` | `49921` |
 | `netkeyer-rendezvous-nginx` (optional) | Reverse proxy for rendezvous + optional TCP stream proxy for relay | `80` + `49922` | `8080` + `49922` |
 
@@ -286,11 +294,11 @@ docker compose -f docker-compose.yml up -d
 
 ### 2. Configure HTTP/WebSocket proxy to rendezvous
 
-Point nginx to `netkeyer-rendezvous:49923` (or the host where rendezvous is published).
+Point nginx to `netkeyer-rendezvous:49920` (or the host where rendezvous is published).
 
 ```nginx
 upstream rendezvous_backend {
-  server 127.0.0.1:49923;
+  server 127.0.0.1:49920;
 }
 
 server {
@@ -392,7 +400,7 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 
 **Direct and mapped-direct never succeed (relay always used)**:
 
-- Verify the host machine firewall allows inbound TCP on the remote host listen port (default 49920).
+- Verify the host machine firewall allows inbound TCP on the remote host listen port (default 49923).
 - On Windows, ensure the firewall rule applies to the active network profile, including Public when applicable.
 - Confirm router/NAT forwarding and mapping are targeting the same host and port.
 
@@ -408,7 +416,7 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 Use this quick checklist before WAN testing:
 
 1. Configure the same shared token on Remote Host and Remote Client.
-2. Confirm Remote Host is listening on the expected port (default `49920`).
+2. Confirm Remote Host is listening on the expected port (default `49923`).
 3. On host, allow inbound TCP on the listen port in the OS firewall.
 4. On Windows host, ensure the firewall rule covers the active profile (Private/Public).
 5. Optional: Port forwarding, confirm router/NAT forwards the same port to the host.

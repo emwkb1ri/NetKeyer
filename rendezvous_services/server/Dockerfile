@@ -12,6 +12,6 @@ RUN pip install --no-cache-dir \
 
 COPY . /app
 
-EXPOSE 49923
+EXPOSE 49920
 
-CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "49923"]
+CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "49920"]

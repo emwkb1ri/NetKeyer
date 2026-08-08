@@ -1,5 +1,18 @@
 # Remote Keying Feature changes
 
+## 2026-08-08 (Revision 2.1.34)
+
+### Changed
+- Swapped default port assignments between remote transport and rendezvous control-plane:
+  - Remote host/client keying transport default changed from `49920` to `49923`.
+  - Rendezvous HTTP/WebSocket control-plane default changed from `49923` to `49920`.
+  - Relay service remains on `49921`.
+  - Optional nginx relay TCP stream proxy remains on `49922`.
+- Updated rendezvous deployment defaults to match the new control-plane port:
+  - [rendezvous_services/server/Dockerfile](rendezvous_services/server/Dockerfile)
+  - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+  - [rendezvous_services/nginx/rendezvous.conf](rendezvous_services/nginx/rendezvous.conf)
+
 ## 2026-08-06 (Revision 2.1.32)
 
 ### Added

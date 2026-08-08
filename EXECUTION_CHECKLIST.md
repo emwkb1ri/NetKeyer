@@ -27,7 +27,8 @@ Purpose: finish environment validation and complete the next implementation/test
 - Status: Complete
 - Goal: confirm configured defaults and key integration points are present.
 - Verify:
-  - remote default port = 49920
+  - remote default port = 49923
+  - rendezvous default control port = 49920
   - settings default to RemoteDefaults.DefaultPort
   - sidetone gate method exists in keying controller
 - Pass criteria:
@@ -37,8 +38,8 @@ Purpose: finish environment validation and complete the next implementation/test
 - Status: Complete
 - Goal: validate basic client-host remote keying path.
 - Procedure:
-  - Machine A: Remote Client mode, set host IP + port 49920
-  - Machine B: Remote Host mode, listen on port 49920
+  - Machine A: Remote Client mode, set host IP + port 49923
+  - Machine B: Remote Host mode, listen on port 49923
   - Connect both, key paddles on A, confirm keying on B
 - Pass criteria:
   - host receives events
@@ -172,3 +173,4 @@ Completion summary (2026-08-06):
 - 2026-07-30: Remote non-CW/PTT behavior corrections documented as program revision 2.1.27 in [changelog.md](changelog.md) and [README.md](README.md), including host transmit-mode propagation to clients, client PTT-only behavior in non-CW mode, and host bottom-bar PTT indicator alignment.
 - 2026-07-30: Added additional revision 2.1.27 documentation updates in [changelog.md](changelog.md) and [README.md](README.md) for non-CW-to-non-CW mode text synchronization, remote client host-identity mode display at connect, and remote client non-CW LED parity with host PTT-closure behavior.
 - 2026-08-06: Step 9 completed and documented as program revision 2.1.32 in [changelog.md](changelog.md) and [README.md](README.md). Setup-page Connection Mode/Network Connection UX updates, client-mode visibility/label refinements, host-discovery Host IP/Port fill behavior, host CW Settings visibility gating, and source-aware host sidetone/keying behavior are implemented and validated.
+- 2026-08-08: Default port roles swapped for upcoming revision 2.1.34. Remote keying transport default changed to 49923 and rendezvous control-plane default changed to 49920. Documentation and deployment defaults were updated accordingly.

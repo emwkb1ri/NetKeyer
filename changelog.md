@@ -12,6 +12,14 @@
   - [rendezvous_services/server/Dockerfile](rendezvous_services/server/Dockerfile)
   - [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
   - [rendezvous_services/nginx/rendezvous.conf](rendezvous_services/nginx/rendezvous.conf)
+- Rendezvous server startup now attempts automatic router port mapping per configured port using UPnP first, then NAT-PMP fallback.
+- Added rendezvous compose environment controls for optional nginx relay-proxy port mapping.
+- Expanded `/health` endpoint output to include port-map attempt status, protocol used, and per-port success/failure diagnostics.
+- Updated rendezvous compose defaults to a manual-mode recommendation preset (`RENDEZVOUS_ENABLE_PORT_MAP=false`) with explicit router forward guidance for TCP `49920` (rendezvous) and TCP `49921` (relay).
+- Added optional advanced auto-mapping override environment settings for containerized deployments:
+  - `RENDEZVOUS_PORTMAP_INTERNAL_IP`
+  - `RENDEZVOUS_NATPMP_GATEWAY_IP`
+  - `RENDEZVOUS_PORTMAP_HOST_IPS`
 
 ## 2026-08-06 (Revision 2.1.32)
 

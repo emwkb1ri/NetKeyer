@@ -236,6 +236,7 @@ to be installed on the system hosting these apps.  The repository contains the n
 
 - **Rendezvous server**: FastAPI + WebSocket signaling for host registration, host discovery, connect orchestration, and relay fallback signaling.
 - **Relay server**: asyncio TCP byte pipe that pairs host/client sockets by session ID and forwards bytes bidirectionally.
+- **Rendezvous health endpoint**: `/health` reports service status plus automatic router port-map attempt results when enabled.
 
 ### Connection Negotiation Summary
 
@@ -268,6 +269,32 @@ Compose files are split so nginx is optional:
 cd rendezvous_services
 docker compose -f docker-compose.yml up -d
 ```
+
+Manual-mode recommendation:
+
+- The default compose preset is manual-mode with automatic router mapping disabled.
+- Configure static router forwards for stable WAN behavior:
+  - TCP `49920` -> rendezvous host
+  - TCP `49921` -> relay host
+- This mode is recommended for production deployments because many routers handle manual/static forwards more consistently than dynamic NAT-PMP mappings.
+
+Rendezvous automatic port mapping controls (set on the `rendezvous` service in [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)):
+
+- `RENDEZVOUS_ENABLE_PORT_MAP`: enable/disable startup port-map attempts (`false` by default in compose manual-mode preset).
+- `RENDEZVOUS_CONTROL_PORT`: control-plane port to map/report (`49920` by default).
+- `RENDEZVOUS_RELAY_PORT`: relay port to map/report (`49921` by default).
+- `RENDEZVOUS_ENABLE_NGINX_PORT_MAP`: optionally include nginx relay proxy port in mapping attempts (`false` by default).
+- `RENDEZVOUS_NGINX_PORT`: nginx relay proxy port when optional mapping is enabled (`49922` by default).
+- `RENDEZVOUS_PORTMAP_INTERNAL_IP`: optional UPnP internal target override (for containerized deployments where mappings should target host LAN IP).
+- `RENDEZVOUS_NATPMP_GATEWAY_IP`: optional NAT-PMP router IP override.
+- `RENDEZVOUS_PORTMAP_HOST_IPS`: optional comma-separated host IP hints used when recognizing already-mapped ports.
+
+When auto-mapping is enabled, the server attempts mappings in this order per port:
+
+1. UPnP
+2. NAT-PMP
+
+Mapping results are included in `/health` under `port_mapping`, including per-port success/failure, protocol used, and a diagnostics block showing effective IP/gateway choices.
 
 ### Start relay + rendezvous + optional bundled nginx
 

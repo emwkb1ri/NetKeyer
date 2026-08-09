@@ -111,6 +111,26 @@ Pre-publish sanity checks:
 - Keep `--packId "NetKeyer"` stable across releases to preserve update continuity.
 - Ensure release version monotonically increases (no downgrade/reuse of prior version number).
 
+### Pre-Publish Validation: Rendezvous Manual-Mode Networking
+
+Use this checklist when publishing builds that depend on rendezvous services over WAN.
+
+1. In `rendezvous_services/docker-compose.yml`, verify manual-mode preset is active:
+    - `RENDEZVOUS_ENABLE_PORT_MAP: "false"`
+2. Configure router static forwards:
+    - TCP `49920` -> rendezvous host
+    - TCP `49921` -> relay host
+3. Start services:
+    - `cd rendezvous_services`
+    - `docker compose -f docker-compose.yml up -d`
+4. Verify health endpoint:
+    - `GET http://<rendezvous-host>:49920/health`
+    - Confirm `port_mapping.enabled` is `false` (manual-mode expected).
+5. Validate mixed-network host discovery and connection:
+    - Register one host from LAN and one host from WAN.
+    - From a LAN client, refresh Select Host and confirm both hosts appear.
+    - Connect to each host and confirm keying path is established.
+
 ### Option 2: Custom Web Server
 
 Upload all files from `NetKeyer/Releases/` to a web-accessible directory:

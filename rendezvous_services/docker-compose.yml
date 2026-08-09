@@ -23,6 +23,21 @@ services:
     environment:
       RENDEZVOUS_RELAY_HOST: relay
       RENDEZVOUS_RELAY_PORT: 49921
+      RENDEZVOUS_CONTROL_PORT: 49920
+      # Manual-mode (recommended): disable automatic UPnP/NAT-PMP mapping.
+      # Router should forward TCP 49920 -> rendezvous host and TCP 49921 -> relay host.
+      RENDEZVOUS_ENABLE_PORT_MAP: "false"
+
+      # Optional auto-mapping mode (advanced):
+      # RENDEZVOUS_ENABLE_PORT_MAP: "true"
+      # RENDEZVOUS_PORTMAP_INTERNAL_IP: "192.168.1.50"
+      # RENDEZVOUS_NATPMP_GATEWAY_IP: "192.168.1.1"
+      # RENDEZVOUS_PORTMAP_HOST_IPS: "192.168.1.50"
+      RENDEZVOUS_ENABLE_NGINX_PORT_MAP: "false"
+      RENDEZVOUS_NGINX_PORT: 49922
+      RENDEZVOUS_PORTMAP_HOST_IPS: ""
+      RENDEZVOUS_PORTMAP_INTERNAL_IP: ""
+      RENDEZVOUS_NATPMP_GATEWAY_IP: ""
       RENDEZVOUS_SWEEP_INTERVAL_SECONDS: 5
       RENDEZVOUS_SESSION_TTL_SECONDS: 30
     ports:

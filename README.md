@@ -327,6 +327,18 @@ Advanced options:
 - `--output-dir <path>` change artifact output directory
 - `--keep-staging` keep expanded bundle directory in output
 
+For upgrade deployments, extract release bundles with explicit overwrite flags (`unzip -o` on Linux/macOS, `Expand-Archive -Force` on Windows). See [rendezvous_services/README.md](rendezvous_services/README.md) for full upgrade steps.
+
+Clean upgrade (run from the `rendezvous_services` directory):
+
+```bash
+cd "$HOME/rendezvous_services"
+docker compose -f docker-compose.yml down
+docker compose -f docker-compose.yml build --no-cache
+docker compose -f docker-compose.yml up -d --force-recreate
+docker compose -f docker-compose.yml logs rendezvous --tail=50
+```
+
 ### Start relay + rendezvous only
 
 ```bash

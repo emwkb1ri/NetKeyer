@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 
 from fastapi import FastAPI, WebSocket
@@ -12,6 +13,8 @@ from .port_mapping import RendezvousPortMapper
 from .state import RendezvousState
 from .websocket_handlers import handle_client_ws, handle_host_ws
 
+
+LOGGER = logging.getLogger("netkeyer.rendezvous")
 
 state = RendezvousState()
 
@@ -49,6 +52,14 @@ async def _session_sweeper() -> None:
 
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
+    LOGGER.info(
+        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s",
+        VERSION_INFO.get("services_version", ""),
+        VERSION_INFO.get("protocol_version", ""),
+        VERSION_INFO.get("build", {}).get("tag", ""),
+        VERSION_INFO.get("build", {}).get("commit", ""),
+        VERSION_INFO.get("build", {}).get("built_at_utc", ""),
+    )
     await asyncio.to_thread(PORT_MAPPER.run_mapping)
     sweeper = asyncio.create_task(_session_sweeper())
     try:
@@ -61,6 +72,8 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="NetKeyer Rendezvous Server", version=str(VERSION_INFO["services_version"]), lifespan=lifespan)
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 @app.get("/health")

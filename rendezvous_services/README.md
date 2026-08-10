@@ -40,7 +40,7 @@ Linux/macOS:
 
 ```bash
 mkdir -p "$HOME/rendezvous_services"
-unzip netkeyer-rendezvous-services-<version>.zip -d "$HOME/rendezvous_services"
+unzip -o netkeyer-rendezvous-services-<version>.zip -d "$HOME/rendezvous_services"
 ```
 
 Windows PowerShell:
@@ -48,6 +48,27 @@ Windows PowerShell:
 ```powershell
 New-Item -ItemType Directory -Force -Path "$HOME\rendezvous_services" | Out-Null
 Expand-Archive -LiteralPath .\netkeyer-rendezvous-services-<version>.zip -DestinationPath "$HOME\rendezvous_services" -Force
+```
+
+Overwrite behavior notes:
+
+- `Expand-Archive` only overwrites when `-Force` is used.
+- `unzip` should use `-o` for non-interactive overwrite behavior.
+
+### Upgrade Deployment (replace existing files)
+
+For upgrades, always force overwrite during extraction before restarting containers.
+
+Linux/macOS:
+
+```bash
+unzip -o netkeyer-rendezvous-services-<new-version>.zip -d "$HOME/rendezvous_services"
+```
+
+Windows PowerShell:
+
+```powershell
+Expand-Archive -LiteralPath .\netkeyer-rendezvous-services-<new-version>.zip -DestinationPath "$HOME\rendezvous_services" -Force
 ```
 
 ### 2. Change to the deployment directory
@@ -67,8 +88,36 @@ Set-Location "$HOME\rendezvous_services"
 ### 3. Start services
 
 ```bash
-docker compose -f docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d --build --force-recreate
 ```
+
+### Clean Upgrade Procedure
+
+Run these commands from the `rendezvous_services` deployment directory.
+
+Linux/macOS:
+
+```bash
+cd "$HOME/rendezvous_services"
+docker compose -f docker-compose.yml down
+docker compose -f docker-compose.yml build --no-cache
+docker compose -f docker-compose.yml up -d --force-recreate
+docker compose -f docker-compose.yml logs rendezvous --tail=50
+```
+
+Windows PowerShell:
+
+```powershell
+Set-Location "$HOME\rendezvous_services"
+docker compose -f docker-compose.yml down
+docker compose -f docker-compose.yml build --no-cache
+docker compose -f docker-compose.yml up -d --force-recreate
+docker compose -f docker-compose.yml logs rendezvous --tail=50
+```
+
+After the upgrade, verify:
+
+- `http://127.0.0.1:49920/health` includes `version.services_version`.
 
 ### 4. Verify deployment
 
@@ -79,6 +128,17 @@ Open this URL in a browser:
 Expected result includes:
 
 - `status: "ok"`
+- `version.services_version`
+
+If `version` is missing in `/health`, an old container image is likely still running. Re-run step 3 exactly with `--build --force-recreate`.
+
+Optional startup log check:
+
+```bash
+docker compose -f docker-compose.yml logs rendezvous --tail=50
+```
+
+You should see a startup line with services version, protocol, tag, commit, and build timestamp.
 
 ## Included Files
 

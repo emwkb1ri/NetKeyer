@@ -6,6 +6,8 @@ import os
 
 from fastapi import FastAPI, WebSocket
 
+from service_version import load_version_block
+
 from .port_mapping import RendezvousPortMapper
 from .state import RendezvousState
 from .websocket_handlers import handle_client_ws, handle_host_ws
@@ -24,6 +26,7 @@ NGINX_PORT = int(os.getenv("RENDEZVOUS_NGINX_PORT", "49922"))
 PORTMAP_HOST_IPS = [ip.strip() for ip in os.getenv("RENDEZVOUS_PORTMAP_HOST_IPS", "").split(",") if ip.strip()]
 PORTMAP_INTERNAL_IP = os.getenv("RENDEZVOUS_PORTMAP_INTERNAL_IP", "").strip()
 NATPMP_GATEWAY_IP = os.getenv("RENDEZVOUS_NATPMP_GATEWAY_IP", "").strip()
+VERSION_INFO = load_version_block(component="rendezvous")
 
 PORT_MAPPER = RendezvousPortMapper(
     enabled=PORTMAP_ENABLED,
@@ -57,7 +60,7 @@ async def lifespan(_: FastAPI):
         await asyncio.to_thread(PORT_MAPPER.clear_mappings)
 
 
-app = FastAPI(title="NetKeyer Rendezvous Server", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="NetKeyer Rendezvous Server", version=str(VERSION_INFO["services_version"]), lifespan=lifespan)
 
 
 @app.get("/health")
@@ -68,6 +71,7 @@ async def health() -> dict[str, object]:
         "relay_host": RELAY_HOST,
         "relay_port": RELAY_PORT,
         "control_port": CONTROL_PORT,
+        "version": VERSION_INFO,
         "port_mapping": PORT_MAPPER.snapshot.to_dict(),
         "statistics": statistics,
     }

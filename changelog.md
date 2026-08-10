@@ -20,6 +20,24 @@
   - `RENDEZVOUS_PORTMAP_INTERNAL_IP`
   - `RENDEZVOUS_NATPMP_GATEWAY_IP`
   - `RENDEZVOUS_PORTMAP_HOST_IPS`
+- Implemented shared services versioning for rendezvous + relay with a single source of truth (`rendezvous_services/pyproject.toml` project version) and optional environment overrides.
+- Added `/health` `version` metadata block in rendezvous including:
+  - `services_version`
+  - `protocol_version`
+  - `component`
+  - build metadata (`tag`, `commit`, `built_at_utc`)
+- Added relay startup version logging using the same shared services version/protocol/build metadata.
+- Added compose environment placeholders for services version/protocol/build stamping:
+  - `RENDEZVOUS_SERVICES_VERSION`
+  - `RENDEZVOUS_SERVICES_PROTOCOL_VERSION`
+  - `RENDEZVOUS_SERVICES_BUILD_TAG`
+  - `RENDEZVOUS_SERVICES_BUILD_COMMIT`
+  - `RENDEZVOUS_SERVICES_BUILD_DATE`
+- Added `rendezvous_services/release_helper.py` release script to generate a cross-platform deployment artifact zip containing all required rendezvous/relay server files.
+- Release helper now stamps compose metadata (`version`, `protocol`, `tag`, `commit`, `build date`) and emits `RELEASE_METADATA.json` for traceability.
+- Added repository-root wrapper scripts for one-command, consistently stamped service release bundles:
+  - `build-rendezvous-release.ps1`
+  - `build-rendezvous-release.sh`
 
 ## 2026-08-06 (Revision 2.1.32)
 

@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import time
 from dataclasses import dataclass
 
+from service_version import load_version_block
+
 
 VALID_ROLES = {"HOST", "CLIENT"}
 HANDSHAKE_MAX_BYTES = 512
+LOGGER = logging.getLogger("netkeyer.relay")
+VERSION_INFO = load_version_block(component="relay")
 
 
 @dataclass
@@ -51,6 +56,16 @@ class RelayServer:
 
     async def start(self) -> None:
         self._server = await asyncio.start_server(self._handle_connection, self.host, self.port)
+        LOGGER.info(
+            "relay started version=%s protocol=%s host=%s port=%s tag=%s commit=%s built_at=%s",
+            VERSION_INFO.get("services_version", ""),
+            VERSION_INFO.get("protocol_version", ""),
+            self.host,
+            self.bound_port,
+            VERSION_INFO.get("build", {}).get("tag", ""),
+            VERSION_INFO.get("build", {}).get("commit", ""),
+            VERSION_INFO.get("build", {}).get("built_at_utc", ""),
+        )
 
     async def stop(self) -> None:
         if self._server:
@@ -242,6 +257,7 @@ class RelayServer:
 
 
 async def _main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     relay_host = os.getenv("RELAY_HOST", "0.0.0.0")
     relay_port = int(os.getenv("RELAY_PORT", "49921"))
     session_timeout_seconds = float(os.getenv("RELAY_SESSION_TIMEOUT_SECONDS", "30"))

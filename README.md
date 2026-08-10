@@ -230,7 +230,26 @@ NetKeyer now includes deployment artifacts for standalone rendezvous control-pla
 The rendezvous server and relay server are Python applications requiring Python 3.11.
 These Python apps are intended to run in Docker containers therfore Docker is required
 to be installed on the system hosting these apps.  The repository contains the necessary Docker files for deployment.  It may be be necessary to open ports
-49920-49923 on your router to allow the rendezvous server to be accessed over the WAN.
+49920-49922 on your router to allow the rendezvous server to be accessed over the WAN.
+
+### Services Versioning Model
+
+Rendezvous and relay services are versioned as a single suite using semantic versioning.
+
+- Single source of truth: `rendezvous_services/pyproject.toml` `project.version`.
+- Wire compatibility contract: `RENDEZVOUS_SERVICES_PROTOCOL_VERSION` (defaults to `1`).
+- Build traceability metadata (optional):
+  - `RENDEZVOUS_SERVICES_BUILD_TAG`
+  - `RENDEZVOUS_SERVICES_BUILD_COMMIT`
+  - `RENDEZVOUS_SERVICES_BUILD_DATE`
+
+Runtime metadata is exposed via rendezvous `/health` (`version` block) and relay startup logs.
+
+Compatibility matrix (maintain this table as releases evolve):
+
+| NetKeyer Desktop Revision | Supported Services Version | Protocol Version |
+|---|---|---|
+| 2.1.34+ | 0.1.x | 1 |
 
 ### Service Overview
 
@@ -262,6 +281,51 @@ Compose files are split so nginx is optional:
 
 - Base services (relay + rendezvous): [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
 - Optional nginx overlay: [rendezvous_services/docker-compose.nginx.yml](rendezvous_services/docker-compose.nginx.yml)
+
+### Release Artifact Helper
+
+Use the release helper to produce a stamped deployment bundle zip that works across Windows, Linux, and macOS:
+
+From repository root (recommended one-command wrappers):
+
+```powershell
+./build-rendezvous-release.ps1
+```
+
+```bash
+./build-rendezvous-release.sh
+```
+
+Direct helper invocation:
+
+```bash
+cd rendezvous_services
+python release_helper.py
+```
+
+Output:
+
+- `Releases/netkeyer-rendezvous-services-<version>.zip`
+
+The artifact includes all files required to deploy rendezvous + relay with Docker Compose, and stamps these values into `docker-compose.yml`:
+
+- `RENDEZVOUS_SERVICES_VERSION`
+- `RENDEZVOUS_SERVICES_PROTOCOL_VERSION`
+- `RENDEZVOUS_SERVICES_BUILD_TAG`
+- `RENDEZVOUS_SERVICES_BUILD_COMMIT`
+- `RENDEZVOUS_SERVICES_BUILD_DATE`
+
+Note: the release bundle intentionally excludes the optional nginx overlay for this initial deployment track.
+
+Advanced options:
+
+- `--version <x.y.z>` override services version
+- `--protocol-version <n>` override protocol version
+- `--tag <tag>` override build tag
+- `--commit <sha>` override commit hash
+- `--build-date <utc-iso8601>` override build timestamp
+- `--output-dir <path>` change artifact output directory
+- `--keep-staging` keep expanded bundle directory in output
 
 ### Start relay + rendezvous only
 
@@ -295,6 +359,13 @@ When auto-mapping is enabled, the server attempts mappings in this order per por
 2. NAT-PMP
 
 Mapping results are included in `/health` under `port_mapping`, including per-port success/failure, protocol used, and a diagnostics block showing effective IP/gateway choices.
+
+The `/health` response also includes a `version` block:
+
+- `services_version`: suite version loaded from `pyproject.toml` or `RENDEZVOUS_SERVICES_VERSION` override.
+- `protocol_version`: protocol contract value from `RENDEZVOUS_SERVICES_PROTOCOL_VERSION`.
+- `component`: `rendezvous`.
+- `build`: `{ tag, commit, built_at_utc }` from environment metadata.
 
 ### `/health` Statistics Block
 

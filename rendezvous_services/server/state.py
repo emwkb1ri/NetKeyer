@@ -270,3 +270,100 @@ class RendezvousState:
             await self.close_session(session_id)
 
         return len(expired)
+
+    @staticmethod
+    def _connection_type_for_session(session: SessionState) -> str:
+        if session.state == "direct_connected":
+            return "direct"
+        if session.state in {"map_requested", "map_ready"}:
+            return "mapped"
+        if session.state == "relay_requested":
+            return "relay"
+        return "direct"
+
+    async def get_statistics_snapshot(self) -> dict[str, Any]:
+        async with self._lock:
+            host_ids = sorted(self.hosts.keys())
+            client_ids = sorted(self.clients.keys())
+            sessions = sorted(self.sessions.values(), key=lambda s: s.created_at)
+
+            host_entries: list[dict[str, Any]] = []
+            for host_id in host_ids:
+                host = self.hosts[host_id]
+                host_sessions = [s for s in sessions if s.host_id == host_id]
+                host_entries.append(
+                    {
+                        "host_id": host.host_id,
+                        "public_ip": host.public_ip,
+                        "public_port": host.public_port,
+                        "current_clients": host.current_clients,
+                        "max_clients": host.max_clients,
+                        "active_sessions": [
+                            {
+                                "session_id": s.session_id,
+                                "client_id": s.client_id,
+                                "type": self._connection_type_for_session(s),
+                                "state": s.state,
+                            }
+                            for s in host_sessions
+                        ],
+                    }
+                )
+
+            client_entries: list[dict[str, Any]] = []
+            for client_id in client_ids:
+                client = self.clients[client_id]
+                client_sessions = [s for s in sessions if s.client_id == client_id]
+                client_entries.append(
+                    {
+                        "client_id": client.client_id,
+                        "public_ip": client.public_ip,
+                        "public_port": client.public_port,
+                        "connected_host": client.connected_host,
+                        "active_sessions": [
+                            {
+                                "session_id": s.session_id,
+                                "host_id": s.host_id,
+                                "type": self._connection_type_for_session(s),
+                                "state": s.state,
+                            }
+                            for s in client_sessions
+                        ],
+                    }
+                )
+
+            session_entries = [
+                {
+                    "session_id": s.session_id,
+                    "host_id": s.host_id,
+                    "client_id": s.client_id,
+                    "state": s.state,
+                    "type": self._connection_type_for_session(s),
+                    "map_requested": s.map_requested,
+                    "mapped_public_ip": s.mapped_public_ip,
+                    "mapped_public_port": s.mapped_public_port,
+                    "host_punch_result": s.host_punch_result,
+                    "client_punch_result": s.client_punch_result,
+                }
+                for s in sessions
+            ]
+
+            counts = {
+                "hosts": len(host_entries),
+                "clients": len(client_entries),
+                "sessions": len(session_entries),
+            }
+
+            type_counts = {
+                "direct": sum(1 for s in session_entries if s["type"] == "direct"),
+                "mapped": sum(1 for s in session_entries if s["type"] == "mapped"),
+                "relay": sum(1 for s in session_entries if s["type"] == "relay"),
+            }
+
+            return {
+                "counts": counts,
+                "session_type_counts": type_counts,
+                "hosts": host_entries,
+                "clients": client_entries,
+                "sessions": session_entries,
+            }

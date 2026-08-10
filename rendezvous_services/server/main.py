@@ -62,12 +62,14 @@ app = FastAPI(title="NetKeyer Rendezvous Server", version="0.1.0", lifespan=life
 
 @app.get("/health")
 async def health() -> dict[str, object]:
+    statistics = await state.get_statistics_snapshot()
     return {
         "status": "ok",
         "relay_host": RELAY_HOST,
         "relay_port": RELAY_PORT,
         "control_port": CONTROL_PORT,
         "port_mapping": PORT_MAPPER.snapshot.to_dict(),
+        "statistics": statistics,
     }
 
 

@@ -296,6 +296,97 @@ When auto-mapping is enabled, the server attempts mappings in this order per por
 
 Mapping results are included in `/health` under `port_mapping`, including per-port success/failure, protocol used, and a diagnostics block showing effective IP/gateway choices.
 
+### `/health` Statistics Block
+
+The rendezvous `/health` endpoint also includes a `statistics` block for active runtime visibility:
+
+- `counts`: totals for currently connected `hosts`, `clients`, and active `sessions`.
+- `session_type_counts`: active session totals by negotiated type:
+  - `direct`
+  - `mapped`
+  - `relay`
+- `hosts`: list of connected hosts with endpoint/capacity and per-host `active_sessions`.
+- `clients`: list of connected clients with endpoint/connected host and per-client `active_sessions`.
+- `sessions`: list of active sessions with host/client IDs, state, type, and mapping/punch metadata.
+
+Example `/health` payload (abridged):
+
+```json
+{
+  "status": "ok",
+  "relay_host": "relay",
+  "relay_port": 49921,
+  "control_port": 49920,
+  "port_mapping": {
+    "enabled": false,
+    "attempted": false,
+    "summary": {
+      "successful": 0,
+      "failed": 0
+    }
+  },
+  "statistics": {
+    "counts": {
+      "hosts": 2,
+      "clients": 3,
+      "sessions": 3
+    },
+    "session_type_counts": {
+      "direct": 1,
+      "mapped": 1,
+      "relay": 1
+    },
+    "hosts": [
+      {
+        "host_id": "host-a",
+        "public_ip": "198.51.100.10",
+        "public_port": 49923,
+        "current_clients": 2,
+        "max_clients": 5,
+        "active_sessions": [
+          {
+            "session_id": "sess-1",
+            "client_id": "client-a",
+            "type": "direct",
+            "state": "direct_connected"
+          }
+        ]
+      }
+    ],
+    "clients": [
+      {
+        "client_id": "client-b",
+        "public_ip": "203.0.113.21",
+        "public_port": 53001,
+        "connected_host": "host-a",
+        "active_sessions": [
+          {
+            "session_id": "sess-2",
+            "host_id": "host-a",
+            "type": "mapped",
+            "state": "map_ready"
+          }
+        ]
+      }
+    ],
+    "sessions": [
+      {
+        "session_id": "sess-3",
+        "host_id": "host-b",
+        "client_id": "client-c",
+        "state": "relay_requested",
+        "type": "relay",
+        "map_requested": true,
+        "mapped_public_ip": null,
+        "mapped_public_port": null,
+        "host_punch_result": false,
+        "client_punch_result": false
+      }
+    ]
+  }
+}
+```
+
 ### Start relay + rendezvous + optional bundled nginx
 
 ```bash

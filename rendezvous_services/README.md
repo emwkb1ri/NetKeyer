@@ -150,3 +150,28 @@ The deployment artifact includes only the baseline rendezvous + relay stack for 
 - version/build metadata files
 
 The optional nginx overlay is intentionally not included in this release package.
+
+## Release Checklist
+
+Use this checklist when creating a new `rendezvous_services` release artifact.
+
+1. Update service version in `pyproject.toml`:
+	- `project.version = "<new-version>"`
+2. From repository root, generate the stamped artifact:
+	- Windows PowerShell:
+	  - `./build-rendezvous-release.ps1`
+	- Linux/macOS:
+	  - `./build-rendezvous-release.sh`
+3. Confirm artifact was created:
+	- `Releases/netkeyer-rendezvous-services-<new-version>.zip`
+4. (Optional but recommended) Inspect artifact metadata:
+	- Extract and verify `RELEASE_METADATA.json` fields (`services_version`, `protocol_version`, `build_tag`, `commit`, `built_at_utc`).
+5. Validate clean deployment from the new artifact:
+	- Extract with overwrite into `$HOME/rendezvous_services`.
+	- Run clean upgrade commands from that directory:
+	  - `docker compose -f docker-compose.yml down`
+	  - `docker compose -f docker-compose.yml build --no-cache`
+	  - `docker compose -f docker-compose.yml up -d --force-recreate`
+6. Verify runtime identity and health:
+	- `http://127.0.0.1:49920/health` includes `version.services_version` matching the release.
+	- `docker compose -f docker-compose.yml logs rendezvous --tail=50` shows startup version/protocol/tag/commit/build timestamp.

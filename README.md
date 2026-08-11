@@ -329,6 +329,8 @@ Advanced options:
 
 For upgrade deployments, extract release bundles with explicit overwrite flags (`unzip -o` on Linux/macOS, `Expand-Archive -Force` on Windows). See [rendezvous_services/README.md](rendezvous_services/README.md) for full upgrade steps.
 
+Release checklist for rendezvous services packaging and deployment validation is documented in [rendezvous_services/README.md](rendezvous_services/README.md).
+
 Clean upgrade (run from the `rendezvous_services` directory):
 
 ```bash

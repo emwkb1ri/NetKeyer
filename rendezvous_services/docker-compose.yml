@@ -50,6 +50,12 @@ services:
       RENDEZVOUS_NATPMP_GATEWAY_IP: ""
       RENDEZVOUS_SWEEP_INTERVAL_SECONDS: 5
       RENDEZVOUS_SESSION_TTL_SECONDS: 30
+
+      # PR-2 secure default: restrict /health to private/loopback callers.
+      # Modes: private | cidr | public | disabled
+      RENDEZVOUS_HEALTH_ACCESS_MODE: "private"
+      # Used only when mode is "cidr".
+      RENDEZVOUS_HEALTH_ALLOWED_CIDRS: "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
     ports:
       - "49920:49920"
     restart: unless-stopped

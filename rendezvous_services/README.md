@@ -116,6 +116,44 @@ External endpoints with overlay enabled:
 
 HTTP on port `80` is redirected to HTTPS. Plain websocket ingress should be treated as compatibility-only and disabled after migration.
 
+PR-2 defaults now apply when using nginx ingress:
+
+- Request guards and rate limits are enabled for websocket and API traffic.
+- `/health` is ACL-restricted to loopback/private source ranges by default.
+- Security-oriented nginx access logs include explicit limit signals (`limit_req` and status `429`/`403`) for throttle/deny visibility.
+
+Rendezvous service health exposure defaults:
+
+- `RENDEZVOUS_HEALTH_ACCESS_MODE=private` (default)
+  - Allows loopback/private source addresses.
+  - Denies public source addresses.
+- `RENDEZVOUS_HEALTH_ACCESS_MODE=cidr`
+  - Uses `RENDEZVOUS_HEALTH_ALLOWED_CIDRS` for explicit allow lists.
+- `RENDEZVOUS_HEALTH_ACCESS_MODE=public`
+  - Publicly accessible health endpoint (not recommended for production).
+- `RENDEZVOUS_HEALTH_ACCESS_MODE=disabled`
+  - Always returns restricted.
+
+Security observability quick checks (nginx overlay enabled):
+
+Linux/macOS:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml logs nginx --tail=200 | rg 'status=403|status=429|limit_req="REJECTED"'
+```
+
+Windows PowerShell:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml logs nginx --tail=200 | Select-String -Pattern 'status=403|status=429|limit_req="REJECTED"'
+```
+
+Expected signals:
+
+- `status=403`: source denied by health ACL policy.
+- `status=429`: rate/connection guard triggered.
+- `limit_req="REJECTED"`: request rejected by nginx request-rate controls.
+
 ### Clean Upgrade Procedure
 
 Run these commands from the `rendezvous_services` deployment directory.

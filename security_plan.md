@@ -103,6 +103,8 @@ This document defines a phased plan to secure the rendezvous and relay services 
   - TLS-first nginx rendezvous ingress configuration added.
   - nginx compose overlay updated for ports 80/443 and certificate mount path.
   - deployment documentation updated with secure overlay startup instructions.
+   - PR-2 controls implemented: request guards/rate limits at nginx and restricted `/health` defaults in rendezvous service.
+   - PR-2 observability implemented: nginx structured security access logs now expose deny/throttle signals (`403`, `429`, `limit_req`).
 - Current operating mode during compatibility window:
   - dual-path operation (legacy direct path for client v2.1.34 testing + secure nginx ingress path for validation).
 

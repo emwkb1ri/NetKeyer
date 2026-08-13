@@ -9,6 +9,8 @@ It includes two containers:
 
 The rendezvous health endpoint is available at `/health` on port `49920`.
 
+Phase 1 security work has started with an nginx TLS ingress overlay for controlled testing.
+
 ## Prerequisites
 
 - Python 3.11+
@@ -24,6 +26,8 @@ Map router ports to the system running these containers:
 - TCP `49922` reserved for a future release feature
 
 Manual static forwarding is the recommended deployment mode.
+
+For compatibility testing with desktop client `v2.1.34`, keep direct service exposure (`49920`/`49921`) enabled while validating the new TLS ingress path in parallel.
 
 ## Installation and Deployment
 
@@ -91,6 +95,27 @@ Set-Location "$HOME\rendezvous_services"
 docker compose -f docker-compose.yml up -d --build --force-recreate
 ```
 
+### 3a. Optional: Start nginx TLS ingress overlay (Phase 1)
+
+Use this during Phase 1 secure-ingress testing.
+
+1. Place certificates in `nginx/certs`:
+  - `nginx/certs/fullchain.pem`
+  - `nginx/certs/privkey.pem`
+2. Start base services plus nginx overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d --build --force-recreate
+```
+
+External endpoints with overlay enabled:
+
+- `https://<your-host>/health`
+- `wss://<your-host>/ws/client`
+- `wss://<your-host>/ws/host`
+
+HTTP on port `80` is redirected to HTTPS. Plain websocket ingress should be treated as compatibility-only and disabled after migration.
+
 ### Clean Upgrade Procedure
 
 Run these commands from the `rendezvous_services` deployment directory.
@@ -118,6 +143,7 @@ docker compose -f docker-compose.yml logs rendezvous --tail=50
 After the upgrade, verify:
 
 - `http://127.0.0.1:49920/health` includes `version.services_version`.
+- If nginx overlay is enabled: `https://127.0.0.1/health` responds over TLS.
 
 ### 4. Verify deployment
 
@@ -156,22 +182,22 @@ The optional nginx overlay is intentionally not included in this release package
 Use this checklist when creating a new `rendezvous_services` release artifact.
 
 1. Update service version in `pyproject.toml`:
-	- `project.version = "<new-version>"`
+  - `project.version = "<new-version>"`
 2. From repository root, generate the stamped artifact:
-	- Windows PowerShell:
-	  - `./build-rendezvous-release.ps1`
-	- Linux/macOS:
-	  - `./build-rendezvous-release.sh`
+  - Windows PowerShell:
+    - `./build-rendezvous-release.ps1`
+  - Linux/macOS:
+    - `./build-rendezvous-release.sh`
 3. Confirm artifact was created:
-	- `Releases/netkeyer-rendezvous-services-<new-version>.zip`
+  - `Releases/netkeyer-rendezvous-services-<new-version>.zip`
 4. (Optional but recommended) Inspect artifact metadata:
-	- Extract and verify `RELEASE_METADATA.json` fields (`services_version`, `protocol_version`, `build_tag`, `commit`, `built_at_utc`).
+  - Extract and verify `RELEASE_METADATA.json` fields (`services_version`, `protocol_version`, `build_tag`, `commit`, `built_at_utc`).
 5. Validate clean deployment from the new artifact:
-	- Extract with overwrite into `$HOME/rendezvous_services`.
-	- Run clean upgrade commands from that directory:
-	  - `docker compose -f docker-compose.yml down`
-	  - `docker compose -f docker-compose.yml build --no-cache`
-	  - `docker compose -f docker-compose.yml up -d --force-recreate`
+  - Extract with overwrite into `$HOME/rendezvous_services`.
+  - Run clean upgrade commands from that directory:
+    - `docker compose -f docker-compose.yml down`
+    - `docker compose -f docker-compose.yml build --no-cache`
+    - `docker compose -f docker-compose.yml up -d --force-recreate`
 6. Verify runtime identity and health:
-	- `http://127.0.0.1:49920/health` includes `version.services_version` matching the release.
-	- `docker compose -f docker-compose.yml logs rendezvous --tail=50` shows startup version/protocol/tag/commit/build timestamp.
+  - `http://127.0.0.1:49920/health` includes `version.services_version` matching the release.
+  - `docker compose -f docker-compose.yml logs rendezvous --tail=50` shows startup version/protocol/tag/commit/build timestamp.

@@ -145,3 +145,7 @@ native/_fetchcache/
 
 # Rendezvous services release packaging output
 rendezvous_services/dist/
+
+# Rendezvous nginx TLS certificates (local/prod secrets)
+rendezvous_services/nginx/certs/*
+!rendezvous_services/nginx/certs/.gitkeep

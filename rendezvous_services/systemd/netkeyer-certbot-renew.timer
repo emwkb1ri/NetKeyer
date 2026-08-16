@@ -1,0 +1,11 @@
+[Unit]
+Description=Twice-daily NetKeyer certificate renewal check
+
+[Timer]
+OnCalendar=*-*-* 03,15:00:00
+RandomizedDelaySec=20m
+Persistent=true
+Unit=netkeyer-certbot-renew.service
+
+[Install]
+WantedBy=timers.target

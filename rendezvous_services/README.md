@@ -116,6 +116,117 @@ External endpoints with overlay enabled:
 
 HTTP on port `80` is redirected to HTTPS. Plain websocket ingress should be treated as compatibility-only and disabled after migration.
 
+### 3b. Ubuntu Let\'s Encrypt setup (zero-downtime renewal layout)
+
+Use this when you have a public DNS name pointed at this host.
+
+1. Install certbot on Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y certbot
+```
+
+2. Prepare ACME webroot directory used by nginx:
+
+```bash
+sudo mkdir -p /var/www/certbot/.well-known/acme-challenge
+sudo chown -R $USER:$USER /var/www/certbot
+```
+
+3. Start services with nginx overlay so challenge files are served on port 80:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d --build --force-recreate
+```
+
+4. Request certificate using HTTP-01 webroot challenge:
+
+```bash
+sudo certbot certonly --webroot -w /var/www/certbot -d your.domain.example --email you@example.com --agree-tos --no-eff-email
+```
+
+5. Link live certbot files to nginx certificate paths expected by this stack:
+
+```bash
+ln -sf /etc/letsencrypt/live/your.domain.example/fullchain.pem ./nginx/certs/fullchain.pem
+ln -sf /etc/letsencrypt/live/your.domain.example/privkey.pem ./nginx/certs/privkey.pem
+```
+
+6. Reload nginx in-place (no container restart required):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml exec nginx nginx -s reload
+```
+
+7. Verify:
+
+```bash
+curl -I https://your.domain.example/health
+```
+
+Automatic renewal (zero downtime):
+
+```bash
+sudo certbot renew --deploy-hook 'cd /path/to/rendezvous_services && docker compose -f docker-compose.yml -f docker-compose.nginx.yml exec nginx nginx -s reload'
+```
+
+Optional dry run:
+
+```bash
+sudo certbot renew --dry-run --deploy-hook 'cd /path/to/rendezvous_services && docker compose -f docker-compose.yml -f docker-compose.nginx.yml exec nginx nginx -s reload'
+```
+
+### 3c. Automated certificate renewal with systemd (Ubuntu)
+
+The repository includes ready-to-use automation assets:
+
+- `scripts/renew-certs.sh`
+- `scripts/reload-nginx-certs.sh`
+- `systemd/netkeyer-certbot-renew.service`
+- `systemd/netkeyer-certbot-renew.timer`
+
+Install and enable automation:
+
+1. Ensure scripts are executable:
+
+```bash
+cd /path/to/rendezvous_services
+chmod +x scripts/renew-certs.sh scripts/reload-nginx-certs.sh
+```
+
+2. Copy systemd unit files:
+
+```bash
+sudo cp systemd/netkeyer-certbot-renew.service /etc/systemd/system/
+sudo cp systemd/netkeyer-certbot-renew.timer /etc/systemd/system/
+```
+
+3. If your deployment path is not `/opt/rendezvous_services`, edit:
+
+```bash
+sudo systemctl edit --full netkeyer-certbot-renew.service
+```
+
+Update `WorkingDirectory`, `NETKEYER_RENDEZVOUS_DIR`, and `ExecStart` to your actual path.
+
+4. Enable and start the timer:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now netkeyer-certbot-renew.timer
+```
+
+5. Verify timer and run a manual test:
+
+```bash
+systemctl list-timers netkeyer-certbot-renew.timer
+sudo systemctl start netkeyer-certbot-renew.service
+sudo journalctl -u netkeyer-certbot-renew.service -n 100 --no-pager
+```
+
+The renew service runs certbot renewal using webroot challenge and triggers an in-place nginx reload only when certificates are updated.
+
 PR-2 defaults now apply when using nginx ingress:
 
 - Request guards and rate limits are enabled for websocket and API traffic.

@@ -13,6 +13,8 @@ services:
       - ./nginx/rendezvous.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/stream-relay.conf:/etc/nginx/stream-conf.d/stream-relay.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     command:
       - /bin/sh
       - -c

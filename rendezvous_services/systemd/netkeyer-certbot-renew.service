@@ -1,0 +1,13 @@
+[Unit]
+Description=Renew Let's Encrypt certificates for NetKeyer rendezvous nginx
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/rendezvous_services
+Environment=NETKEYER_RENDEZVOUS_DIR=/opt/rendezvous_services
+Environment=NETKEYER_CERTBOT_WEBROOT=/var/www/certbot
+Environment=NETKEYER_COMPOSE_BASE=docker-compose.yml
+Environment=NETKEYER_COMPOSE_NGINX=docker-compose.nginx.yml
+ExecStart=/opt/rendezvous_services/scripts/renew-certs.sh

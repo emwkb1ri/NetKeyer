@@ -50,6 +50,8 @@ services:
       RENDEZVOUS_NATPMP_GATEWAY_IP: ""
       RENDEZVOUS_SWEEP_INTERVAL_SECONDS: 5
       RENDEZVOUS_SESSION_TTL_SECONDS: 30
+      # Latency experiment mode: advertise relay immediately to bypass punch/map workflow.
+      RENDEZVOUS_FORCE_RELAY: "false"
 
       # PR-2 secure default: restrict /health to private/loopback callers.
       # Modes: private | cidr | public | disabled

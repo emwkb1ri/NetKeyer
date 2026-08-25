@@ -43,12 +43,18 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
         self.host_ws = FakeWebSocket("203.0.113.10", 51000)
         self.client_ws = FakeWebSocket("198.51.100.22", 52000)
 
-    async def _start_handlers(self):
+    async def _start_handlers(self, force_relay: bool = False):
         host_task = asyncio.create_task(
             handlers.handle_host_ws(self.state, self.host_ws, relay_host="relay.test", relay_port=49921)
         )
         client_task = asyncio.create_task(
-            handlers.handle_client_ws(self.state, self.client_ws, relay_host="relay.test", relay_port=49921)
+            handlers.handle_client_ws(
+                self.state,
+                self.client_ws,
+                relay_host="relay.test",
+                relay_port=49921,
+                force_relay=force_relay,
+            )
         )
         return host_task, client_task
 
@@ -312,6 +318,39 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
         finally:
             handlers.PUNCH_TIMEOUT_SECONDS = previous_timeout
             handlers.PORT_MAP_TIMEOUT_SECONDS = previous_map_timeout
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_force_relay_emits_use_relay_without_port_map_request(self) -> None:
+        host_task, client_task = await self._start_handlers(force_relay=True)
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {"listen_port": 49920},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.1)
+
+            self.assertIn("use_relay", self._sent_types(self.host_ws))
+            self.assertIn("use_relay", self._sent_types(self.client_ws))
+            self.assertNotIn("request_port_map", self._sent_types(self.host_ws))
+        finally:
             await self._stop_handlers(host_task, client_task)
 
     async def test_port_map_success_emits_retry_host_endpoint(self) -> None:

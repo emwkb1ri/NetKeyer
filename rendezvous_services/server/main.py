@@ -31,6 +31,7 @@ PORTMAP_HOST_IPS = [ip.strip() for ip in os.getenv("RENDEZVOUS_PORTMAP_HOST_IPS"
 PORTMAP_INTERNAL_IP = os.getenv("RENDEZVOUS_PORTMAP_INTERNAL_IP", "").strip()
 NATPMP_GATEWAY_IP = os.getenv("RENDEZVOUS_NATPMP_GATEWAY_IP", "").strip()
 VERSION_INFO = load_version_block(component="rendezvous")
+FORCE_RELAY = os.getenv("RENDEZVOUS_FORCE_RELAY", "false").strip().lower() in {"1", "true", "yes", "on"}
 HEALTH_ACCESS_MODE = os.getenv("RENDEZVOUS_HEALTH_ACCESS_MODE", "private").strip().lower()
 HEALTH_ALLOWED_CIDRS = [
     value.strip()
@@ -106,12 +107,13 @@ async def _session_sweeper() -> None:
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
     LOGGER.info(
-        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s",
+        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s force_relay=%s",
         VERSION_INFO.get("services_version", ""),
         VERSION_INFO.get("protocol_version", ""),
         VERSION_INFO.get("build", {}).get("tag", ""),
         VERSION_INFO.get("build", {}).get("commit", ""),
         VERSION_INFO.get("build", {}).get("built_at_utc", ""),
+        FORCE_RELAY,
     )
     await asyncio.to_thread(PORT_MAPPER.run_mapping)
     sweeper = asyncio.create_task(_session_sweeper())
@@ -154,4 +156,10 @@ async def ws_host(websocket: WebSocket) -> None:
 
 @app.websocket("/ws/client")
 async def ws_client(websocket: WebSocket) -> None:
-    await handle_client_ws(state, websocket, relay_host=RELAY_HOST, relay_port=RELAY_PORT)
+    await handle_client_ws(
+        state,
+        websocket,
+        relay_host=RELAY_HOST,
+        relay_port=RELAY_PORT,
+        force_relay=FORCE_RELAY,
+    )

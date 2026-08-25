@@ -294,7 +294,13 @@ async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_hos
         await state.unregister_host_by_ws(websocket)
 
 
-async def handle_client_ws(state: RendezvousState, websocket: WebSocket, relay_host: str, relay_port: int) -> None:
+async def handle_client_ws(
+    state: RendezvousState,
+    websocket: WebSocket,
+    relay_host: str,
+    relay_port: int,
+    force_relay: bool = False,
+) -> None:
     await websocket.accept()
     client_id: str | None = None
 
@@ -384,6 +390,12 @@ async def handle_client_ws(state: RendezvousState, websocket: WebSocket, relay_h
                 start_msg = StartPunchMessage(type="start_punch", session_id=session.session_id)
                 await _send_model(host.ws, start_msg)
                 await _send_model(websocket, start_msg)
+
+                if force_relay:
+                    relay_state = await state.mark_relay_requested(session.session_id)
+                    if relay_state and relay_state.state == "relay_requested":
+                        await _send_relay_to_both(state, session.session_id, relay_host, relay_port)
+                    continue
 
                 timeout_task = asyncio.create_task(
                     _punch_timeout_watchdog(state, session.session_id, relay_host=relay_host, relay_port=relay_port)

@@ -198,6 +198,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private CancellationTokenSource _remoteCts;
     private readonly HashSet<string> _relayHostSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _relayHostSessionsLock = new();
+    private readonly bool _forceRelayTransportForExperiments = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_FORCE_RELAY_TRANSPORT"));
     private bool _isSyncingRendezvousEndpoint;
     private bool _isExiting;
     private bool _remoteHostTransmitModeCW = true;
@@ -1684,6 +1685,13 @@ public partial class MainWindowViewModel : ViewModelBase
             targetHost = _rendezvousClientSession.Endpoint.HostPublicIp;
             targetPort = _rendezvousClientSession.Endpoint.HostPublicPort;
             DebugLogger.LogAlways("rendezvous", $"Resolved host endpoint via rendezvous: {targetHost}:{targetPort} (session {_rendezvousClientSession.Endpoint.SessionId})");
+
+            if (_forceRelayTransportForExperiments)
+            {
+                DebugLogger.LogAlways("rendezvous", "Force relay transport is enabled; skipping direct and mapped-direct transport attempts");
+                await ConnectRendezvousSessionViaRelayAsync();
+                return;
+            }
         }
 
         try
@@ -1845,6 +1853,51 @@ public partial class MainWindowViewModel : ViewModelBase
                 throw;
             }
         }
+    }
+
+    private async Task ConnectRendezvousSessionViaRelayAsync()
+    {
+        if (_rendezvousClientSession == null)
+        {
+            throw new InvalidOperationException("Rendezvous session is required for relay transport.");
+        }
+
+        bool relayAvailable = _rendezvousClientSession.HasRelayEndpoint
+            || await _rendezvousControlService.WaitForRelayAsync(_rendezvousClientSession, TimeSpan.FromSeconds(8), _remoteCts?.Token ?? CancellationToken.None);
+
+        if (!relayAvailable)
+        {
+            throw new InvalidOperationException("Force relay transport was enabled, but rendezvous relay endpoint was not provided.");
+        }
+
+        string relayHost = _rendezvousClientSession.RelayHost;
+        int relayPort = _rendezvousClientSession.RelayPort;
+        string relaySessionId = _rendezvousClientSession.Endpoint.SessionId;
+
+        DebugLogger.LogAlways("rendezvous", $"Force relay transport enabled: connecting to relay {relayHost}:{relayPort} (session {relaySessionId})");
+
+        await _remoteClientService.ConnectAsync(new RemoteClientOptions
+        {
+            TargetHost = relayHost,
+            TargetPort = relayPort,
+            SharedToken = RemoteSharedToken,
+            Callsign = RemoteCallsign,
+            RelaySessionId = relaySessionId,
+            RelayRole = "CLIENT"
+        }, _remoteCts?.Token ?? CancellationToken.None);
+
+        DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
+    }
+
+    private static bool IsTruthyEnvironmentValue(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        string value = raw.Trim().ToLowerInvariant();
+        return value == "1" || value == "true" || value == "yes" || value == "on";
     }
 
     private async Task StartRemoteHostAsync()

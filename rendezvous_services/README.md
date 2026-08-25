@@ -233,6 +233,17 @@ PR-2 defaults now apply when using nginx ingress:
 - `/health` is ACL-restricted to loopback/private source ranges by default.
 - Security-oriented nginx access logs include explicit limit signals (`limit_req` and status `429`/`403`) for throttle/deny visibility.
 
+Force relay experiment flags (latency testing):
+
+- Server flag: `RENDEZVOUS_FORCE_RELAY=true`
+  - Sends relay instructions immediately during rendezvous connect flow.
+  - Reduces variability from punch and automatic port-map attempts.
+- App flag: `NETKEYER_FORCE_RELAY_TRANSPORT=true`
+  - Client skips direct and mapped-direct transport attempts.
+  - Client waits for relay endpoint and connects relay path only.
+
+Use both flags together when collecting controlled relay-only latency measurements.
+
 Rendezvous service health exposure defaults:
 
 - `RENDEZVOUS_HEALTH_ACCESS_MODE=private` (default)

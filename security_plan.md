@@ -108,6 +108,117 @@ This document defines a phased plan to secure the rendezvous and relay services 
 - Current operating mode during compatibility window:
   - dual-path operation (legacy direct path for client v2.1.34 testing + secure nginx ingress path for validation).
 
+### Relay Ingress Decision (Phase 1)
+
+- Selected approach: Option A (relay behind nginx stream proxy) is the default implementation path.
+- Rationale: fastest secure rollout with centralized ingress control and lower implementation risk.
+- Revisit trigger: if measured relay-path overhead exceeds the keying latency budget, evaluate Option B (direct relay exposure with native TLS).
+
+### Relay Latency Validation Gate
+
+Use this gate before closing Phase 1:
+
+1. Measure baseline keying latency using direct relay exposure path (no nginx stream hop).
+2. Measure keying latency with relay through nginx stream proxy (`49922`).
+3. Compare p50/p95/p99 and worst-case jitter.
+4. Acceptance threshold for Option A:
+   - additional p95 relay-path overhead is within the Phase 0 budget (<= 5 ms).
+5. If threshold is exceeded, open a Phase 1 exception and evaluate Option B.
+
+### Concrete Relay Latency Test Procedure
+
+Run this procedure before marking Phase 1 complete.
+
+#### A. Test prerequisites
+
+1. Use the same host, client build, and network path for all runs.
+2. Use client version 2.1.34 for compatibility-window validation.
+3. Disable unrelated high-traffic activity on test hosts.
+4. Keep CW speed, sidetone settings, and keyer mode identical across runs.
+5. Capture at least 300 key events per run (500 preferred).
+
+#### B. Test scenarios
+
+1. Baseline direct relay exposure:
+   - client connects through relay direct port 49921 (no nginx stream hop).
+2. Option A relay through nginx stream:
+   - client connects through nginx relay proxy port 49922.
+
+Relay-only experiment mode (optional but recommended for controlled runs):
+
+- Server: set `RENDEZVOUS_FORCE_RELAY=true`.
+- App/client process: set `NETKEYER_FORCE_RELAY_TRANSPORT=true`.
+- Purpose: bypass direct and mapped-direct transport attempts so measured path is relay-only.
+
+#### C. Execution steps (for each scenario)
+
+1. Start services and confirm healthy session establishment.
+2. Run a warm-up period of 30 seconds (discard data).
+3. Perform three measurement runs, each 60 seconds minimum.
+    - Recommended helper invocation:
+       - `./rendezvous_services/scripts/capture-relay-latency-data.sh --scenario baseline-49921 --run 1 --duration-seconds 60`
+       - `./rendezvous_services/scripts/capture-relay-latency-data.sh --scenario nginx-49922 --run 1 --duration-seconds 60`
+    - Script output includes:
+       - per-run metadata and environment snapshot
+       - synchronized compose logs for `rendezvous`, `relay`, and `nginx`
+       - health probe samples and summary percentiles
+       - `keying-latency-notes.csv` for manual keying timing captures
+4. During each run, generate repeatable keying patterns:
+   - alternating dits and dahs at fixed cadence.
+   - short burst sequences to observe jitter behavior.
+5. Collect timestamps for key-down to audio/host-action outcome.
+6. Save raw run data with scenario label and timestamp.
+
+#### D. Metrics to compute
+
+1. p50 latency (ms).
+2. p95 latency (ms).
+3. p99 latency (ms).
+4. Max latency (ms).
+5. Jitter proxy: p99 minus p50 (ms).
+
+Compute delta against baseline:
+
+- delta_p95 = p95_option_a - p95_baseline
+- delta_p99 = p99_option_a - p99_baseline
+
+#### E. Pass/fail criteria
+
+1. Primary gate: delta_p95 <= 5 ms.
+2. Secondary check: no sustained jitter regression that impacts CW usability.
+3. Stability check: no session drops or burst-loss anomalies during test windows.
+
+If any gate fails:
+
+1. Open a Phase 1 exception issue.
+2. Attach raw measurements and environment details.
+3. Evaluate Option B for relay path.
+
+#### F. Results template
+
+| Scenario | Run | Samples | p50 (ms) | p95 (ms) | p99 (ms) | Max (ms) | p99-p50 (ms) | Notes |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Baseline (49921) | 1 |  |  |  |  |  |  |  |
+| Baseline (49921) | 2 |  |  |  |  |  |  |  |
+| Baseline (49921) | 3 |  |  |  |  |  |  |  |
+| Option A (49922) | 1 |  |  |  |  |  |  |  |
+| Option A (49922) | 2 |  |  |  |  |  |  |  |
+| Option A (49922) | 3 |  |  |  |  |  |  |  |
+
+Decision summary fields:
+
+- Baseline aggregate p95:
+- Option A aggregate p95:
+- delta_p95:
+- Gate result (pass/fail):
+- Follow-up action:
+
+Companion aggregation helper:
+
+- `./rendezvous_services/scripts/summarize-relay-latency-runs.sh`
+- Example:
+   - `./rendezvous_services/scripts/summarize-relay-latency-runs.sh --input-root ./rendezvous_services/measurements/relay-latency --budget-ms 5 --output ./rendezvous_services/measurements/relay-latency/report.md`
+
 ---
 
 ## Phase 2: Rendezvous Authentication and Authorization
@@ -251,11 +362,10 @@ This sequence delivers immediate risk reduction, minimizes rework, and supports 
 
 ## Open Design Decisions
 
-1. Whether relay TLS is terminated at nginx stream layer or implemented natively in relay.
-2. Identity key lifecycle model (user/device enrollment and rotation UX).
-3. Token issuer placement (existing app backend/service vs. standalone auth service).
-4. Backward compatibility window for legacy clients.
-5. Final secure-mode cutover date and enforcement policy.
+1. Identity key lifecycle model (user/device enrollment and rotation UX).
+2. Token issuer placement (existing app backend/service vs. standalone auth service).
+3. Backward compatibility window for legacy clients.
+4. Final secure-mode cutover date and enforcement policy.
 
 ## Implementation Checklist
 
@@ -341,6 +451,7 @@ Done criteria:
 - TLS scan returns acceptable grade for configured domain.
 - Certificate rotation steps are documented and tested.
 - A repeatable pre-release security verification checklist is present.
+- Relay latency validation gate passes for Option A (`p95` overhead <= 5 ms).
 
 ### Phase 2 Kickoff (Auth Foundation PRs)
 

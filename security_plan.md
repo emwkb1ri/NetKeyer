@@ -455,12 +455,14 @@ Done criteria:
 
 ### Phase 2 Kickoff (Auth Foundation PRs)
 
-- [ ] Add JWT validation middleware/dependency in rendezvous server.
-- [ ] Enforce token checks on register/connect/relay request paths.
+- [x] Add JWT validation middleware/dependency in rendezvous server.
+- [x] Enforce token checks on register/connect/relay request paths.
 - [ ] Define and validate mandatory claims (`sub`, `role`, scope identifiers, `exp`, `jti`).
+   - Implemented in kickoff: `sub`, `iat`, `exp`, endpoint role checks (`role`/`roles`, `admin` override).
+   - Remaining for follow-up: scope identifiers and `jti` enforcement.
 - [ ] Introduce short-lived connection grant token model for host-client session setup.
 - [ ] Add anti-replay cache keyed by `jti` with bounded TTL.
-- [ ] Add migration toggle to allow temporary legacy shared-token mode.
+- [x] Add migration toggle to allow temporary legacy shared-token mode.
 
 ### Phase 3 Kickoff (Protocol Security PRs)
 

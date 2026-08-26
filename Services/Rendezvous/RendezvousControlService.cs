@@ -15,11 +15,24 @@ public sealed class RendezvousControlService : IRendezvousControlService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    private static void ApplyAccessToken(ClientWebSocket ws)
+    {
+        string token = Environment.GetEnvironmentVariable("NETKEYER_RENDEZVOUS_ACCESS_TOKEN") ?? string.Empty;
+        token = token.Trim();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return;
+        }
+
+        ws.Options.SetRequestHeader("Authorization", $"Bearer {token}");
+    }
+
     public async Task<RendezvousHostRegistrationSession> RegisterHostAsync(RendezvousHostRegistrationOptions options, CancellationToken ct)
     {
         ValidateHostOptions(options);
 
         var ws = new ClientWebSocket();
+        ApplyAccessToken(ws);
         await ws.ConnectAsync(BuildEndpoint(options.ServerUrl, "host"), ct);
 
         var payload = new
@@ -72,6 +85,7 @@ public sealed class RendezvousControlService : IRendezvousControlService
         ValidateClientOptions(options);
 
         var ws = new ClientWebSocket();
+        ApplyAccessToken(ws);
         await ws.ConnectAsync(BuildEndpoint(options.ServerUrl, "client"), ct);
 
         await SendJsonAsync(ws, new
@@ -127,6 +141,7 @@ public sealed class RendezvousControlService : IRendezvousControlService
         ValidateListOptions(options);
 
         var ws = new ClientWebSocket();
+        ApplyAccessToken(ws);
         await ws.ConnectAsync(BuildEndpoint(options.ServerUrl, "client"), ct);
 
         try

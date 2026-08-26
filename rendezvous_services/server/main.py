@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket
 
 from service_version import load_version_block
 
+from .auth import AuthConfig, authorize_websocket
 from .port_mapping import RendezvousPortMapper
 from .state import RendezvousState
 from .websocket_handlers import handle_client_ws, handle_host_ws
@@ -32,6 +33,11 @@ PORTMAP_INTERNAL_IP = os.getenv("RENDEZVOUS_PORTMAP_INTERNAL_IP", "").strip()
 NATPMP_GATEWAY_IP = os.getenv("RENDEZVOUS_NATPMP_GATEWAY_IP", "").strip()
 VERSION_INFO = load_version_block(component="rendezvous")
 FORCE_RELAY = os.getenv("RENDEZVOUS_FORCE_RELAY", "false").strip().lower() in {"1", "true", "yes", "on"}
+REQUIRE_SIGNED_TOKENS = os.getenv("RENDEZVOUS_REQUIRE_SIGNED_TOKENS", "false").strip().lower() in {"1", "true", "yes", "on"}
+ALLOW_LEGACY_NO_TOKEN = os.getenv("RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN", "true").strip().lower() in {"1", "true", "yes", "on"}
+JWT_SECRET = os.getenv("RENDEZVOUS_JWT_SECRET", "")
+JWT_ISSUER = os.getenv("RENDEZVOUS_JWT_ISSUER", "").strip()
+JWT_AUDIENCE = os.getenv("RENDEZVOUS_JWT_AUDIENCE", "").strip()
 HEALTH_ACCESS_MODE = os.getenv("RENDEZVOUS_HEALTH_ACCESS_MODE", "private").strip().lower()
 HEALTH_ALLOWED_CIDRS = [
     value.strip()
@@ -52,6 +58,14 @@ PORT_MAPPER = RendezvousPortMapper(
     known_host_ips=PORTMAP_HOST_IPS,
     upnp_internal_ip=PORTMAP_INTERNAL_IP,
     natpmp_gateway_ip=NATPMP_GATEWAY_IP,
+)
+
+AUTH_CONFIG = AuthConfig(
+    require_signed_tokens=REQUIRE_SIGNED_TOKENS,
+    allow_legacy_no_token=ALLOW_LEGACY_NO_TOKEN,
+    jwt_secret=JWT_SECRET,
+    jwt_issuer=JWT_ISSUER,
+    jwt_audience=JWT_AUDIENCE,
 )
 
 
@@ -107,13 +121,15 @@ async def _session_sweeper() -> None:
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
     LOGGER.info(
-        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s force_relay=%s",
+        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s force_relay=%s require_signed_tokens=%s legacy_no_token=%s",
         VERSION_INFO.get("services_version", ""),
         VERSION_INFO.get("protocol_version", ""),
         VERSION_INFO.get("build", {}).get("tag", ""),
         VERSION_INFO.get("build", {}).get("commit", ""),
         VERSION_INFO.get("build", {}).get("built_at_utc", ""),
         FORCE_RELAY,
+        REQUIRE_SIGNED_TOKENS,
+        ALLOW_LEGACY_NO_TOKEN,
     )
     await asyncio.to_thread(PORT_MAPPER.run_mapping)
     sweeper = asyncio.create_task(_session_sweeper())
@@ -151,11 +167,23 @@ async def health(request: Request) -> dict[str, object]:
 
 @app.websocket("/ws/host")
 async def ws_host(websocket: WebSocket) -> None:
+    allowed, close_code, close_reason = authorize_websocket(websocket, AUTH_CONFIG, required_role="host")
+    if not allowed:
+        LOGGER.warning("ws_host authentication denied: %s", close_reason)
+        await websocket.close(code=close_code, reason=close_reason)
+        return
+
     await handle_host_ws(state, websocket, relay_host=RELAY_HOST, relay_port=RELAY_PORT)
 
 
 @app.websocket("/ws/client")
 async def ws_client(websocket: WebSocket) -> None:
+    allowed, close_code, close_reason = authorize_websocket(websocket, AUTH_CONFIG, required_role="client")
+    if not allowed:
+        LOGGER.warning("ws_client authentication denied: %s", close_reason)
+        await websocket.close(code=close_code, reason=close_reason)
+        return
+
     await handle_client_ws(
         state,
         websocket,

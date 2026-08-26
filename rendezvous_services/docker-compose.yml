@@ -42,6 +42,14 @@ services:
       RENDEZVOUS_SERVICES_BUILD_TAG: ""
       RENDEZVOUS_SERVICES_BUILD_COMMIT: ""
       RENDEZVOUS_SERVICES_BUILD_DATE: ""
+      # Phase 2 auth controls (JWT)
+      # Set RENDEZVOUS_REQUIRE_SIGNED_TOKENS=true to enforce signed tokens.
+      RENDEZVOUS_REQUIRE_SIGNED_TOKENS: "false"
+      # Migration toggle: allow existing clients without tokens while Phase 2 rolls out.
+      RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN: "true"
+      RENDEZVOUS_JWT_SECRET: ""
+      RENDEZVOUS_JWT_ISSUER: ""
+      RENDEZVOUS_JWT_AUDIENCE: ""
       # Manual-mode (recommended): disable automatic UPnP/NAT-PMP mapping.
       # Router should forward TCP 49920 -> rendezvous host and TCP 49921 -> relay host.
       RENDEZVOUS_ENABLE_PORT_MAP: "false"

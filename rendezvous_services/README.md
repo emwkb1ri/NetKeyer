@@ -244,6 +244,41 @@ Force relay experiment flags (latency testing):
 
 Use both flags together when collecting controlled relay-only latency measurements.
 
+Phase 2 auth controls (JWT rollout):
+
+- `RENDEZVOUS_REQUIRE_SIGNED_TOKENS=true`
+  - Enforces signed JWT authentication on websocket rendezvous endpoints.
+- `RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN=true`
+  - Compatibility toggle for staged rollout; tokenless clients can still connect when enforcement is off.
+- `RENDEZVOUS_JWT_SECRET=<secret>`
+  - Shared secret used for `HS256` signature validation.
+- `RENDEZVOUS_JWT_ISSUER=<issuer>` (optional)
+  - If set, token `iss` must match.
+- `RENDEZVOUS_JWT_AUDIENCE=<audience>` (optional)
+  - If set, token `aud` must match.
+
+JWT requirements in this Phase 2 kickoff:
+
+- Required claims: `sub`, `iat`, `exp`
+- Role claim check:
+  - `ws/host` requires `role`/`roles` including `host` (or `admin`)
+  - `ws/client` requires `role`/`roles` including `client` (or `admin`)
+
+Recommended staged rollout:
+
+1. Compatibility start:
+  - `RENDEZVOUS_REQUIRE_SIGNED_TOKENS=false`
+  - `RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN=true`
+2. Distribute app tokens and monitor denied-auth logs.
+3. Enforcement:
+  - `RENDEZVOUS_REQUIRE_SIGNED_TOKENS=true`
+  - `RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN=false`
+
+App token forwarding:
+
+- `NETKEYER_RENDEZVOUS_ACCESS_TOKEN`
+  - When set, NetKeyer app sends `Authorization: Bearer <token>` on websocket rendezvous requests.
+
 Rendezvous service health exposure defaults:
 
 - `RENDEZVOUS_HEALTH_ACCESS_MODE=private` (default)

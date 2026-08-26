@@ -277,6 +277,10 @@ Delivery status:
 
 ## Phase 3: End-to-End Encryption and Cryptographic Peer Authentication
 
+Reference draft:
+
+- `docs/security/phase3-protocol-draft.md`
+
 ### Goals
 
 - Encrypt keying traffic end-to-end regardless of direct or relay path.
@@ -482,7 +486,7 @@ Done criteria:
 
 ### Phase 3 Kickoff (Protocol Security PRs)
 
-- [ ] Publish protocol draft: handshake messages, crypto suites, key schedule, frame format.
+- [x] Publish protocol draft: handshake messages, crypto suites, key schedule, frame format.
 - [ ] Add identity key storage abstraction and secure loading path for host/client.
 - [ ] Implement handshake transcript signing and verification.
 - [ ] Implement AEAD-encrypted frame codec with sequence-based nonce handling.

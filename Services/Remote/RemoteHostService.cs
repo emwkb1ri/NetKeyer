@@ -259,13 +259,16 @@ public class RemoteHostService : IRemoteHostService
 
     private void AddAndRunSession(TcpClient client, CancellationToken ct, string transport)
     {
+        bool isRelayTransport = string.Equals(transport, "relay", StringComparison.OrdinalIgnoreCase);
         var session = new RemoteClientSession(
             client,
             _options.SharedToken,
             _options.HostName,
             BuildHeartbeatPayloadForClient,
             _options.EnableSecureTransport,
-            _options.RequireSecureTransport);
+            _options.RequireSecureTransport,
+            isRelayTransport,
+            _options.ValidateRelayCiphertext);
         session.PaddleStateReceived += Session_PaddleStateReceived;
         session.SessionClosed += Session_SessionClosed;
         session.SessionMetadataChanged += Session_SessionMetadataChanged;

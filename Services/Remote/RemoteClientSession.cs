@@ -17,6 +17,8 @@ public class RemoteClientSession : IDisposable
     private readonly Func<string, HeartbeatPayload> _heartbeatPayloadProvider;
     private readonly bool _enableSecureTransport;
     private readonly bool _requireSecureTransport;
+    private readonly bool _isRelayTransport;
+    private readonly bool _validateRelayCiphertext;
     private IRemoteFrameProtectionCodec _frameProtectionCodec;
     private bool _isAuthenticated;
 
@@ -35,7 +37,9 @@ public class RemoteClientSession : IDisposable
         string hostName,
         Func<string, HeartbeatPayload> heartbeatPayloadProvider,
         bool enableSecureTransport,
-        bool requireSecureTransport)
+        bool requireSecureTransport,
+        bool isRelayTransport,
+        bool validateRelayCiphertext)
     {
         _client = client;
         _stream = _client.GetStream();
@@ -44,6 +48,8 @@ public class RemoteClientSession : IDisposable
         _heartbeatPayloadProvider = heartbeatPayloadProvider;
         _enableSecureTransport = enableSecureTransport;
         _requireSecureTransport = requireSecureTransport;
+        _isRelayTransport = isRelayTransport;
+        _validateRelayCiphertext = validateRelayCiphertext;
         _isAuthenticated = string.IsNullOrWhiteSpace(_requiredToken);
         RemoteEndpoint = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
         RemoteIp = (client.Client.RemoteEndPoint as System.Net.IPEndPoint)?.Address.ToString() ?? "";
@@ -69,7 +75,7 @@ public class RemoteClientSession : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    if (_requireSecureTransport)
+                    if (_requireSecureTransport || (_isRelayTransport && _validateRelayCiphertext))
                     {
                         DebugLogger.LogAlways("remote", $"Secure transport required but handshake failed for {ClientId}: {ex.Message}");
                         return;
@@ -78,6 +84,12 @@ public class RemoteClientSession : IDisposable
                     DebugLogger.LogAlways("remote", $"Secure handshake failed for {ClientId}; falling back to plaintext mode: {ex.Message}");
                     _frameProtectionCodec = null;
                 }
+            }
+
+            if (_isRelayTransport && _validateRelayCiphertext && _frameProtectionCodec == null)
+            {
+                DebugLogger.LogAlways("remote", $"Rejecting relay session {ClientId}: ciphertext validation requires secure transport.");
+                return;
             }
 
             await SendHelloAsync(ct);
@@ -267,6 +279,7 @@ public class RemoteClientSession : IDisposable
         RemoteMessageEnvelope envelope = await RemoteFrameCodec.ReadEnvelopeAsync(_stream, ct);
         if (envelope.Type != RemoteMessageType.SecureFrame)
         {
+            ValidateRelayFrameType(envelope.Type, _isRelayTransport, _validateRelayCiphertext, _frameProtectionCodec != null);
             return envelope;
         }
 
@@ -288,6 +301,19 @@ public class RemoteClientSession : IDisposable
 
         byte[] plain = await _frameProtectionCodec.DecryptAsync(encrypted, ct);
         return RemoteFrameCodec.DeserializeEnvelope(plain);
+    }
+
+    internal static void ValidateRelayFrameType(
+        RemoteMessageType receivedType,
+        bool isRelayTransport,
+        bool validateRelayCiphertext,
+        bool secureTransportEstablished)
+    {
+        if (isRelayTransport && validateRelayCiphertext && secureTransportEstablished && receivedType != RemoteMessageType.SecureFrame)
+        {
+            throw new InvalidDataException(
+                $"Relay ciphertext validation failed: expected secure frame, received '{receivedType}'.");
+        }
     }
 
     public void Dispose()

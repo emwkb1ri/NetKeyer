@@ -24,6 +24,7 @@ public class RemoteClientOptions
     public string RelayRole { get; set; } = "";
     public bool EnableSecureTransport { get; set; }
     public bool RequireSecureTransport { get; set; }
+    public bool ValidateRelayCiphertext { get; set; }
 }
 
 public class RemoteHostOptions
@@ -41,4 +42,5 @@ public class RemoteHostOptions
     public string RelayRole { get; set; } = "";
     public bool EnableSecureTransport { get; set; }
     public bool RequireSecureTransport { get; set; }
+    public bool ValidateRelayCiphertext { get; set; }
 }

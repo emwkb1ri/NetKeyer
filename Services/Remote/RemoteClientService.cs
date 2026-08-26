@@ -27,6 +27,7 @@ public class RemoteClientService : IRemoteClientService
     private string _lastHostErrorMessage = "";
     private DateTime _lastHostErrorUtc = DateTime.MinValue;
     private IRemoteFrameProtectionCodec _frameProtectionCodec;
+    private bool _relayCiphertextValidationEnabled;
 
     private static readonly TimeSpan HostErrorStatusGuardWindow = TimeSpan.FromSeconds(2);
 
@@ -46,6 +47,7 @@ public class RemoteClientService : IRemoteClientService
         await client.ConnectAsync(options.TargetHost, options.TargetPort, _internalCts.Token);
 
         var stream = client.GetStream();
+        bool isRelayTransport = !string.IsNullOrWhiteSpace(options.RelaySessionId) && !string.IsNullOrWhiteSpace(options.RelayRole);
 
         if (!string.IsNullOrWhiteSpace(options.RelaySessionId) && !string.IsNullOrWhiteSpace(options.RelayRole))
         {
@@ -63,6 +65,7 @@ public class RemoteClientService : IRemoteClientService
             _stream = stream;
             _sequence = 0;
             _frameProtectionCodec = null;
+            _relayCiphertextValidationEnabled = isRelayTransport && options.ValidateRelayCiphertext;
         }
 
         if (options.EnableSecureTransport)
@@ -81,7 +84,7 @@ public class RemoteClientService : IRemoteClientService
             }
             catch (Exception ex)
             {
-                if (options.RequireSecureTransport)
+                if (options.RequireSecureTransport || _relayCiphertextValidationEnabled)
                 {
                     throw new InvalidOperationException($"Secure transport handshake failed: {ex.Message}", ex);
                 }
@@ -89,6 +92,11 @@ public class RemoteClientService : IRemoteClientService
                 DebugLogger.LogAlways("remote", $"Secure transport handshake failed; falling back to plaintext mode: {ex.Message}");
                 _frameProtectionCodec = null;
             }
+        }
+
+        if (_relayCiphertextValidationEnabled && _frameProtectionCodec == null)
+        {
+            throw new InvalidOperationException("Relay ciphertext validation is enabled, but secure transport was not established.");
         }
 
         _connectedHostIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? options.TargetHost;
@@ -154,6 +162,7 @@ public class RemoteClientService : IRemoteClientService
             _stream = null;
             _client = null;
             _frameProtectionCodec = null;
+            _relayCiphertextValidationEnabled = false;
         }
 
         _connectedHostIp = "";
@@ -379,6 +388,7 @@ public class RemoteClientService : IRemoteClientService
         RemoteMessageEnvelope envelope = await RemoteFrameCodec.ReadEnvelopeAsync(stream, ct);
         if (envelope.Type != RemoteMessageType.SecureFrame)
         {
+            ValidateRelayFrameType(envelope.Type, _relayCiphertextValidationEnabled, _frameProtectionCodec != null);
             return envelope;
         }
 
@@ -400,6 +410,15 @@ public class RemoteClientService : IRemoteClientService
 
         byte[] plain = await _frameProtectionCodec.DecryptAsync(encrypted, ct);
         return RemoteFrameCodec.DeserializeEnvelope(plain);
+    }
+
+    internal static void ValidateRelayFrameType(RemoteMessageType receivedType, bool relayCiphertextValidationEnabled, bool secureTransportEstablished)
+    {
+        if (relayCiphertextValidationEnabled && secureTransportEstablished && receivedType != RemoteMessageType.SecureFrame)
+        {
+            throw new InvalidDataException(
+                $"Relay ciphertext validation failed: expected secure frame, received '{receivedType}'.");
+        }
     }
 
     private void RaiseStatus(string status)

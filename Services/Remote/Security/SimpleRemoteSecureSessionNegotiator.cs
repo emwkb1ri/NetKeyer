@@ -50,6 +50,17 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
         var response = RemoteProtocolJson.DeserializePayload<SecureHandshakeResponsePayload>(responseEnvelope)
             ?? throw new InvalidDataException("Invalid secure handshake response payload");
 
+        EnsureVersionAccepted(
+            response.SecureProtocolVersion,
+            RemoteSecureProtocolDefaults.SecureProtocolVersion,
+            "host secure handshake response");
+        EnsureSuiteAccepted(response.Suite, SuiteName, "host secure handshake response");
+
+        if (string.IsNullOrWhiteSpace(response.SessionId))
+        {
+            throw new InvalidDataException("Secure handshake response did not include a session ID.");
+        }
+
         byte[] transcriptHash = ComputeTranscriptHash(hello, response);
 
         using (var hostIdentity = ECDsa.Create())
@@ -96,6 +107,12 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
 
         var hello = RemoteProtocolJson.DeserializePayload<SecureHandshakeHelloPayload>(helloEnvelope)
             ?? throw new InvalidDataException("Invalid secure handshake hello payload");
+
+        EnsureVersionAccepted(
+            hello.SecureProtocolVersion,
+            RemoteSecureProtocolDefaults.SecureProtocolVersion,
+            "client secure handshake hello");
+        EnsureSuiteAccepted(hello.Suite, SuiteName, "client secure handshake hello");
 
         using var hostEcdh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
         var response = new SecureHandshakeResponsePayload
@@ -195,5 +212,28 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
         byte[] result = new byte[length];
         Buffer.BlockCopy(source, offset, result, 0, length);
         return result;
+    }
+
+    internal static void EnsureVersionAccepted(int offered, int expected, string stage)
+    {
+        if (offered == expected)
+        {
+            return;
+        }
+
+        string direction = offered < expected ? "downgrade" : "unsupported-upgrade";
+        throw new InvalidDataException(
+            $"Rejected {stage}: protocol version {offered} is not allowed (expected {expected}, reason={direction}).");
+    }
+
+    internal static void EnsureSuiteAccepted(string offered, string expected, string stage)
+    {
+        if (string.Equals((offered ?? string.Empty).Trim(), expected, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        throw new InvalidDataException(
+            $"Rejected {stage}: crypto suite '{offered}' is not allowed (expected '{expected}').");
     }
 }

@@ -201,6 +201,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly bool _forceRelayTransportForExperiments = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_FORCE_RELAY_TRANSPORT"));
     private readonly bool _enableSecureRemoteTransport = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT"));
     private readonly bool _requireSecureRemoteTransport = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT"));
+    private readonly bool _validateRelayCiphertext = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_VALIDATE_RELAY_CIPHERTEXT"));
     private bool _isSyncingRendezvousEndpoint;
     private bool _isExiting;
     private bool _remoteHostTransmitModeCW = true;
@@ -1719,7 +1720,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     SharedToken = RemoteSharedToken,
                     Callsign = RemoteCallsign,
                     EnableSecureTransport = _enableSecureRemoteTransport,
-                    RequireSecureTransport = _requireSecureRemoteTransport
+                    RequireSecureTransport = _requireSecureRemoteTransport,
+                    ValidateRelayCiphertext = _validateRelayCiphertext
                 }, connectToken);
             }
             finally
@@ -1787,7 +1789,8 @@ public partial class MainWindowViewModel : ViewModelBase
                         SharedToken = RemoteSharedToken,
                         Callsign = RemoteCallsign,
                         EnableSecureTransport = _enableSecureRemoteTransport,
-                        RequireSecureTransport = _requireSecureRemoteTransport
+                        RequireSecureTransport = _requireSecureRemoteTransport,
+                        ValidateRelayCiphertext = _validateRelayCiphertext
                     }, mappedConnectTimeoutCts.Token);
 
                     DebugLogger.LogAlways("remote", $"Client transport connected (transport=mapped-direct) endpoint={mappedHost}:{mappedPort}");
@@ -1842,7 +1845,8 @@ public partial class MainWindowViewModel : ViewModelBase
                     RelaySessionId = relaySessionId,
                     RelayRole = "CLIENT",
                     EnableSecureTransport = _enableSecureRemoteTransport,
-                    RequireSecureTransport = _requireSecureRemoteTransport
+                    RequireSecureTransport = _requireSecureRemoteTransport,
+                    ValidateRelayCiphertext = _validateRelayCiphertext
                 }, _remoteCts.Token);
 
                 DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
@@ -1893,7 +1897,8 @@ public partial class MainWindowViewModel : ViewModelBase
             RelaySessionId = relaySessionId,
             RelayRole = "CLIENT",
             EnableSecureTransport = _enableSecureRemoteTransport,
-            RequireSecureTransport = _requireSecureRemoteTransport
+            RequireSecureTransport = _requireSecureRemoteTransport,
+            ValidateRelayCiphertext = _validateRelayCiphertext
         }, _remoteCts?.Token ?? CancellationToken.None);
 
         DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
@@ -1930,7 +1935,8 @@ public partial class MainWindowViewModel : ViewModelBase
             ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds),
             UseSenderTickStaleGate = _settings?.RemoteHostUseSenderTickStaleGate ?? false,
             EnableSecureTransport = _enableSecureRemoteTransport,
-            RequireSecureTransport = _requireSecureRemoteTransport
+            RequireSecureTransport = _requireSecureRemoteTransport,
+            ValidateRelayCiphertext = _validateRelayCiphertext
         }, _remoteCts.Token);
 
         _remoteHostService.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW, _transmitSliceMonitor.TransmitMode);

@@ -1,0 +1,39 @@
+name: CI Tests
+
+on:
+  push:
+    branches:
+      - master
+      - security
+  pull_request:
+    branches:
+      - master
+      - security
+  workflow_dispatch:
+
+concurrency:
+  group: ci-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet-tests:
+    name: .NET Build and Security Tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore app
+        run: dotnet restore NetKeyer.csproj
+
+      - name: Build app (Debug)
+        run: dotnet build NetKeyer.csproj -c Debug --no-restore
+
+      - name: Run targeted security tests
+        run: dotnet test tests/NetKeyer.Tests/NetKeyer.Tests.csproj -c Debug --no-build --verbosity normal

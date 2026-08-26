@@ -80,6 +80,7 @@
 
   <ItemGroup>
     <Compile Remove="obj\**\*.cs" />
+    <Compile Remove="tests\**\*.cs" />
   </ItemGroup>
 
   <!-- Pre-built native MIDI shim: copy to output directory at build time.

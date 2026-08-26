@@ -103,3 +103,18 @@ Feature flags:
 	- Enables secure handshake + encrypted frame mode.
 - `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT=true`
 	- Fails connection if secure handshake/encryption cannot be established.
+- `NETKEYER_VALIDATE_RELAY_CIPHERTEXT=true`
+	- Enforces ciphertext-only relay sessions; rejects plaintext envelopes after secure mode is established.
+
+## Explicit Downgrade Protection (Implemented)
+
+- Handshake hello/response versions must exactly match the current secure protocol version.
+- Negotiated suite must exactly match the currently supported suite.
+- Version/suite mismatches are rejected as downgrade/unsupported attempts.
+- Empty session IDs in handshake responses are rejected.
+
+## Relay Ciphertext Validation (Implemented)
+
+- On relay paths with validation enabled, secure handshake must succeed.
+- If handshake falls back to plaintext while validation is enabled, the session is rejected.
+- After secure mode is active, receiving any non-secure frame on relay causes immediate connection failure.

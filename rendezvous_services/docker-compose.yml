@@ -57,6 +57,11 @@ services:
       RENDEZVOUS_JWT_REQUIRE_JTI: "true"
       RENDEZVOUS_JWT_REPLAY_TTL_SECONDS: "600"
       RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES: "50000"
+      # Short-lived connection grant model (Phase 2)
+      RENDEZVOUS_REQUIRE_CONNECTION_GRANT: "false"
+      RENDEZVOUS_CONNECTION_GRANT_TTL_SECONDS: "30"
+      # Optional override; falls back to RENDEZVOUS_JWT_SECRET when blank.
+      RENDEZVOUS_CONNECTION_GRANT_SECRET: ""
       # Manual-mode (recommended): disable automatic UPnP/NAT-PMP mapping.
       # Router should forward TCP 49920 -> rendezvous host and TCP 49921 -> relay host.
       RENDEZVOUS_ENABLE_PORT_MAP: "false"

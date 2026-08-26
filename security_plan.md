@@ -459,7 +459,7 @@ Done criteria:
 - [x] Enforce token checks on register/connect/relay request paths.
 - [x] Define and validate mandatory claims (`sub`, `role`, scope identifiers, `exp`, `jti`).
    - Implemented in kickoff: `sub`, `iat`, `exp`, `jti`, endpoint role checks (`role`/`roles`, `admin` override), optional endpoint scope checks.
-- [ ] Introduce short-lived connection grant token model for host-client session setup.
+- [x] Introduce short-lived connection grant token model for host-client session setup.
 - [x] Add anti-replay cache keyed by `jti` with bounded TTL.
 - [x] Add migration toggle to allow temporary legacy shared-token mode.
 

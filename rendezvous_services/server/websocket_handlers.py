@@ -5,7 +5,9 @@ from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
+from .auth import AuthConfig, AuthError, issue_connection_grant_token, validate_connection_grant_token
 from .models import (
+    ConnectionGrantMessage,
     ClientRequestPortMapMessage,
     ConnectRequestMessage,
     ErrorMessage,
@@ -16,6 +18,7 @@ from .models import (
     HostSummary,
     IncomingClientMessage,
     ListHostsMessage,
+    RequestConnectionGrantMessage,
     RequestPortMapMessage,
     RegisterClientMessage,
     RegisterHostMessage,
@@ -300,6 +303,7 @@ async def handle_client_ws(
     relay_host: str,
     relay_port: int,
     force_relay: bool = False,
+    auth_config: AuthConfig | None = None,
 ) -> None:
     await websocket.accept()
     client_id: str | None = None
@@ -345,10 +349,55 @@ async def handle_client_ws(
                 await _send_model(websocket, HostListMessage(type="host_list", hosts=host_summaries))
                 continue
 
+            if isinstance(msg, RequestConnectionGrantMessage):
+                if msg.client_id != client_id:
+                    await _send_error(websocket, "client_mismatch", "Client ID does not match registered client")
+                    continue
+
+                host = await state.get_host(msg.host_id)
+                if not host:
+                    await _send_error(websocket, "not_found", f"Host {msg.host_id} not found")
+                    continue
+
+                if auth_config is None:
+                    await _send_error(websocket, "grant_unavailable", "Connection grant service is unavailable")
+                    continue
+
+                try:
+                    grant_token = issue_connection_grant_token(auth_config, msg.client_id, msg.host_id)
+                except AuthError as ex:
+                    await _send_error(websocket, "grant_issue_failed", str(ex))
+                    continue
+
+                ttl = max(1, min(600, auth_config.connection_grant_ttl_seconds))
+                await _send_model(
+                    websocket,
+                    ConnectionGrantMessage(
+                        type="connection_grant",
+                        client_id=msg.client_id,
+                        host_id=msg.host_id,
+                        grant_token=grant_token,
+                        expires_in_seconds=ttl,
+                    ),
+                )
+                continue
+
             if isinstance(msg, ConnectRequestMessage):
                 if msg.client_id != client_id:
                     await _send_error(websocket, "client_mismatch", "Client ID does not match registered client")
                     continue
+
+                if auth_config and auth_config.require_connection_grant:
+                    token = (msg.connection_grant_token or "").strip()
+                    if not token:
+                        await _send_error(websocket, "missing_connection_grant", "Connection grant token is required")
+                        continue
+
+                    try:
+                        validate_connection_grant_token(token, auth_config, msg.client_id, msg.host_id)
+                    except AuthError as ex:
+                        await _send_error(websocket, "invalid_connection_grant", str(ex))
+                        continue
 
                 host = await state.get_host(msg.host_id)
                 client = await state.get_client(msg.client_id)

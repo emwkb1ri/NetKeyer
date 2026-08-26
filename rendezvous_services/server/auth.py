@@ -4,9 +4,9 @@ from dataclasses import dataclass
 import threading
 import time
 from typing import Any
+from uuid import uuid4
 
 import jwt
-from fastapi import WebSocket
 
 
 class AuthError(Exception):
@@ -25,6 +25,9 @@ class AuthConfig:
     jti_replay_ttl_seconds: int
     jti_replay_cache_max_entries: int
     require_jti: bool
+    require_connection_grant: bool
+    connection_grant_ttl_seconds: int
+    connection_grant_secret: str
 
 
 class _ReplayCache:
@@ -75,7 +78,7 @@ def parse_bearer_token(auth_header: str | None) -> str:
     return ""
 
 
-def extract_websocket_token(websocket: WebSocket) -> str:
+def extract_websocket_token(websocket: Any) -> str:
     query_token = (websocket.query_params.get("access_token") or "").strip()
     if query_token:
         return query_token
@@ -196,7 +199,84 @@ def validate_access_token(token: str, config: AuthConfig, required_role: str | N
     return claims
 
 
-def authorize_websocket(websocket: WebSocket, config: AuthConfig, required_role: str) -> tuple[bool, int, str]:
+def issue_connection_grant_token(config: AuthConfig, client_id: str, host_id: str) -> str:
+    secret = (config.connection_grant_secret or config.jwt_secret).strip()
+    if not secret:
+        raise AuthError("connection grant secret is not configured")
+
+    ttl = max(1, min(600, config.connection_grant_ttl_seconds))
+    now = int(time.time())
+    payload: dict[str, Any] = {
+        "sub": client_id,
+        "host_id": host_id,
+        "purpose": "connect_grant",
+        "iat": now,
+        "nbf": now,
+        "exp": now + ttl,
+        "jti": f"grant-{uuid4().hex}",
+    }
+    if config.jwt_issuer:
+        payload["iss"] = config.jwt_issuer
+    if config.jwt_audience:
+        payload["aud"] = config.jwt_audience
+
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def validate_connection_grant_token(
+    grant_token: str,
+    config: AuthConfig,
+    client_id: str,
+    host_id: str,
+) -> dict[str, Any]:
+    if not grant_token:
+        raise AuthError("missing connection grant token")
+
+    secret = (config.connection_grant_secret or config.jwt_secret).strip()
+    if not secret:
+        raise AuthError("connection grant secret is not configured")
+
+    decode_kwargs: dict[str, Any] = {
+        "algorithms": ["HS256"],
+        "options": {"require": ["exp", "iat", "sub", "jti", "purpose"]},
+    }
+
+    if config.jwt_issuer:
+        decode_kwargs["issuer"] = config.jwt_issuer
+
+    if config.jwt_audience:
+        decode_kwargs["audience"] = config.jwt_audience
+
+    try:
+        claims = jwt.decode(grant_token, secret, **decode_kwargs)
+    except jwt.PyJWTError as ex:
+        raise AuthError(f"invalid connection grant token: {ex}") from ex
+
+    if str(claims.get("purpose", "")).strip().lower() != "connect_grant":
+        raise AuthError("invalid connection grant purpose")
+
+    if str(claims.get("sub", "")).strip() != client_id:
+        raise AuthError("connection grant client mismatch")
+
+    if str(claims.get("host_id", "")).strip() != host_id:
+        raise AuthError("connection grant host mismatch")
+
+    jti = str(claims.get("jti", "")).strip()
+    if not jti:
+        raise AuthError("required claim 'jti' not present")
+
+    is_new = REPLAY_CACHE.check_and_store(
+        f"grant:{client_id}:{host_id}:{jti}",
+        ttl_seconds=max(1, config.connection_grant_ttl_seconds),
+        max_entries=config.jti_replay_cache_max_entries,
+    )
+    if not is_new:
+        raise AuthError("replayed connection grant rejected")
+
+    return claims
+
+
+def authorize_websocket(websocket: Any, config: AuthConfig, required_role: str) -> tuple[bool, int, str]:
     token = extract_websocket_token(websocket)
 
     if not token:

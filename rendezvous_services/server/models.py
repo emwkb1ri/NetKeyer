@@ -49,6 +49,13 @@ class ConnectRequestMessage(MessageBase):
     type: Literal["connect_request"]
     client_id: str = Field(min_length=1, max_length=128)
     host_id: str = Field(min_length=1, max_length=128)
+    connection_grant_token: str | None = Field(default=None, min_length=1, max_length=4096)
+
+
+class RequestConnectionGrantMessage(MessageBase):
+    type: Literal["request_connection_grant"]
+    client_id: str = Field(min_length=1, max_length=128)
+    host_id: str = Field(min_length=1, max_length=128)
 
 
 class ClientPunchResultMessage(MessageBase):
@@ -108,6 +115,14 @@ class UseRelayMessage(MessageBase):
     session_id: str = Field(min_length=1, max_length=128)
 
 
+class ConnectionGrantMessage(MessageBase):
+    type: Literal["connection_grant"]
+    client_id: str = Field(min_length=1, max_length=128)
+    host_id: str = Field(min_length=1, max_length=128)
+    grant_token: str = Field(min_length=1, max_length=4096)
+    expires_in_seconds: int = Field(ge=1, le=600)
+
+
 class RequestPortMapMessage(MessageBase):
     type: Literal["request_port_map"]
     session_id: str = Field(min_length=1, max_length=128)
@@ -125,6 +140,7 @@ HostInboundMessage = Union[RegisterHostMessage, HostPunchResultMessage, HostPort
 ClientInboundMessage = Union[
     RegisterClientMessage,
     ListHostsMessage,
+    RequestConnectionGrantMessage,
     ConnectRequestMessage,
     ClientPunchResultMessage,
     ClientRequestPortMapMessage,
@@ -135,6 +151,7 @@ ServerOutboundMessage = Union[
     HostEndpointMessage,
     StartPunchMessage,
     UseRelayMessage,
+    ConnectionGrantMessage,
     RequestPortMapMessage,
     ErrorMessage,
 ]
@@ -149,6 +166,7 @@ _HOST_INBOUND_BY_TYPE = {
 _CLIENT_INBOUND_BY_TYPE = {
     "register_client": RegisterClientMessage,
     "list_hosts": ListHostsMessage,
+    "request_connection_grant": RequestConnectionGrantMessage,
     "connect_request": ConnectRequestMessage,
     "punch_result": ClientPunchResultMessage,
     "request_port_map": ClientRequestPortMapMessage,
@@ -160,6 +178,7 @@ _SERVER_OUTBOUND_BY_TYPE = {
     "host_endpoint": HostEndpointMessage,
     "start_punch": StartPunchMessage,
     "use_relay": UseRelayMessage,
+    "connection_grant": ConnectionGrantMessage,
     "request_port_map": RequestPortMapMessage,
     "error": ErrorMessage,
 }

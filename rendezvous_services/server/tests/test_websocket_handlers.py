@@ -5,6 +5,7 @@ import unittest
 from fastapi import WebSocketDisconnect
 
 from server import websocket_handlers as handlers
+from server.auth import AuthConfig
 from server.state import RendezvousState
 
 
@@ -43,7 +44,7 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
         self.host_ws = FakeWebSocket("203.0.113.10", 51000)
         self.client_ws = FakeWebSocket("198.51.100.22", 52000)
 
-    async def _start_handlers(self, force_relay: bool = False):
+    async def _start_handlers(self, force_relay: bool = False, auth_config: AuthConfig | None = None):
         host_task = asyncio.create_task(
             handlers.handle_host_ws(self.state, self.host_ws, relay_host="relay.test", relay_port=49921)
         )
@@ -54,9 +55,28 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
                 relay_host="relay.test",
                 relay_port=49921,
                 force_relay=force_relay,
+                auth_config=auth_config,
             )
         )
         return host_task, client_task
+
+    @staticmethod
+    def _auth_config(require_connection_grant: bool) -> AuthConfig:
+        return AuthConfig(
+            require_signed_tokens=False,
+            allow_legacy_no_token=True,
+            jwt_secret="test-secret",
+            jwt_issuer="",
+            jwt_audience="",
+            required_scope_host="",
+            required_scope_client="",
+            jti_replay_ttl_seconds=60,
+            jti_replay_cache_max_entries=1000,
+            require_jti=False,
+            require_connection_grant=require_connection_grant,
+            connection_grant_ttl_seconds=30,
+            connection_grant_secret="",
+        )
 
     async def _stop_handlers(self, host_task: asyncio.Task, client_task: asyncio.Task) -> None:
         await self.host_ws.disconnect()
@@ -416,6 +436,94 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             self.assertGreaterEqual(len(endpoint_msgs), 2)
             self.assertEqual(endpoint_msgs[-1].get("host_public_ip"), "198.51.100.77")
             self.assertEqual(endpoint_msgs[-1].get("host_public_port"), 62000)
+        finally:
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_connect_request_rejected_when_connection_grant_missing(self) -> None:
+        auth_config = self._auth_config(require_connection_grant=True)
+        host_task, client_task = await self._start_handlers(auth_config=auth_config)
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            self.assertTrue(self.client_ws.sent)
+            self.assertEqual(self.client_ws.sent[-1].get("type"), "error")
+            self.assertEqual(self.client_ws.sent[-1].get("code"), "missing_connection_grant")
+        finally:
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_connect_request_with_valid_connection_grant_succeeds(self) -> None:
+        auth_config = self._auth_config(require_connection_grant=True)
+        host_task, client_task = await self._start_handlers(auth_config=auth_config)
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+
+            await self.client_ws.push(
+                {
+                    "type": "request_connection_grant",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            grant_messages = [m for m in self.client_ws.sent if m.get("type") == "connection_grant"]
+            self.assertTrue(grant_messages)
+            grant_token = grant_messages[-1].get("grant_token", "")
+            self.assertTrue(grant_token)
+
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                    "connection_grant_token": grant_token,
+                }
+            )
+
+            await asyncio.sleep(0.1)
+
+            host_types = self._sent_types(self.host_ws)
+            client_types = self._sent_types(self.client_ws)
+            self.assertIn("incoming_client", host_types)
+            self.assertIn("start_punch", host_types)
+            self.assertIn("host_endpoint", client_types)
+            self.assertIn("start_punch", client_types)
         finally:
             await self._stop_handlers(host_task, client_task)
 

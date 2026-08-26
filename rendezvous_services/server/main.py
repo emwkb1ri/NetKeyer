@@ -43,6 +43,9 @@ JWT_REQUIRED_SCOPE_CLIENT = os.getenv("RENDEZVOUS_JWT_REQUIRED_SCOPE_CLIENT", ""
 JWT_REQUIRE_JTI = os.getenv("RENDEZVOUS_JWT_REQUIRE_JTI", "true").strip().lower() in {"1", "true", "yes", "on"}
 JWT_REPLAY_TTL_SECONDS = int(os.getenv("RENDEZVOUS_JWT_REPLAY_TTL_SECONDS", "600"))
 JWT_REPLAY_CACHE_MAX_ENTRIES = int(os.getenv("RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES", "50000"))
+REQUIRE_CONNECTION_GRANT = os.getenv("RENDEZVOUS_REQUIRE_CONNECTION_GRANT", "false").strip().lower() in {"1", "true", "yes", "on"}
+CONNECTION_GRANT_TTL_SECONDS = int(os.getenv("RENDEZVOUS_CONNECTION_GRANT_TTL_SECONDS", "30"))
+CONNECTION_GRANT_SECRET = os.getenv("RENDEZVOUS_CONNECTION_GRANT_SECRET", "")
 HEALTH_ACCESS_MODE = os.getenv("RENDEZVOUS_HEALTH_ACCESS_MODE", "private").strip().lower()
 HEALTH_ALLOWED_CIDRS = [
     value.strip()
@@ -76,6 +79,9 @@ AUTH_CONFIG = AuthConfig(
     jti_replay_ttl_seconds=JWT_REPLAY_TTL_SECONDS,
     jti_replay_cache_max_entries=JWT_REPLAY_CACHE_MAX_ENTRIES,
     require_jti=JWT_REQUIRE_JTI,
+    require_connection_grant=REQUIRE_CONNECTION_GRANT,
+    connection_grant_ttl_seconds=CONNECTION_GRANT_TTL_SECONDS,
+    connection_grant_secret=CONNECTION_GRANT_SECRET,
 )
 
 
@@ -200,4 +206,5 @@ async def ws_client(websocket: WebSocket) -> None:
         relay_host=RELAY_HOST,
         relay_port=RELAY_PORT,
         force_relay=FORCE_RELAY,
+        auth_config=AUTH_CONFIG,
     )

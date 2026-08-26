@@ -95,13 +95,29 @@ public sealed class RendezvousControlService : IRendezvousControlService
             client_id = options.ClientId
         }, ct);
 
-        await SendJsonAsync(ws, new
+        string connectionGrantToken = await TryRequestConnectionGrantAsync(ws, options.ClientId, options.HostId, ct);
+
+        if (string.IsNullOrWhiteSpace(connectionGrantToken))
         {
-            protocol_version = 1,
-            type = "connect_request",
-            client_id = options.ClientId,
-            host_id = options.HostId
-        }, ct);
+            await SendJsonAsync(ws, new
+            {
+                protocol_version = 1,
+                type = "connect_request",
+                client_id = options.ClientId,
+                host_id = options.HostId
+            }, ct);
+        }
+        else
+        {
+            await SendJsonAsync(ws, new
+            {
+                protocol_version = 1,
+                type = "connect_request",
+                client_id = options.ClientId,
+                host_id = options.HostId,
+                connection_grant_token = connectionGrantToken
+            }, ct);
+        }
 
         RendezvousResolvedEndpoint endpoint = await WaitForHostEndpointAsync(ws, null, ct);
 
@@ -358,6 +374,60 @@ public sealed class RendezvousControlService : IRendezvousControlService
         }, ct);
 
         return true;
+    }
+
+    private static async Task<string> TryRequestConnectionGrantAsync(
+        ClientWebSocket ws,
+        string clientId,
+        string hostId,
+        CancellationToken ct)
+    {
+        await SendJsonAsync(ws, new
+        {
+            protocol_version = 1,
+            type = "request_connection_grant",
+            client_id = clientId,
+            host_id = hostId
+        }, ct);
+
+        while (!ct.IsCancellationRequested)
+        {
+            JsonElement msg = await ReceiveJsonAsync(ws, ct);
+            string type = msg.TryGetProperty("type", out var typeProp) ? typeProp.GetString() ?? "" : "";
+
+            if (string.Equals(type, "connection_grant", StringComparison.OrdinalIgnoreCase))
+            {
+                string forClientId = msg.TryGetProperty("client_id", out var cidProp) ? cidProp.GetString() ?? "" : "";
+                string forHostId = msg.TryGetProperty("host_id", out var hidProp) ? hidProp.GetString() ?? "" : "";
+                if (!string.Equals(forClientId, clientId, StringComparison.Ordinal) || !string.Equals(forHostId, hostId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (msg.TryGetProperty("grant_token", out var tokenProp))
+                {
+                    return tokenProp.GetString() ?? "";
+                }
+
+                return "";
+            }
+
+            if (string.Equals(type, "error", StringComparison.OrdinalIgnoreCase))
+            {
+                string code = msg.TryGetProperty("code", out var codeProp) ? codeProp.GetString() ?? "error" : "error";
+                string message = msg.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "Rendezvous error" : "Rendezvous error";
+
+                if (string.Equals(code, "unsupported_message_type", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(code, "grant_unavailable", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Empty;
+                }
+
+                throw new InvalidOperationException($"Rendezvous error ({code}): {message}");
+            }
+        }
+
+        throw new OperationCanceledException("Timed out waiting for connection grant token.", ct);
     }
 
     public async Task<bool> WaitForRelayAsync(RendezvousClientConnectionSession session, TimeSpan timeout, CancellationToken ct)

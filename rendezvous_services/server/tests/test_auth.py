@@ -5,7 +5,15 @@ import unittest
 
 import jwt
 
-from server.auth import AuthConfig, AuthError, authorize_websocket, parse_bearer_token, validate_access_token
+from server.auth import (
+    AuthConfig,
+    AuthError,
+    authorize_websocket,
+    issue_connection_grant_token,
+    parse_bearer_token,
+    validate_access_token,
+    validate_connection_grant_token,
+)
 
 
 class _FakeQueryParams(dict):
@@ -37,6 +45,9 @@ class AuthTests(unittest.TestCase):
             jti_replay_ttl_seconds=60,
             jti_replay_cache_max_entries=1000,
             require_jti=True,
+            require_connection_grant=True,
+            connection_grant_ttl_seconds=30,
+            connection_grant_secret="",
         )
 
     def _token(
@@ -106,6 +117,24 @@ class AuthTests(unittest.TestCase):
         with self.assertRaises(AuthError):
             validate_access_token(token, self.config, required_role="client")
 
+    def test_issue_and_validate_connection_grant(self) -> None:
+        token = issue_connection_grant_token(self.config, client_id="client-1", host_id="host-1")
+        claims = validate_connection_grant_token(token, self.config, client_id="client-1", host_id="host-1")
+        self.assertEqual(claims.get("sub"), "client-1")
+        self.assertEqual(claims.get("host_id"), "host-1")
+
+    def test_connection_grant_rejects_replay(self) -> None:
+        token = issue_connection_grant_token(self.config, client_id="client-1", host_id="host-1")
+        claims = validate_connection_grant_token(token, self.config, client_id="client-1", host_id="host-1")
+        self.assertEqual(claims.get("sub"), "client-1")
+        with self.assertRaises(AuthError):
+            validate_connection_grant_token(token, self.config, client_id="client-1", host_id="host-1")
+
+    def test_connection_grant_rejects_host_mismatch(self) -> None:
+        token = issue_connection_grant_token(self.config, client_id="client-1", host_id="host-1")
+        with self.assertRaises(AuthError):
+            validate_connection_grant_token(token, self.config, client_id="client-1", host_id="host-2")
+
     def test_authorize_websocket_requires_token_when_enabled(self) -> None:
         ws = _FakeWebSocket()
         allowed, code, _ = authorize_websocket(ws, self.config, required_role="client")
@@ -124,6 +153,9 @@ class AuthTests(unittest.TestCase):
             jti_replay_ttl_seconds=0,
             jti_replay_cache_max_entries=0,
             require_jti=False,
+            require_connection_grant=False,
+            connection_grant_ttl_seconds=30,
+            connection_grant_secret="",
         )
         ws = _FakeWebSocket()
         allowed, _, _ = authorize_websocket(ws, config, required_role="client")

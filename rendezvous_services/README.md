@@ -266,6 +266,12 @@ Phase 2 auth controls (JWT rollout):
   - Time window for replay rejection of previously seen `jti` values.
 - `RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES=50000`
   - Upper bound for in-memory replay cache.
+- `RENDEZVOUS_REQUIRE_CONNECTION_GRANT=false`
+  - When `true`, `connect_request` must include a valid short-lived connection grant token.
+- `RENDEZVOUS_CONNECTION_GRANT_TTL_SECONDS=30`
+  - Lifetime for server-issued connection grant tokens.
+- `RENDEZVOUS_CONNECTION_GRANT_SECRET=<secret>` (optional)
+  - Signing secret for connection grant tokens. Falls back to `RENDEZVOUS_JWT_SECRET` when unset.
 
 JWT requirements in this Phase 2 kickoff:
 
@@ -279,6 +285,20 @@ JWT requirements in this Phase 2 kickoff:
   - `rendezvous:*` is accepted as wildcard scope
 - Anti-replay:
   - Tokens with previously seen `sub:jti` are rejected until replay TTL expires.
+
+Connection grant flow (when enabled):
+
+1. Client registers as usual (`register_client`).
+2. Client requests grant for target host (`request_connection_grant`).
+3. Server returns signed short-lived `connection_grant` token.
+4. Client sends `connect_request` with `connection_grant_token`.
+
+Grant validation checks:
+
+- Signature and TTL (`exp`)
+- Required purpose claim (`purpose=connect_grant`)
+- Exact client/host binding (`sub` and `host_id`)
+- Single-use replay protection by grant `jti`
 
 Recommended staged rollout:
 

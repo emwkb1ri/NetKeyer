@@ -29,6 +29,22 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Build native MIDI shim (Windows x64)
+        shell: pwsh
+        working-directory: native
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+          New-Item -Force -ItemType Directory "windows-x64" | Out-Null
+
+          $dllPath = "build\Release\netkeyer_midi_shim.dll"
+          if (-not (Test-Path $dllPath)) {
+            throw "Expected native shim at '$dllPath' was not found."
+          }
+
+          Copy-Item $dllPath "windows-x64\"
+
       - name: Restore app
         run: dotnet restore NetKeyer.csproj
 

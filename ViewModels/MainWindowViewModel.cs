@@ -199,9 +199,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly HashSet<string> _relayHostSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _relayHostSessionsLock = new();
     private readonly bool _forceRelayTransportForExperiments = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_FORCE_RELAY_TRANSPORT"));
-    private readonly bool _enableSecureRemoteTransport = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT"));
-    private readonly bool _requireSecureRemoteTransport = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT"));
-    private readonly bool _validateRelayCiphertext = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_VALIDATE_RELAY_CIPHERTEXT"));
+    private readonly bool _debugInsecureOverridesEnabled;
+    private readonly bool _enableSecureRemoteTransport;
+    private readonly bool _requireSecureRemoteTransport;
+    private readonly bool _validateRelayCiphertext;
     private bool _isSyncingRendezvousEndpoint;
     private bool _isExiting;
     private bool _remoteHostTransmitModeCW = true;
@@ -531,7 +532,44 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel()
     {
+        string debugInsecureGateRaw = Environment.GetEnvironmentVariable("NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES");
+        string enableSecureRaw = Environment.GetEnvironmentVariable("NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT");
+        string requireSecureRaw = Environment.GetEnvironmentVariable("NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT");
+        string validateCiphertextRaw = Environment.GetEnvironmentVariable("NETKEYER_VALIDATE_RELAY_CIPHERTEXT");
+
+        _debugInsecureOverridesEnabled = IsDebugInsecureOverridesEnabled(debugInsecureGateRaw);
+        _enableSecureRemoteTransport = IsSecureDefaultEnabled(enableSecureRaw, _debugInsecureOverridesEnabled);
+        _requireSecureRemoteTransport = IsSecureDefaultEnabled(requireSecureRaw, _debugInsecureOverridesEnabled);
+        _validateRelayCiphertext = IsSecureDefaultEnabled(validateCiphertextRaw, _debugInsecureOverridesEnabled);
+
         DebugLogger.LogAlways("system", "NetKeyer startup: debug log initialized");
+
+        if (!_debugInsecureOverridesEnabled)
+        {
+            if (IsFalseyEnvironmentValue(enableSecureRaw))
+            {
+                DebugLogger.LogAlways("security", "Ignored NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT insecure override because debug override gate is disabled.");
+            }
+
+            if (IsFalseyEnvironmentValue(requireSecureRaw))
+            {
+                DebugLogger.LogAlways("security", "Ignored NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT insecure override because debug override gate is disabled.");
+            }
+
+            if (IsFalseyEnvironmentValue(validateCiphertextRaw))
+            {
+                DebugLogger.LogAlways("security", "Ignored NETKEYER_VALIDATE_RELAY_CIPHERTEXT insecure override because debug override gate is disabled.");
+            }
+        }
+
+        if (!IsDebugBuild && IsTruthyEnvironmentValue(debugInsecureGateRaw))
+        {
+            DebugLogger.LogAlways("security", "NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES is ignored in non-debug builds.");
+        }
+
+        DebugLogger.LogAlways(
+            "security",
+            $"Remote security profile: enable_secure_transport={_enableSecureRemoteTransport}, require_secure_transport={_requireSecureRemoteTransport}, validate_ciphertext={_validateRelayCiphertext}, debug_insecure_overrides={_debugInsecureOverridesEnabled}");
 
         // Load user settings
         _settings = UserSettings.Load();
@@ -1914,6 +1952,51 @@ public partial class MainWindowViewModel : ViewModelBase
         string value = raw.Trim().ToLowerInvariant();
         return value == "1" || value == "true" || value == "yes" || value == "on";
     }
+
+    private static bool IsFalseyEnvironmentValue(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        string value = raw.Trim().ToLowerInvariant();
+        return value == "0" || value == "false" || value == "no" || value == "off";
+    }
+
+    private static bool IsDebugInsecureOverridesEnabled(string raw)
+    {
+        return IsDebugBuild && IsTruthyEnvironmentValue(raw);
+    }
+
+    private static bool IsSecureDefaultEnabled(string raw, bool debugInsecureOverridesEnabled)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+
+        string value = raw.Trim().ToLowerInvariant();
+        if (value == "0" || value == "false" || value == "no" || value == "off")
+        {
+            return debugInsecureOverridesEnabled ? false : true;
+        }
+
+        if (value == "1" || value == "true" || value == "yes" || value == "on")
+        {
+            return true;
+        }
+
+        // Fail closed for unrecognized values by keeping secure defaults enabled.
+        return true;
+    }
+
+        private const bool IsDebugBuild =
+    #if DEBUG
+        true;
+    #else
+        false;
+    #endif
 
     private async Task StartRemoteHostAsync()
     {

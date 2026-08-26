@@ -99,12 +99,14 @@ Phase 3 handshake should bind to Phase 2 grant context:
 
 Feature flags:
 
-- `NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT=true`
-	- Enables secure handshake + encrypted frame mode.
-- `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT=true`
-	- Fails connection if secure handshake/encryption cannot be established.
-- `NETKEYER_VALIDATE_RELAY_CIPHERTEXT=true`
-	- Enforces ciphertext-only relay sessions; rejects plaintext envelopes after secure mode is established.
+- `NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES`
+	- Debug gate. Must be `true` before insecure opt-out values are honored, and ignored in non-debug builds.
+- `NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT`
+	- Secure default: enabled when unset; set to `0|false|no|off` to disable for local/lab compatibility testing only when debug gate is enabled.
+- `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT`
+	- Secure default: enabled when unset; set to `0|false|no|off` to allow plaintext fallback if handshake fails only when debug gate is enabled.
+- `NETKEYER_VALIDATE_RELAY_CIPHERTEXT`
+	- Secure default: enabled when unset; set to `0|false|no|off` to allow plaintext envelopes post-handshake only when debug gate is enabled.
 
 ## Explicit Downgrade Protection (Implemented)
 
@@ -113,8 +115,8 @@ Feature flags:
 - Version/suite mismatches are rejected as downgrade/unsupported attempts.
 - Empty session IDs in handshake responses are rejected.
 
-## Relay Ciphertext Validation (Implemented)
+## Ciphertext Validation (Implemented)
 
-- On relay paths with validation enabled, secure handshake must succeed.
+- With validation enabled, secure handshake must succeed.
 - If handshake falls back to plaintext while validation is enabled, the session is rejected.
-- After secure mode is active, receiving any non-secure frame on relay causes immediate connection failure.
+- After secure mode is active, receiving any non-secure frame causes immediate connection failure on both direct and relay transports.

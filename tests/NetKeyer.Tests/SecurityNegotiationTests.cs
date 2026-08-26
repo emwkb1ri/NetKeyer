@@ -53,46 +53,74 @@ public class SecurityNegotiationTests
     }
 
     [Fact]
-    public void RemoteClientServiceRelayValidation_RejectsPlaintextFrameWhenSecureEstablished()
+    public void RemoteClientServiceCiphertextValidation_RejectsPlaintextFrameWhenSecureEstablished()
     {
         var ex = Assert.Throws<InvalidDataException>(() =>
-            RemoteClientService.ValidateRelayFrameType(
+            RemoteClientService.ValidateCiphertextFrameType(
                 RemoteMessageType.Hello,
-                relayCiphertextValidationEnabled: true,
+                ciphertextValidationEnabled: true,
                 secureTransportEstablished: true));
 
         Assert.Contains("expected secure frame", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void RemoteClientServiceRelayValidation_AllowsSecureFrameWhenValidationEnabled()
+    public void RemoteClientServiceCiphertextValidation_AllowsSecureFrameWhenValidationEnabled()
     {
-        RemoteClientService.ValidateRelayFrameType(
+        RemoteClientService.ValidateCiphertextFrameType(
             RemoteMessageType.SecureFrame,
-            relayCiphertextValidationEnabled: true,
+            ciphertextValidationEnabled: true,
             secureTransportEstablished: true);
     }
 
     [Fact]
-    public void RemoteClientSessionRelayValidation_RejectsPlaintextFrameWhenRelayValidationEnabled()
+    public void RemoteClientSessionCiphertextValidation_RejectsPlaintextFrameWhenValidationEnabled()
     {
         var ex = Assert.Throws<InvalidDataException>(() =>
-            RemoteClientSession.ValidateRelayFrameType(
+            RemoteClientSession.ValidateCiphertextFrameType(
                 RemoteMessageType.Heartbeat,
-                isRelayTransport: true,
-                validateRelayCiphertext: true,
+                validateCiphertext: true,
                 secureTransportEstablished: true));
 
         Assert.Contains("expected secure frame", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void RemoteClientSessionRelayValidation_AllowsPlaintextWhenNotRelay()
+    public void RemoteClientSessionCiphertextValidation_AllowsPlaintextWhenValidationDisabled()
     {
-        RemoteClientSession.ValidateRelayFrameType(
+        RemoteClientSession.ValidateCiphertextFrameType(
             RemoteMessageType.Heartbeat,
-            isRelayTransport: false,
-            validateRelayCiphertext: true,
+            validateCiphertext: false,
             secureTransportEstablished: true);
+    }
+
+    [Fact]
+    public void UserFacingSecurityDiagnostic_MapsHandshakeFailureToSafeMessage()
+    {
+        string message = RemoteClientService.BuildUserFacingSecurityDiagnostic(
+            "Secure transport handshake failed: downgrade detected in host response");
+
+        Assert.Contains("Security policy blocked", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("downgrade", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void UserFacingSecurityDiagnostic_MapsCiphertextFailureToSafeMessage()
+    {
+        string message = RemoteClientService.BuildUserFacingSecurityDiagnostic(
+            "Ciphertext validation failed: expected secure frame, received 'Hello'.");
+
+        Assert.Contains("encrypted frame requirements", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("received 'Hello'", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void UserFacingSecurityDiagnostic_MapsTokenAuthFailureToActionableMessage()
+    {
+        string message = RemoteClientService.BuildUserFacingSecurityDiagnostic(
+            "Connection refused: shared token mismatch");
+
+        Assert.Contains("Authentication failed", message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("shared token", message, StringComparison.OrdinalIgnoreCase);
     }
 }

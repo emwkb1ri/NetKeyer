@@ -27,7 +27,7 @@ public class RemoteClientService : IRemoteClientService
     private string _lastHostErrorMessage = "";
     private DateTime _lastHostErrorUtc = DateTime.MinValue;
     private IRemoteFrameProtectionCodec _frameProtectionCodec;
-    private bool _relayCiphertextValidationEnabled;
+    private bool _ciphertextValidationEnabled;
 
     private static readonly TimeSpan HostErrorStatusGuardWindow = TimeSpan.FromSeconds(2);
 
@@ -65,7 +65,7 @@ public class RemoteClientService : IRemoteClientService
             _stream = stream;
             _sequence = 0;
             _frameProtectionCodec = null;
-            _relayCiphertextValidationEnabled = isRelayTransport && options.ValidateRelayCiphertext;
+            _ciphertextValidationEnabled = options.ValidateRelayCiphertext;
         }
 
         if (options.EnableSecureTransport)
@@ -84,9 +84,11 @@ public class RemoteClientService : IRemoteClientService
             }
             catch (Exception ex)
             {
-                if (options.RequireSecureTransport || _relayCiphertextValidationEnabled)
+                if (options.RequireSecureTransport || _ciphertextValidationEnabled)
                 {
-                    throw new InvalidOperationException($"Secure transport handshake failed: {ex.Message}", ex);
+                    throw new InvalidOperationException(
+                        BuildUserFacingSecurityDiagnostic($"Secure transport handshake failed: {ex.Message}"),
+                        ex);
                 }
 
                 DebugLogger.LogAlways("remote", $"Secure transport handshake failed; falling back to plaintext mode: {ex.Message}");
@@ -94,9 +96,9 @@ public class RemoteClientService : IRemoteClientService
             }
         }
 
-        if (_relayCiphertextValidationEnabled && _frameProtectionCodec == null)
+        if (_ciphertextValidationEnabled && _frameProtectionCodec == null)
         {
-            throw new InvalidOperationException("Relay ciphertext validation is enabled, but secure transport was not established.");
+            throw new InvalidOperationException(BuildUserFacingSecurityDiagnostic("Ciphertext validation is enabled, but secure transport was not established."));
         }
 
         _connectedHostIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? options.TargetHost;
@@ -162,7 +164,7 @@ public class RemoteClientService : IRemoteClientService
             _stream = null;
             _client = null;
             _frameProtectionCodec = null;
-            _relayCiphertextValidationEnabled = false;
+            _ciphertextValidationEnabled = false;
         }
 
         _connectedHostIp = "";
@@ -237,8 +239,9 @@ public class RemoteClientService : IRemoteClientService
                 {
                     var payload = RemoteProtocolJson.DeserializePayload<ErrorPayload>(envelope);
                     string hostErrorMessage = payload?.Message ?? "Unknown";
-                    RememberHostError(hostErrorMessage);
-                    RaiseStatus($"Host error: {hostErrorMessage}");
+                    string userFacingHostError = BuildUserFacingSecurityDiagnostic(hostErrorMessage);
+                    RememberHostError(userFacingHostError);
+                    RaiseStatus($"Host error: {userFacingHostError}");
                     DebugLogger.LogAlways("remote", $"Host error payload: {hostErrorMessage}");
                 }
                 else if (envelope.Type == RemoteMessageType.Hello)
@@ -266,9 +269,42 @@ public class RemoteClientService : IRemoteClientService
                 return;
             }
 
-            RaiseStatus($"Connection lost: {ex.Message}");
+            string userFacing = BuildUserFacingSecurityDiagnostic(ex.Message);
+            RaiseStatus($"Connection lost: {userFacing}");
             DebugLogger.LogAlways("remote", $"Client receive loop terminated: {ex.Message}");
         }
+    }
+
+    internal static string BuildUserFacingSecurityDiagnostic(string detail)
+    {
+        string message = detail ?? string.Empty;
+        string lower = message.ToLowerInvariant();
+
+        if (lower.Contains("shared token mismatch") || lower.Contains("missing shared token") || lower.Contains("authentication required"))
+        {
+            return "Authentication failed. Verify both sides use the same shared token and reconnect.";
+        }
+
+        if (lower.Contains("ciphertext validation") || lower.Contains("expected secure frame") || lower.Contains("received secure frame while secure transport is disabled"))
+        {
+            return "Security policy blocked the connection because encrypted frame requirements were not met.";
+        }
+
+        if (lower.Contains("secure transport handshake failed")
+            || lower.Contains("secure transport was not established")
+            || lower.Contains("downgrade")
+            || lower.Contains("unsupported-upgrade")
+            || lower.Contains("not allowed"))
+        {
+            return "Security policy blocked the connection because a required secure handshake could not be completed.";
+        }
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return "Connection failed due to an unexpected transport error.";
+        }
+
+        return message;
     }
 
     private void RememberHostError(string message)
@@ -388,7 +424,7 @@ public class RemoteClientService : IRemoteClientService
         RemoteMessageEnvelope envelope = await RemoteFrameCodec.ReadEnvelopeAsync(stream, ct);
         if (envelope.Type != RemoteMessageType.SecureFrame)
         {
-            ValidateRelayFrameType(envelope.Type, _relayCiphertextValidationEnabled, _frameProtectionCodec != null);
+            ValidateCiphertextFrameType(envelope.Type, _ciphertextValidationEnabled, _frameProtectionCodec != null);
             return envelope;
         }
 
@@ -412,12 +448,12 @@ public class RemoteClientService : IRemoteClientService
         return RemoteFrameCodec.DeserializeEnvelope(plain);
     }
 
-    internal static void ValidateRelayFrameType(RemoteMessageType receivedType, bool relayCiphertextValidationEnabled, bool secureTransportEstablished)
+    internal static void ValidateCiphertextFrameType(RemoteMessageType receivedType, bool ciphertextValidationEnabled, bool secureTransportEstablished)
     {
-        if (relayCiphertextValidationEnabled && secureTransportEstablished && receivedType != RemoteMessageType.SecureFrame)
+        if (ciphertextValidationEnabled && secureTransportEstablished && receivedType != RemoteMessageType.SecureFrame)
         {
             throw new InvalidDataException(
-                $"Relay ciphertext validation failed: expected secure frame, received '{receivedType}'.");
+                $"Ciphertext validation failed: expected secure frame, received '{receivedType}'.");
         }
     }
 

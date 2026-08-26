@@ -501,13 +501,20 @@ Implementation notes:
 
 ### Phase 4 Kickoff (Behavior and Policy PRs)
 
-- [ ] Unify direct and relay transport behavior under encrypted framing.
-- [ ] Add secure-default configuration profile.
-- [ ] Add guarded debug-only insecure override flags.
-- [ ] Add user-facing diagnostics for security policy failures (without leaking secrets).
+ [x] Unify direct and relay transport behavior under encrypted framing.
+- [x] Add secure-default configuration profile.
+- [x] Add guarded debug-only insecure override flags.
+- [x] Add user-facing diagnostics for security policy failures (without leaking secrets).
+
+Implementation notes:
+
+- Ciphertext frame validation is enforceable via feature flag and fails closed when secure transport is unavailable.
+- Validation behavior is transport-agnostic: once secure transport is established with validation enabled, both direct and relay paths reject plaintext envelopes.
+- Secure-default profile is enabled by default for host/client runtime flags (`NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT`, `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT`, `NETKEYER_VALIDATE_RELAY_CIPHERTEXT`), with explicit opt-out only via false-like values (`0`, `false`, `no`, `off`).
+- Insecure opt-out values are guarded behind `NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES=true` and only honored in debug builds; non-debug builds ignore the gate and keep secure defaults enforced.
+- User-facing remote diagnostics now map handshake/ciphertext/auth policy failures to actionable, non-sensitive status text while keeping detailed exception data in debug logs.
 
 ### Phase 5 Kickoff (Validation and Rollout PRs)
-
 - [ ] Add security telemetry metrics (auth failures, handshake failures, replay rejects, decrypt failures).
 - [ ] Add latency telemetry for handshake and keying p50/p95.
 - [ ] Add integration tests for secure direct, secure relay, expiry, and replay paths.

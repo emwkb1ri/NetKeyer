@@ -22,9 +22,9 @@ public class RemoteClientOptions
     public int ReconnectDelayMs { get; set; } = 1000;
     public string RelaySessionId { get; set; } = "";
     public string RelayRole { get; set; } = "";
-    public bool EnableSecureTransport { get; set; }
-    public bool RequireSecureTransport { get; set; }
-    public bool ValidateRelayCiphertext { get; set; }
+    public bool EnableSecureTransport { get; set; } = true;
+    public bool RequireSecureTransport { get; set; } = true;
+    public bool ValidateRelayCiphertext { get; set; } = true;
 }
 
 public class RemoteHostOptions
@@ -40,7 +40,7 @@ public class RemoteHostOptions
     public bool UseSenderTickStaleGate { get; set; } = false;
     public string RelaySessionId { get; set; } = "";
     public string RelayRole { get; set; } = "";
-    public bool EnableSecureTransport { get; set; }
-    public bool RequireSecureTransport { get; set; }
-    public bool ValidateRelayCiphertext { get; set; }
+    public bool EnableSecureTransport { get; set; } = true;
+    public bool RequireSecureTransport { get; set; } = true;
+    public bool ValidateRelayCiphertext { get; set; } = true;
 }

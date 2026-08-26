@@ -239,6 +239,18 @@ Defaults:
 - Client target host: `127.0.0.1`
 - Host bind address: `0.0.0.0`
 
+Remote security defaults:
+
+- Secure transport handshake is enabled by default.
+- Secure transport is required by default (no plaintext fallback).
+- Ciphertext frame validation is enabled by default for both direct and relay transports.
+- Insecure overrides are debug-gated: set `NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES=true` in a debug build.
+- To opt out for local/lab debugging only, set one or more environment variables to `0`, `false`, `no`, or `off` (only honored when the debug gate above is active):
+  - `NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT`
+  - `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT`
+  - `NETKEYER_VALIDATE_RELAY_CIPHERTEXT`
+- Security policy failures are surfaced as actionable, non-sensitive UI status messages; detailed failure internals remain in debug logs.
+
 ## Rendezvous and Relay Services
 
 NetKeyer now includes deployment artifacts for standalone rendezvous control-plane and relay data-plane services under [rendezvous_services](rendezvous_services).

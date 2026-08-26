@@ -75,7 +75,7 @@ public class RemoteClientSession : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    if (_requireSecureTransport || (_isRelayTransport && _validateRelayCiphertext))
+                    if (_requireSecureTransport || _validateRelayCiphertext)
                     {
                         DebugLogger.LogAlways("remote", $"Secure transport required but handshake failed for {ClientId}: {ex.Message}");
                         return;
@@ -86,9 +86,9 @@ public class RemoteClientSession : IDisposable
                 }
             }
 
-            if (_isRelayTransport && _validateRelayCiphertext && _frameProtectionCodec == null)
+            if (_validateRelayCiphertext && _frameProtectionCodec == null)
             {
-                DebugLogger.LogAlways("remote", $"Rejecting relay session {ClientId}: ciphertext validation requires secure transport.");
+                DebugLogger.LogAlways("remote", $"Rejecting session {ClientId}: ciphertext validation requires secure transport.");
                 return;
             }
 
@@ -279,7 +279,7 @@ public class RemoteClientSession : IDisposable
         RemoteMessageEnvelope envelope = await RemoteFrameCodec.ReadEnvelopeAsync(_stream, ct);
         if (envelope.Type != RemoteMessageType.SecureFrame)
         {
-            ValidateRelayFrameType(envelope.Type, _isRelayTransport, _validateRelayCiphertext, _frameProtectionCodec != null);
+            ValidateCiphertextFrameType(envelope.Type, _validateRelayCiphertext, _frameProtectionCodec != null);
             return envelope;
         }
 
@@ -303,16 +303,15 @@ public class RemoteClientSession : IDisposable
         return RemoteFrameCodec.DeserializeEnvelope(plain);
     }
 
-    internal static void ValidateRelayFrameType(
+    internal static void ValidateCiphertextFrameType(
         RemoteMessageType receivedType,
-        bool isRelayTransport,
-        bool validateRelayCiphertext,
+        bool validateCiphertext,
         bool secureTransportEstablished)
     {
-        if (isRelayTransport && validateRelayCiphertext && secureTransportEstablished && receivedType != RemoteMessageType.SecureFrame)
+        if (validateCiphertext && secureTransportEstablished && receivedType != RemoteMessageType.SecureFrame)
         {
             throw new InvalidDataException(
-                $"Relay ciphertext validation failed: expected secure frame, received '{receivedType}'.");
+                $"Ciphertext validation failed: expected secure frame, received '{receivedType}'.");
         }
     }
 

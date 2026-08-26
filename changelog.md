@@ -1,5 +1,29 @@
 # Remote Keying Feature changes
 
+## 2026-08-25 (Revision 2.1.35, Services 0.1.2)
+
+### Added
+- Relay-only latency experiment feature flags:
+  - Server: `RENDEZVOUS_FORCE_RELAY=true` to advertise relay immediately and bypass punch/map negotiation for controlled testing.
+  - App client: `NETKEYER_FORCE_RELAY_TRANSPORT=true` to skip direct and mapped-direct transport attempts and connect relay-only.
+- Relay latency measurement helpers in `rendezvous_services/scripts/`:
+  - `capture-relay-latency-data.sh` for per-run capture artifacts.
+  - `summarize-relay-latency-runs.sh` for aggregate reporting and automatic p95 gate evaluation.
+
+### Changed
+- Phase 1 nginx ingress hardening and observability were completed for rendezvous deployment:
+  - TLS-first ingress with HTTP-to-HTTPS redirect.
+  - Request guards (rate/connection limits, timeout/body limits).
+  - Restricted `/health` defaults and explicit deny/throttle visibility in nginx logs.
+- Relay ingress decision is now Option A (nginx stream proxy), with fallback-to-Option B only if latency gate fails.
+
+### Validated
+- Relay path latency through nginx stream proxy was verified as no worse than direct relay fallback path for current test conditions.
+
+### Release Tags
+- Client release tag: `v2.1.35`
+- Rendezvous services release tag: `rs-0.1.2`
+
 ## 2026-08-08 (Revision 2.1.34)
 
 ### Changed

@@ -4,6 +4,22 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 
 ## Recent Changes
 
+- **Revision 2.1.35 (2026-08-25)**
+  - Added relay-only experiment mode for controlled latency testing:
+    - Server flag: `RENDEZVOUS_FORCE_RELAY=true`
+    - App client flag: `NETKEYER_FORCE_RELAY_TRANSPORT=true`
+  - Added relay latency capture/report helpers under `rendezvous_services/scripts/`:
+    - `capture-relay-latency-data.sh`
+    - `summarize-relay-latency-runs.sh`
+  - Completed nginx ingress hardening and observability baseline for rendezvous:
+    - TLS-first ingress with redirect
+    - request guard/rate-limit controls
+    - restricted `/health` defaults with explicit deny/throttle log visibility
+  - Validated nginx stream relay path latency is no worse than fallback relay path in current tests.
+  - Release tags for this set:
+    - Client: `v2.1.35`
+    - Rendezvous services: `rs-0.1.2`
+
 - **Revision 2.1.34 (2026-08-08)**
   - Swapped default port roles for remote transport vs rendezvous control plane:
     - Remote keying transport default is now `49923`.
@@ -249,7 +265,33 @@ Compatibility matrix (maintain this table as releases evolve):
 
 | NetKeyer Desktop Revision | Supported Services Version | Protocol Version |
 |---|---|---|
-| 2.1.34+ | 0.1.x | 1 |
+| 2.1.35+ | 0.1.2+ | 1 |
+
+Release tag conventions:
+
+- Desktop client release tags use `vX.Y.Z` (example: `v2.1.35`).
+- Rendezvous services release tags use `rs-X.Y.Z` (example: `rs-0.1.2`).
+
+### Release Cut Order (v2.1.35 / rs-0.1.2)
+
+Use this order to avoid cross-trigger confusion between desktop and services release flows.
+
+1. Validate clean working tree and tests.
+2. Create and push services tag first:
+  - `git tag rs-0.1.2`
+  - `git push origin rs-0.1.2`
+3. Build/publish rendezvous services artifact from current commit:
+  - `./build-rendezvous-release.ps1` (Windows PowerShell), or
+  - `./build-rendezvous-release.sh` (Linux/macOS)
+4. Publish services release notes/artifact labeled `rs-0.1.2`.
+5. Create and push desktop client tag:
+  - `git tag v2.1.35`
+  - `git push origin v2.1.35`
+6. Publish desktop client release notes/artifacts labeled `v2.1.35`.
+7. Post-publish verification:
+  - confirm desktop updater target/version is correct.
+  - confirm rendezvous package metadata reports `services_version=0.1.2`.
+  - confirm `/health` `version` block matches expected build tag/commit/date.
 
 ### Service Overview
 

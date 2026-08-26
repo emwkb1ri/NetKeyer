@@ -28,6 +28,8 @@ class AuthConfig:
     require_connection_grant: bool
     connection_grant_ttl_seconds: int
     connection_grant_secret: str
+    require_protocol_version_claim: bool
+    expected_protocol_version: int
 
 
 class _ReplayCache:
@@ -105,6 +107,14 @@ def _extract_roles(claims: dict[str, Any]) -> set[str]:
     return roles
 
 
+def token_has_role(claims: dict[str, Any], role: str) -> bool:
+    required = role.strip().lower()
+    if not required:
+        return True
+    roles = _extract_roles(claims)
+    return required in roles or "admin" in roles
+
+
 def _extract_scopes(claims: dict[str, Any]) -> set[str]:
     scopes: set[str] = set()
 
@@ -135,6 +145,46 @@ def _extract_scopes(claims: dict[str, Any]) -> set[str]:
                     scopes.add(value)
 
     return scopes
+
+
+def token_has_scope(claims: dict[str, Any], scope: str) -> bool:
+    required = scope.strip().lower()
+    if not required:
+        return True
+    scopes = _extract_scopes(claims)
+    return required in scopes
+
+
+def token_has_any_scope(claims: dict[str, Any], scopes: list[str]) -> bool:
+    for scope in scopes:
+        if token_has_scope(claims, scope):
+            return True
+    return False
+
+
+def _claim_has_expected_protocol_version(claims: dict[str, Any], expected_version: int) -> bool:
+    single = claims.get("protocol_version")
+    if isinstance(single, int):
+        return single == expected_version
+    if isinstance(single, str):
+        try:
+            return int(single.strip()) == expected_version
+        except ValueError:
+            return False
+
+    many = claims.get("protocol_versions")
+    if isinstance(many, list):
+        for item in many:
+            if isinstance(item, int) and item == expected_version:
+                return True
+            if isinstance(item, str):
+                try:
+                    if int(item.strip()) == expected_version:
+                        return True
+                except ValueError:
+                    continue
+
+    return False
 
 
 def _required_scope_for_role(config: AuthConfig, required_role: str | None) -> str:
@@ -170,16 +220,19 @@ def validate_access_token(token: str, config: AuthConfig, required_role: str | N
         raise AuthError(f"invalid access token: {ex}") from ex
 
     if required_role:
-        required = required_role.strip().lower()
-        roles = _extract_roles(claims)
-        if required not in roles and "admin" not in roles:
+        if not token_has_role(claims, required_role):
             raise AuthError(f"required role '{required_role}' not present")
 
     required_scope = _required_scope_for_role(config, required_role)
     if required_scope:
-        scopes = _extract_scopes(claims)
-        if required_scope not in scopes and "rendezvous:*" not in scopes:
+        if not token_has_any_scope(claims, [required_scope, "rendezvous:*"]):
             raise AuthError(f"required scope '{required_scope}' not present")
+
+    if config.require_protocol_version_claim:
+        if not _claim_has_expected_protocol_version(claims, config.expected_protocol_version):
+            raise AuthError(
+                f"required protocol_version '{config.expected_protocol_version}' not present in token claims"
+            )
 
     jti_value = claims.get("jti")
     jti = jti_value.strip() if isinstance(jti_value, str) else ""
@@ -199,7 +252,7 @@ def validate_access_token(token: str, config: AuthConfig, required_role: str | N
     return claims
 
 
-def issue_connection_grant_token(config: AuthConfig, client_id: str, host_id: str) -> str:
+def issue_connection_grant_token(config: AuthConfig, client_id: str, host_id: str, grant_session_id: str) -> str:
     secret = (config.connection_grant_secret or config.jwt_secret).strip()
     if not secret:
         raise AuthError("connection grant secret is not configured")
@@ -209,6 +262,7 @@ def issue_connection_grant_token(config: AuthConfig, client_id: str, host_id: st
     payload: dict[str, Any] = {
         "sub": client_id,
         "host_id": host_id,
+        "session_id": grant_session_id,
         "purpose": "connect_grant",
         "iat": now,
         "nbf": now,
@@ -238,7 +292,7 @@ def validate_connection_grant_token(
 
     decode_kwargs: dict[str, Any] = {
         "algorithms": ["HS256"],
-        "options": {"require": ["exp", "iat", "sub", "jti", "purpose"]},
+        "options": {"require": ["exp", "iat", "sub", "jti", "purpose", "session_id"]},
     }
 
     if config.jwt_issuer:
@@ -261,6 +315,10 @@ def validate_connection_grant_token(
     if str(claims.get("host_id", "")).strip() != host_id:
         raise AuthError("connection grant host mismatch")
 
+    grant_session_id = str(claims.get("session_id", "")).strip()
+    if not grant_session_id:
+        raise AuthError("connection grant session_id is missing")
+
     jti = str(claims.get("jti", "")).strip()
     if not jti:
         raise AuthError("required claim 'jti' not present")
@@ -276,19 +334,19 @@ def validate_connection_grant_token(
     return claims
 
 
-def authorize_websocket(websocket: Any, config: AuthConfig, required_role: str) -> tuple[bool, int, str]:
+def authorize_websocket(websocket: Any, config: AuthConfig, required_role: str) -> tuple[bool, int, str, dict[str, Any] | None]:
     token = extract_websocket_token(websocket)
 
     if not token:
         if config.require_signed_tokens:
-            return False, 4401, "missing access token"
+            return False, 4401, "missing access token", None
         if not config.allow_legacy_no_token:
-            return False, 4401, "token required by policy"
-        return True, 1000, "ok"
+            return False, 4401, "token required by policy", None
+        return True, 1000, "ok", None
 
     try:
-        validate_access_token(token, config, required_role=required_role)
+        claims = validate_access_token(token, config, required_role=required_role)
     except AuthError as ex:
-        return False, 4403, str(ex)
+        return False, 4403, str(ex), None
 
-    return True, 1000, "ok"
+    return True, 1000, "ok", claims

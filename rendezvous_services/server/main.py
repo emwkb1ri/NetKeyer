@@ -46,6 +46,12 @@ JWT_REPLAY_CACHE_MAX_ENTRIES = int(os.getenv("RENDEZVOUS_JWT_REPLAY_CACHE_MAX_EN
 REQUIRE_CONNECTION_GRANT = os.getenv("RENDEZVOUS_REQUIRE_CONNECTION_GRANT", "false").strip().lower() in {"1", "true", "yes", "on"}
 CONNECTION_GRANT_TTL_SECONDS = int(os.getenv("RENDEZVOUS_CONNECTION_GRANT_TTL_SECONDS", "30"))
 CONNECTION_GRANT_SECRET = os.getenv("RENDEZVOUS_CONNECTION_GRANT_SECRET", "")
+JWT_REQUIRE_PROTOCOL_VERSION = os.getenv("RENDEZVOUS_JWT_REQUIRE_PROTOCOL_VERSION", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 HEALTH_ACCESS_MODE = os.getenv("RENDEZVOUS_HEALTH_ACCESS_MODE", "private").strip().lower()
 HEALTH_ALLOWED_CIDRS = [
     value.strip()
@@ -82,6 +88,8 @@ AUTH_CONFIG = AuthConfig(
     require_connection_grant=REQUIRE_CONNECTION_GRANT,
     connection_grant_ttl_seconds=CONNECTION_GRANT_TTL_SECONDS,
     connection_grant_secret=CONNECTION_GRANT_SECRET,
+    require_protocol_version_claim=JWT_REQUIRE_PROTOCOL_VERSION,
+    expected_protocol_version=int(VERSION_INFO.get("protocol_version", "1") or "1"),
 )
 
 
@@ -183,22 +191,26 @@ async def health(request: Request) -> dict[str, object]:
 
 @app.websocket("/ws/host")
 async def ws_host(websocket: WebSocket) -> None:
-    allowed, close_code, close_reason = authorize_websocket(websocket, AUTH_CONFIG, required_role="host")
+    allowed, close_code, close_reason, claims = authorize_websocket(websocket, AUTH_CONFIG, required_role="host")
     if not allowed:
         LOGGER.warning("ws_host authentication denied: %s", close_reason)
         await websocket.close(code=close_code, reason=close_reason)
         return
+
+    websocket.state.auth_claims = claims
 
     await handle_host_ws(state, websocket, relay_host=RELAY_HOST, relay_port=RELAY_PORT)
 
 
 @app.websocket("/ws/client")
 async def ws_client(websocket: WebSocket) -> None:
-    allowed, close_code, close_reason = authorize_websocket(websocket, AUTH_CONFIG, required_role="client")
+    allowed, close_code, close_reason, claims = authorize_websocket(websocket, AUTH_CONFIG, required_role="client")
     if not allowed:
         LOGGER.warning("ws_client authentication denied: %s", close_reason)
         await websocket.close(code=close_code, reason=close_reason)
         return
+
+    websocket.state.auth_claims = claims
 
     await handle_client_ws(
         state,

@@ -130,11 +130,16 @@ class RendezvousState:
         async with self._lock:
             return self.clients.get(client_id)
 
-    async def create_session(self, host_id: str, client_id: str) -> SessionState:
+    async def create_session(self, host_id: str, client_id: str, session_id: str | None = None) -> SessionState:
         async with self._lock:
-            session_id = uuid4().hex
-            session = SessionState(session_id=session_id, host_id=host_id, client_id=client_id, state="punch_signaled")
-            self.sessions[session_id] = session
+            if session_id:
+                if session_id in self.sessions:
+                    raise ValueError("session_id already exists")
+                next_session_id = session_id
+            else:
+                next_session_id = uuid4().hex
+            session = SessionState(session_id=next_session_id, host_id=host_id, client_id=client_id, state="punch_signaled")
+            self.sessions[next_session_id] = session
 
             host = self.hosts.get(host_id)
             client = self.clients.get(client_id)

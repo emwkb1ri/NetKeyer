@@ -119,6 +119,7 @@ class ConnectionGrantMessage(MessageBase):
     type: Literal["connection_grant"]
     client_id: str = Field(min_length=1, max_length=128)
     host_id: str = Field(min_length=1, max_length=128)
+    grant_session_id: str = Field(min_length=1, max_length=128)
     grant_token: str = Field(min_length=1, max_length=4096)
     expires_in_seconds: int = Field(ge=1, le=600)
 

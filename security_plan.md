@@ -223,6 +223,8 @@ Companion aggregation helper:
 
 ## Phase 2: Rendezvous Authentication and Authorization
 
+Status: Completed (2026-08-26)
+
 ### Goals
 
 - Ensure only authorized hosts/clients can register and connect.
@@ -250,11 +252,26 @@ Companion aggregation helper:
 6. Add anti-replay controls (`jti`, nonce, bounded cache).
 7. Keep current shared-token behavior only as migration fallback; schedule removal.
 
+Implementation completion notes:
+
+- Signed JWT validation is implemented with issuer/audience/expiry and required claims enforcement.
+- Token enforcement is active at websocket entry points and applies to host/client register/connect/relay signaling paths.
+- Claims model is enforced for subject-role-scope behavior, including host/client identity binding and target-host scope controls.
+- Optional protocol compatibility claim validation is supported via `protocol_version`/`protocol_versions` claims.
+- Short-lived connection grants are implemented as signed JWTs with one-time replay protection and enforced connect binding.
+- Connection grants are now bound to session ID, host ID, client ID, and expiration.
+- Legacy tokenless behavior remains available only behind migration toggles.
+
 ### Deliverables
 
 - Auth validation module and policy docs.
 - Token issuance/refresh flow docs.
 - Migration toggle for legacy shared-token mode.
+
+Delivery status:
+
+- Completed: auth validation module, policy docs, migration toggles.
+- Completed: token issuance and short-lived connection grant flow documentation.
 
 ---
 

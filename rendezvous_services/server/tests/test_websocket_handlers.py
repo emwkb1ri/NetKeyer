@@ -15,6 +15,7 @@ _DISCONNECT = object()
 class FakeWebSocket:
     def __init__(self, host: str, port: int) -> None:
         self.client = types.SimpleNamespace(host=host, port=port)
+        self.state = types.SimpleNamespace(auth_claims=None)
         self._incoming: asyncio.Queue = asyncio.Queue()
         self.sent: list[dict] = []
         self.accepted = False
@@ -76,6 +77,8 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             require_connection_grant=require_connection_grant,
             connection_grant_ttl_seconds=30,
             connection_grant_secret="",
+            require_protocol_version_claim=False,
+            expected_protocol_version=1,
         )
 
     async def _stop_handlers(self, host_task: asyncio.Task, client_task: asyncio.Task) -> None:
@@ -506,6 +509,8 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(grant_messages)
             grant_token = grant_messages[-1].get("grant_token", "")
             self.assertTrue(grant_token)
+            grant_session_id = grant_messages[-1].get("grant_session_id", "")
+            self.assertTrue(grant_session_id)
 
             await self.client_ws.push(
                 {
@@ -524,8 +529,63 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             self.assertIn("start_punch", host_types)
             self.assertIn("host_endpoint", client_types)
             self.assertIn("start_punch", client_types)
+
+            endpoint_messages = [m for m in self.client_ws.sent if m.get("type") == "host_endpoint"]
+            self.assertTrue(endpoint_messages)
+            self.assertEqual(endpoint_messages[-1].get("session_id"), grant_session_id)
         finally:
             await self._stop_handlers(host_task, client_task)
+
+    async def test_register_client_rejected_when_claim_subject_mismatch(self) -> None:
+        self.client_ws.state.auth_claims = {
+            "sub": "client-a",
+            "role": "client",
+            "scope": "client:* rendezvous:client",
+        }
+        host_task, client_task = await self._start_handlers()
+        try:
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-b",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            self.assertTrue(self.client_ws.sent)
+            self.assertEqual(self.client_ws.sent[-1].get("type"), "error")
+            self.assertEqual(self.client_ws.sent[-1].get("code"), "forbidden_claims")
+        finally:
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_register_host_rejected_when_claim_subject_mismatch(self) -> None:
+        self.host_ws.state.auth_claims = {
+            "sub": "host-a",
+            "role": "host",
+            "scope": "host:* rendezvous:host",
+        }
+        host_task = asyncio.create_task(
+            handlers.handle_host_ws(self.state, self.host_ws, relay_host="relay.test", relay_port=49921)
+        )
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-b",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            self.assertTrue(self.host_ws.sent)
+            self.assertEqual(self.host_ws.sent[-1].get("type"), "error")
+            self.assertEqual(self.host_ws.sent[-1].get("code"), "forbidden_claims")
+        finally:
+            await self.host_ws.disconnect()
+            await asyncio.wait_for(host_task, timeout=2)
 
     async def test_direct_success_cancels_timeout_and_avoids_relay(self) -> None:
         previous_timeout = handlers.PUNCH_TIMEOUT_SECONDS

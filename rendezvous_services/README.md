@@ -266,6 +266,8 @@ Phase 2 auth controls (JWT rollout):
   - Time window for replay rejection of previously seen `jti` values.
 - `RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES=50000`
   - Upper bound for in-memory replay cache.
+- `RENDEZVOUS_JWT_REQUIRE_PROTOCOL_VERSION=false`
+  - When enabled, access tokens must include compatible `protocol_version` (or `protocol_versions`) claims.
 - `RENDEZVOUS_REQUIRE_CONNECTION_GRANT=false`
   - When `true`, `connect_request` must include a valid short-lived connection grant token.
 - `RENDEZVOUS_CONNECTION_GRANT_TTL_SECONDS=30`
@@ -286,19 +288,34 @@ JWT requirements in this Phase 2 kickoff:
 - Anti-replay:
   - Tokens with previously seen `sub:jti` are rejected until replay TTL expires.
 
+Identity and scope binding behavior:
+
+- Host registration requires token identity to match `host_id` unless role includes `admin`.
+- Client registration requires token identity to match `client_id` unless role includes `admin`.
+- Client connect/grant requests require token identity to match `client_id` and include target-host scope (`target_host:<host_id>` or equivalent wildcard/admin scope).
+
 Connection grant flow (when enabled):
 
 1. Client registers as usual (`register_client`).
 2. Client requests grant for target host (`request_connection_grant`).
-3. Server returns signed short-lived `connection_grant` token.
+3. Server returns signed short-lived `connection_grant` token and `grant_session_id`.
 4. Client sends `connect_request` with `connection_grant_token`.
+5. Server validates grant and binds resulting rendezvous session to grant `session_id`.
 
 Grant validation checks:
 
 - Signature and TTL (`exp`)
 - Required purpose claim (`purpose=connect_grant`)
 - Exact client/host binding (`sub` and `host_id`)
+- Session binding (`session_id`)
 - Single-use replay protection by grant `jti`
+
+Token issuance and refresh model:
+
+- Long-lived identity/access tokens are expected to be issued by your external identity provider.
+- Rendezvous server validates those access tokens for websocket authorization and scoped operations.
+- Short-lived connection grants are issued by rendezvous and are single-use; clients request a new grant whenever they initiate a new connect flow.
+- If an access token expires, client should refresh/re-acquire it via the identity provider and reconnect.
 
 Recommended staged rollout:
 

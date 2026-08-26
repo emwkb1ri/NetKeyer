@@ -2,10 +2,18 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from uuid import uuid4
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from .auth import AuthConfig, AuthError, issue_connection_grant_token, validate_connection_grant_token
+from .auth import (
+    AuthConfig,
+    AuthError,
+    issue_connection_grant_token,
+    token_has_any_scope,
+    token_has_role,
+    validate_connection_grant_token,
+)
 from .models import (
     ConnectionGrantMessage,
     ClientRequestPortMapMessage,
@@ -35,6 +43,79 @@ PUNCH_TIMEOUT_SECONDS = 2
 PORT_MAP_TIMEOUT_SECONDS = 4
 DEFAULT_RELAY_HOST = "relay"
 DEFAULT_RELAY_PORT = 49921
+
+
+def _claims_for_ws(ws: WebSocket) -> dict[str, Any]:
+    state = getattr(ws, "state", None)
+    claims = getattr(state, "auth_claims", None)
+    if isinstance(claims, dict):
+        return claims
+    return {}
+
+
+def _is_claims_admin(claims: dict[str, Any]) -> bool:
+    return token_has_role(claims, "admin")
+
+
+def _check_host_claims_for_host_id(claims: dict[str, Any], host_id: str) -> bool:
+    if not claims:
+        return True
+    if _is_claims_admin(claims):
+        return True
+
+    token_sub = str(claims.get("sub", "")).strip()
+    if token_sub != host_id:
+        return False
+
+    return token_has_any_scope(
+        claims,
+        [
+            f"host:{host_id}",
+            "host:*",
+            "rendezvous:host",
+            "rendezvous:*",
+        ],
+    )
+
+
+def _check_client_claims_for_client_id(claims: dict[str, Any], client_id: str) -> bool:
+    if not claims:
+        return True
+    if _is_claims_admin(claims):
+        return True
+
+    token_sub = str(claims.get("sub", "")).strip()
+    if token_sub != client_id:
+        return False
+
+    return token_has_any_scope(
+        claims,
+        [
+            f"client:{client_id}",
+            "client:*",
+            "rendezvous:client",
+            "rendezvous:*",
+        ],
+    )
+
+
+def _check_client_claims_for_target_host(claims: dict[str, Any], host_id: str) -> bool:
+    if not claims:
+        return True
+    if _is_claims_admin(claims):
+        return True
+
+    return token_has_any_scope(
+        claims,
+        [
+            f"target_host:{host_id}",
+            f"host:{host_id}",
+            "target_host:*",
+            "host:*",
+            "rendezvous:connect",
+            "rendezvous:*",
+        ],
+    )
 
 
 def _model_dump(model: Any) -> dict[str, Any]:
@@ -193,6 +274,7 @@ async def _request_port_map_for_session(state: RendezvousState, session_id: str,
 async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_host: str, relay_port: int) -> None:
     await websocket.accept()
     host_id: str | None = None
+    claims = _claims_for_ws(websocket)
 
     try:
         while True:
@@ -207,6 +289,10 @@ async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_hos
                 continue
 
             if isinstance(msg, RegisterHostMessage):
+                if not _check_host_claims_for_host_id(claims, msg.host_id):
+                    await _send_error(websocket, "forbidden_claims", "Token claims do not allow this host registration")
+                    continue
+
                 ip, port = _peer_endpoint(websocket)
                 await state.register_host(
                     host_id=msg.host_id,
@@ -307,6 +393,7 @@ async def handle_client_ws(
 ) -> None:
     await websocket.accept()
     client_id: str | None = None
+    claims = _claims_for_ws(websocket)
 
     try:
         while True:
@@ -321,6 +408,10 @@ async def handle_client_ws(
                 continue
 
             if isinstance(msg, RegisterClientMessage):
+                if not _check_client_claims_for_client_id(claims, msg.client_id):
+                    await _send_error(websocket, "forbidden_claims", "Token claims do not allow this client registration")
+                    continue
+
                 ip, port = _peer_endpoint(websocket)
                 await state.register_client(
                     client_id=msg.client_id,
@@ -353,6 +444,12 @@ async def handle_client_ws(
                 if msg.client_id != client_id:
                     await _send_error(websocket, "client_mismatch", "Client ID does not match registered client")
                     continue
+                if not _check_client_claims_for_client_id(claims, msg.client_id):
+                    await _send_error(websocket, "forbidden_claims", "Token claims do not allow this client grant request")
+                    continue
+                if not _check_client_claims_for_target_host(claims, msg.host_id):
+                    await _send_error(websocket, "forbidden_claims", "Token claims do not allow connecting to this host")
+                    continue
 
                 host = await state.get_host(msg.host_id)
                 if not host:
@@ -364,7 +461,8 @@ async def handle_client_ws(
                     continue
 
                 try:
-                    grant_token = issue_connection_grant_token(auth_config, msg.client_id, msg.host_id)
+                    grant_session_id = uuid4().hex
+                    grant_token = issue_connection_grant_token(auth_config, msg.client_id, msg.host_id, grant_session_id)
                 except AuthError as ex:
                     await _send_error(websocket, "grant_issue_failed", str(ex))
                     continue
@@ -376,6 +474,7 @@ async def handle_client_ws(
                         type="connection_grant",
                         client_id=msg.client_id,
                         host_id=msg.host_id,
+                        grant_session_id=grant_session_id,
                         grant_token=grant_token,
                         expires_in_seconds=ttl,
                     ),
@@ -386,6 +485,14 @@ async def handle_client_ws(
                 if msg.client_id != client_id:
                     await _send_error(websocket, "client_mismatch", "Client ID does not match registered client")
                     continue
+                if not _check_client_claims_for_client_id(claims, msg.client_id):
+                    await _send_error(websocket, "forbidden_claims", "Token claims do not allow this client connect request")
+                    continue
+                if not _check_client_claims_for_target_host(claims, msg.host_id):
+                    await _send_error(websocket, "forbidden_claims", "Token claims do not allow connecting to this host")
+                    continue
+
+                grant_session_id: str | None = None
 
                 if auth_config and auth_config.require_connection_grant:
                     token = (msg.connection_grant_token or "").strip()
@@ -394,7 +501,8 @@ async def handle_client_ws(
                         continue
 
                     try:
-                        validate_connection_grant_token(token, auth_config, msg.client_id, msg.host_id)
+                        grant_claims = validate_connection_grant_token(token, auth_config, msg.client_id, msg.host_id)
+                        grant_session_id = str(grant_claims.get("session_id", "")).strip() or None
                     except AuthError as ex:
                         await _send_error(websocket, "invalid_connection_grant", str(ex))
                         continue
@@ -412,7 +520,15 @@ async def handle_client_ws(
                     await _send_error(websocket, "host_full", f"Host {msg.host_id} is at max capacity")
                     continue
 
-                session = await state.create_session(host_id=msg.host_id, client_id=msg.client_id)
+                try:
+                    session = await state.create_session(
+                        host_id=msg.host_id,
+                        client_id=msg.client_id,
+                        session_id=grant_session_id,
+                    )
+                except ValueError:
+                    await _send_error(websocket, "invalid_connection_grant", "connection grant session id already used")
+                    continue
 
                 await _send_model(
                     host.ws,

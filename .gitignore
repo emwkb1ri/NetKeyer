@@ -134,7 +134,7 @@ Desktop.ini
 # Pre-built native MIDI shim binaries (build with: cd native && ./build.sh)
 native/linux-x64/
 native/linux-arm64/
-native/windows-x64/
+#native/windows-x64/
 native/osx-x64/
 native/osx-arm64/
 

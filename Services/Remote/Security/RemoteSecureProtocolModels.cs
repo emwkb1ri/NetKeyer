@@ -6,8 +6,8 @@ namespace NetKeyer.Services.Remote.Security;
 public static class RemoteSecureProtocolDefaults
 {
     public const int SecureProtocolVersion = 1;
-    public const string HandshakeSuite = "X25519+Ed25519+HKDF-SHA256";
-    public const string FrameAead = "ChaCha20-Poly1305";
+    public const string HandshakeSuite = "P256+ECDSA+HKDF-SHA256";
+    public const string FrameAead = "AES-GCM";
 }
 
 public sealed class RemoteHandshakeHello
@@ -35,6 +35,8 @@ public sealed class RemoteHandshakeResult
     public string SelectedSuite { get; set; } = string.Empty;
     public byte[] SendKey { get; set; } = Array.Empty<byte>();
     public byte[] ReceiveKey { get; set; } = Array.Empty<byte>();
+    public byte[] SendNoncePrefix { get; set; } = Array.Empty<byte>();
+    public byte[] ReceiveNoncePrefix { get; set; } = Array.Empty<byte>();
 }
 
 public sealed class RemoteEncryptedFrame

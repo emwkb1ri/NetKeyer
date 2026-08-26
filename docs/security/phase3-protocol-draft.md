@@ -1,6 +1,6 @@
 # NetKeyer Phase 3 Protocol Draft (Initial)
 
-Status: Draft 0 (scaffolding)
+Status: Draft 1 (initial implementation)
 Date: 2026-08-26
 
 ## Scope
@@ -39,10 +39,11 @@ It is intended to secure both direct and relay paths with the same handshake and
 
 ## Cryptographic Baseline
 
-- Identity keys: Ed25519
-- Ephemeral key exchange: X25519
+- Identity keys (current implementation): ECDSA P-256
+- Ephemeral key exchange (current implementation): ECDH P-256
 - Key derivation: HKDF-SHA256
-- AEAD framing target: ChaCha20-Poly1305 (default), AES-GCM optional
+- AEAD framing (current implementation): AES-GCM
+- Target upgrade path: Ed25519 + X25519 + ChaCha20-Poly1305
 
 ## Frame Format (Planned)
 
@@ -86,3 +87,19 @@ Phase 3 handshake should bind to Phase 2 grant context:
 - `Services/Remote/Security/IRemoteFrameProtectionCodec.cs`
 - `Services/Remote/Security/RemoteSecureProtocolModels.cs`
 - `Services/Remote/Security/NullRemoteFrameProtectionCodec.cs`
+
+## Initial Implemented Path (Feature-Flagged)
+
+- Secure handshake messages are now exchanged in-band on the remote stream:
+	- `secureHandshakeHello`
+	- `secureHandshakeResponse`
+- Transcript hash/signature verification is performed during handshake.
+- Directional traffic keys and nonce prefixes are derived from handshake shared secret.
+- Post-handshake control frames are wrapped in `secureFrame` payloads and AEAD protected.
+
+Feature flags:
+
+- `NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT=true`
+	- Enables secure handshake + encrypted frame mode.
+- `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT=true`
+	- Fails connection if secure handshake/encryption cannot be established.

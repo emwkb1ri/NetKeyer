@@ -1,10 +1,13 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using NetKeyer.Helpers;
+using NetKeyer.Services.Remote.Security;
 
 namespace NetKeyer.Services.Remote;
 
@@ -23,6 +26,7 @@ public class RemoteClientService : IRemoteClientService
     private string _connectedHostName = "";
     private string _lastHostErrorMessage = "";
     private DateTime _lastHostErrorUtc = DateTime.MinValue;
+    private IRemoteFrameProtectionCodec _frameProtectionCodec;
 
     private static readonly TimeSpan HostErrorStatusGuardWindow = TimeSpan.FromSeconds(2);
 
@@ -58,6 +62,33 @@ public class RemoteClientService : IRemoteClientService
             _client = client;
             _stream = stream;
             _sequence = 0;
+            _frameProtectionCodec = null;
+        }
+
+        if (options.EnableSecureTransport)
+        {
+            try
+            {
+                var identityProvider = new LocalFileRemoteIdentityKeyProvider("client");
+                var negotiator = new SimpleRemoteSecureSessionNegotiator(identityProvider);
+                RemoteHandshakeResult handshake = await negotiator.NegotiateClientAsync(stream, options.TargetHost, _internalCts.Token);
+                _frameProtectionCodec = new AesGcmRemoteFrameProtectionCodec(
+                    handshake.SendKey,
+                    handshake.ReceiveKey,
+                    handshake.SendNoncePrefix,
+                    handshake.ReceiveNoncePrefix);
+                DebugLogger.LogAlways("remote", $"Client secure handshake completed: session={handshake.SessionId} suite={handshake.SelectedSuite}");
+            }
+            catch (Exception ex)
+            {
+                if (options.RequireSecureTransport)
+                {
+                    throw new InvalidOperationException($"Secure transport handshake failed: {ex.Message}", ex);
+                }
+
+                DebugLogger.LogAlways("remote", $"Secure transport handshake failed; falling back to plaintext mode: {ex.Message}");
+                _frameProtectionCodec = null;
+            }
         }
 
         _connectedHostIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? options.TargetHost;
@@ -122,6 +153,7 @@ public class RemoteClientService : IRemoteClientService
 
             _stream = null;
             _client = null;
+            _frameProtectionCodec = null;
         }
 
         _connectedHostIp = "";
@@ -161,7 +193,7 @@ public class RemoteClientService : IRemoteClientService
         {
             long seq = Interlocked.Increment(ref _sequence);
             var envelope = RemoteProtocolJson.CreateEnvelope(type, seq, payload);
-            await RemoteFrameCodec.WriteEnvelopeAsync(stream, envelope, ct);
+            await WriteEnvelopeAsync(stream, envelope, ct);
         }
         finally
         {
@@ -186,7 +218,12 @@ public class RemoteClientService : IRemoteClientService
                     return;
                 }
 
-                var envelope = await RemoteFrameCodec.ReadEnvelopeAsync(stream, ct);
+                var envelope = await ReadEnvelopeAsync(stream, ct);
+                if (envelope == null)
+                {
+                    continue;
+                }
+
                 if (envelope.Type == RemoteMessageType.Error)
                 {
                     var payload = RemoteProtocolJson.DeserializePayload<ErrorPayload>(envelope);
@@ -312,6 +349,57 @@ public class RemoteClientService : IRemoteClientService
         {
             DebugLogger.Log("remote", $"Client heartbeat loop terminated: {ex.Message}");
         }
+    }
+
+    private async Task WriteEnvelopeAsync(NetworkStream stream, RemoteMessageEnvelope envelope, CancellationToken ct)
+    {
+        if (_frameProtectionCodec == null)
+        {
+            await RemoteFrameCodec.WriteEnvelopeAsync(stream, envelope, ct);
+            return;
+        }
+
+        byte[] plain = RemoteFrameCodec.SerializeEnvelope(envelope);
+        RemoteEncryptedFrame encrypted = await _frameProtectionCodec.EncryptAsync(plain, ct);
+        var secure = RemoteProtocolJson.CreateEnvelope(
+            RemoteMessageType.SecureFrame,
+            envelope.Sequence,
+            new SecureFramePayload
+            {
+                Sequence = encrypted.Sequence,
+                Nonce = encrypted.Nonce,
+                Ciphertext = encrypted.Ciphertext,
+                AuthTag = encrypted.AuthTag,
+            });
+        await RemoteFrameCodec.WriteEnvelopeAsync(stream, secure, ct);
+    }
+
+    private async Task<RemoteMessageEnvelope> ReadEnvelopeAsync(NetworkStream stream, CancellationToken ct)
+    {
+        RemoteMessageEnvelope envelope = await RemoteFrameCodec.ReadEnvelopeAsync(stream, ct);
+        if (envelope.Type != RemoteMessageType.SecureFrame)
+        {
+            return envelope;
+        }
+
+        if (_frameProtectionCodec == null)
+        {
+            throw new InvalidDataException("Received secure frame while secure transport is disabled.");
+        }
+
+        var payload = RemoteProtocolJson.DeserializePayload<SecureFramePayload>(envelope)
+            ?? throw new InvalidDataException("Invalid secure frame payload");
+
+        var encrypted = new RemoteEncryptedFrame
+        {
+            Sequence = payload.Sequence,
+            Nonce = payload.Nonce,
+            Ciphertext = payload.Ciphertext,
+            AuthTag = payload.AuthTag,
+        };
+
+        byte[] plain = await _frameProtectionCodec.DecryptAsync(encrypted, ct);
+        return RemoteFrameCodec.DeserializeEnvelope(plain);
     }
 
     private void RaiseStatus(string status)

@@ -10,10 +10,37 @@ namespace NetKeyer.Services.Remote;
 
 public static class RemoteFrameCodec
 {
+    public static byte[] SerializeEnvelope(RemoteMessageEnvelope envelope)
+    {
+        if (envelope == null)
+        {
+            throw new ArgumentNullException(nameof(envelope));
+        }
+
+        string json = JsonSerializer.Serialize(envelope, RemoteProtocolJson.SerializerOptions);
+        return Encoding.UTF8.GetBytes(json);
+    }
+
+    public static RemoteMessageEnvelope DeserializeEnvelope(byte[] payload)
+    {
+        if (payload == null)
+        {
+            throw new ArgumentNullException(nameof(payload));
+        }
+
+        string json = Encoding.UTF8.GetString(payload);
+        var envelope = JsonSerializer.Deserialize<RemoteMessageEnvelope>(json, RemoteProtocolJson.SerializerOptions);
+        if (envelope == null)
+        {
+            throw new InvalidDataException("Could not deserialize remote message envelope");
+        }
+
+        return envelope;
+    }
+
     public static async Task WriteEnvelopeAsync(Stream stream, RemoteMessageEnvelope envelope, CancellationToken ct)
     {
-        string json = JsonSerializer.Serialize(envelope, RemoteProtocolJson.SerializerOptions);
-        byte[] payload = Encoding.UTF8.GetBytes(json);
+        byte[] payload = SerializeEnvelope(envelope);
 
         if (payload.Length > RemoteDefaults.MaxFrameBytes)
         {
@@ -42,13 +69,6 @@ public static class RemoteFrameCodec
         byte[] payload = new byte[length];
         await stream.ReadExactlyAsync(payload, ct);
 
-        string json = Encoding.UTF8.GetString(payload);
-        var envelope = JsonSerializer.Deserialize<RemoteMessageEnvelope>(json, RemoteProtocolJson.SerializerOptions);
-        if (envelope == null)
-        {
-            throw new InvalidDataException("Could not deserialize remote message envelope");
-        }
-
-        return envelope;
+        return DeserializeEnvelope(payload);
     }
 }

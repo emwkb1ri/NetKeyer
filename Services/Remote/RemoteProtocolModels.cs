@@ -9,6 +9,9 @@ public enum RemoteMessageType
 {
     Hello,
     Auth,
+    SecureHandshakeHello,
+    SecureHandshakeResponse,
+    SecureFrame,
     PaddleState,
     Heartbeat,
     Disconnect,
@@ -61,6 +64,36 @@ public class HelloPayload
 public class AuthPayload
 {
     public string Token { get; set; } = "";
+}
+
+public class SecureHandshakeHelloPayload
+{
+    public int SecureProtocolVersion { get; set; } = 1;
+    public string Suite { get; set; } = "P256+ECDSA+HKDF-SHA256+AES-GCM";
+    public string IdentityKeyId { get; set; } = "";
+    public byte[] IdentityPublicKey { get; set; } = Array.Empty<byte>();
+    public byte[] EphemeralPublicKey { get; set; } = Array.Empty<byte>();
+    public long SentAtUnixMs { get; set; }
+}
+
+public class SecureHandshakeResponsePayload
+{
+    public int SecureProtocolVersion { get; set; } = 1;
+    public string Suite { get; set; } = "P256+ECDSA+HKDF-SHA256+AES-GCM";
+    public string SessionId { get; set; } = "";
+    public string IdentityKeyId { get; set; } = "";
+    public byte[] IdentityPublicKey { get; set; } = Array.Empty<byte>();
+    public byte[] EphemeralPublicKey { get; set; } = Array.Empty<byte>();
+    public byte[] TranscriptSignature { get; set; } = Array.Empty<byte>();
+    public long SentAtUnixMs { get; set; }
+}
+
+public class SecureFramePayload
+{
+    public ulong Sequence { get; set; }
+    public byte[] Nonce { get; set; } = Array.Empty<byte>();
+    public byte[] Ciphertext { get; set; } = Array.Empty<byte>();
+    public byte[] AuthTag { get; set; } = Array.Empty<byte>();
 }
 
 public class PaddleStatePayload

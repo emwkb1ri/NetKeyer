@@ -199,6 +199,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly HashSet<string> _relayHostSessions = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _relayHostSessionsLock = new();
     private readonly bool _forceRelayTransportForExperiments = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_FORCE_RELAY_TRANSPORT"));
+    private readonly bool _enableSecureRemoteTransport = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT"));
+    private readonly bool _requireSecureRemoteTransport = IsTruthyEnvironmentValue(Environment.GetEnvironmentVariable("NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT"));
     private bool _isSyncingRendezvousEndpoint;
     private bool _isExiting;
     private bool _remoteHostTransmitModeCW = true;
@@ -1715,7 +1717,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     TargetHost = targetHost,
                     TargetPort = targetPort,
                     SharedToken = RemoteSharedToken,
-                    Callsign = RemoteCallsign
+                    Callsign = RemoteCallsign,
+                    EnableSecureTransport = _enableSecureRemoteTransport,
+                    RequireSecureTransport = _requireSecureRemoteTransport
                 }, connectToken);
             }
             finally
@@ -1781,7 +1785,9 @@ public partial class MainWindowViewModel : ViewModelBase
                         TargetHost = mappedHost,
                         TargetPort = mappedPort,
                         SharedToken = RemoteSharedToken,
-                        Callsign = RemoteCallsign
+                        Callsign = RemoteCallsign,
+                        EnableSecureTransport = _enableSecureRemoteTransport,
+                        RequireSecureTransport = _requireSecureRemoteTransport
                     }, mappedConnectTimeoutCts.Token);
 
                     DebugLogger.LogAlways("remote", $"Client transport connected (transport=mapped-direct) endpoint={mappedHost}:{mappedPort}");
@@ -1834,7 +1840,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     SharedToken = RemoteSharedToken,
                     Callsign = RemoteCallsign,
                     RelaySessionId = relaySessionId,
-                    RelayRole = "CLIENT"
+                    RelayRole = "CLIENT",
+                    EnableSecureTransport = _enableSecureRemoteTransport,
+                    RequireSecureTransport = _requireSecureRemoteTransport
                 }, _remoteCts.Token);
 
                 DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
@@ -1883,7 +1891,9 @@ public partial class MainWindowViewModel : ViewModelBase
             SharedToken = RemoteSharedToken,
             Callsign = RemoteCallsign,
             RelaySessionId = relaySessionId,
-            RelayRole = "CLIENT"
+            RelayRole = "CLIENT",
+            EnableSecureTransport = _enableSecureRemoteTransport,
+            RequireSecureTransport = _requireSecureRemoteTransport
         }, _remoteCts?.Token ?? CancellationToken.None);
 
         DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
@@ -1918,7 +1928,9 @@ public partial class MainWindowViewModel : ViewModelBase
             SharedToken = RemoteSharedToken,
             MaxClients = Math.Max(1, Math.Min(5, RemoteMaxClients)),
             ActiveClientHoldMs = ConvertHoldSecondsToMs(RemoteClientHoldSeconds),
-            UseSenderTickStaleGate = _settings?.RemoteHostUseSenderTickStaleGate ?? false
+            UseSenderTickStaleGate = _settings?.RemoteHostUseSenderTickStaleGate ?? false,
+            EnableSecureTransport = _enableSecureRemoteTransport,
+            RequireSecureTransport = _requireSecureRemoteTransport
         }, _remoteCts.Token);
 
         _remoteHostService.SetTransmitMode(_transmitSliceMonitor.IsTransmitModeCW, _transmitSliceMonitor.TransmitMode);

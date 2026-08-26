@@ -487,11 +487,16 @@ Done criteria:
 ### Phase 3 Kickoff (Protocol Security PRs)
 
 - [x] Publish protocol draft: handshake messages, crypto suites, key schedule, frame format.
-- [ ] Add identity key storage abstraction and secure loading path for host/client.
-- [ ] Implement handshake transcript signing and verification.
-- [ ] Implement AEAD-encrypted frame codec with sequence-based nonce handling.
+- [x] Add identity key storage abstraction and secure loading path for host/client.
+- [x] Implement handshake transcript signing and verification.
+- [x] Implement AEAD-encrypted frame codec with sequence-based nonce handling.
 - [ ] Add explicit downgrade protection in negotiation logic.
 - [ ] Ensure relay forwarding path remains payload-opaque (ciphertext only).
+
+Implementation notes:
+
+- Current implementation is feature-flagged and backward compatible by default.
+- Current crypto suite is interim (`P256+ECDSA+HKDF-SHA256+AES-GCM`) and will be migrated to target suite (`X25519+Ed25519+HKDF-SHA256+ChaCha20-Poly1305`) after interoperability hardening.
 
 ### Phase 4 Kickoff (Behavior and Policy PRs)
 

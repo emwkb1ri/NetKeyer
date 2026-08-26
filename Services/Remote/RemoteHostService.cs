@@ -259,7 +259,13 @@ public class RemoteHostService : IRemoteHostService
 
     private void AddAndRunSession(TcpClient client, CancellationToken ct, string transport)
     {
-        var session = new RemoteClientSession(client, _options.SharedToken, _options.HostName, BuildHeartbeatPayloadForClient);
+        var session = new RemoteClientSession(
+            client,
+            _options.SharedToken,
+            _options.HostName,
+            BuildHeartbeatPayloadForClient,
+            _options.EnableSecureTransport,
+            _options.RequireSecureTransport);
         session.PaddleStateReceived += Session_PaddleStateReceived;
         session.SessionClosed += Session_SessionClosed;
         session.SessionMetadataChanged += Session_SessionMetadataChanged;

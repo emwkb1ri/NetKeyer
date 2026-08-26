@@ -457,11 +457,10 @@ Done criteria:
 
 - [x] Add JWT validation middleware/dependency in rendezvous server.
 - [x] Enforce token checks on register/connect/relay request paths.
-- [ ] Define and validate mandatory claims (`sub`, `role`, scope identifiers, `exp`, `jti`).
-   - Implemented in kickoff: `sub`, `iat`, `exp`, endpoint role checks (`role`/`roles`, `admin` override).
-   - Remaining for follow-up: scope identifiers and `jti` enforcement.
+- [x] Define and validate mandatory claims (`sub`, `role`, scope identifiers, `exp`, `jti`).
+   - Implemented in kickoff: `sub`, `iat`, `exp`, `jti`, endpoint role checks (`role`/`roles`, `admin` override), optional endpoint scope checks.
 - [ ] Introduce short-lived connection grant token model for host-client session setup.
-- [ ] Add anti-replay cache keyed by `jti` with bounded TTL.
+- [x] Add anti-replay cache keyed by `jti` with bounded TTL.
 - [x] Add migration toggle to allow temporary legacy shared-token mode.
 
 ### Phase 3 Kickoff (Protocol Security PRs)

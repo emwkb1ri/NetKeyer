@@ -50,6 +50,13 @@ services:
       RENDEZVOUS_JWT_SECRET: ""
       RENDEZVOUS_JWT_ISSUER: ""
       RENDEZVOUS_JWT_AUDIENCE: ""
+      # Optional endpoint scope checks (space-delimited scope claim values)
+      RENDEZVOUS_JWT_REQUIRED_SCOPE_HOST: ""
+      RENDEZVOUS_JWT_REQUIRED_SCOPE_CLIENT: ""
+      # Anti-replay controls for token jti
+      RENDEZVOUS_JWT_REQUIRE_JTI: "true"
+      RENDEZVOUS_JWT_REPLAY_TTL_SECONDS: "600"
+      RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES: "50000"
       # Manual-mode (recommended): disable automatic UPnP/NAT-PMP mapping.
       # Router should forward TCP 49920 -> rendezvous host and TCP 49921 -> relay host.
       RENDEZVOUS_ENABLE_PORT_MAP: "false"

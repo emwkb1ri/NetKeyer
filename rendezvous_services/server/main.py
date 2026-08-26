@@ -38,6 +38,11 @@ ALLOW_LEGACY_NO_TOKEN = os.getenv("RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN", "true
 JWT_SECRET = os.getenv("RENDEZVOUS_JWT_SECRET", "")
 JWT_ISSUER = os.getenv("RENDEZVOUS_JWT_ISSUER", "").strip()
 JWT_AUDIENCE = os.getenv("RENDEZVOUS_JWT_AUDIENCE", "").strip()
+JWT_REQUIRED_SCOPE_HOST = os.getenv("RENDEZVOUS_JWT_REQUIRED_SCOPE_HOST", "").strip()
+JWT_REQUIRED_SCOPE_CLIENT = os.getenv("RENDEZVOUS_JWT_REQUIRED_SCOPE_CLIENT", "").strip()
+JWT_REQUIRE_JTI = os.getenv("RENDEZVOUS_JWT_REQUIRE_JTI", "true").strip().lower() in {"1", "true", "yes", "on"}
+JWT_REPLAY_TTL_SECONDS = int(os.getenv("RENDEZVOUS_JWT_REPLAY_TTL_SECONDS", "600"))
+JWT_REPLAY_CACHE_MAX_ENTRIES = int(os.getenv("RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES", "50000"))
 HEALTH_ACCESS_MODE = os.getenv("RENDEZVOUS_HEALTH_ACCESS_MODE", "private").strip().lower()
 HEALTH_ALLOWED_CIDRS = [
     value.strip()
@@ -66,6 +71,11 @@ AUTH_CONFIG = AuthConfig(
     jwt_secret=JWT_SECRET,
     jwt_issuer=JWT_ISSUER,
     jwt_audience=JWT_AUDIENCE,
+    required_scope_host=JWT_REQUIRED_SCOPE_HOST,
+    required_scope_client=JWT_REQUIRED_SCOPE_CLIENT,
+    jti_replay_ttl_seconds=JWT_REPLAY_TTL_SECONDS,
+    jti_replay_cache_max_entries=JWT_REPLAY_CACHE_MAX_ENTRIES,
+    require_jti=JWT_REQUIRE_JTI,
 )
 
 

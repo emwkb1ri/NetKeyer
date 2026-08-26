@@ -256,13 +256,29 @@ Phase 2 auth controls (JWT rollout):
   - If set, token `iss` must match.
 - `RENDEZVOUS_JWT_AUDIENCE=<audience>` (optional)
   - If set, token `aud` must match.
+- `RENDEZVOUS_JWT_REQUIRED_SCOPE_HOST=<scope>` (optional)
+  - If set, host websocket tokens must include this scope.
+- `RENDEZVOUS_JWT_REQUIRED_SCOPE_CLIENT=<scope>` (optional)
+  - If set, client websocket tokens must include this scope.
+- `RENDEZVOUS_JWT_REQUIRE_JTI=true`
+  - Requires `jti` in authenticated tokens.
+- `RENDEZVOUS_JWT_REPLAY_TTL_SECONDS=600`
+  - Time window for replay rejection of previously seen `jti` values.
+- `RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES=50000`
+  - Upper bound for in-memory replay cache.
 
 JWT requirements in this Phase 2 kickoff:
 
-- Required claims: `sub`, `iat`, `exp`
+- Required claims: `sub`, `iat`, `exp`, `jti` (when `RENDEZVOUS_JWT_REQUIRE_JTI=true`)
 - Role claim check:
   - `ws/host` requires `role`/`roles` including `host` (or `admin`)
   - `ws/client` requires `role`/`roles` including `client` (or `admin`)
+- Scope claim check (when configured):
+  - `ws/host` requires `RENDEZVOUS_JWT_REQUIRED_SCOPE_HOST`
+  - `ws/client` requires `RENDEZVOUS_JWT_REQUIRED_SCOPE_CLIENT`
+  - `rendezvous:*` is accepted as wildcard scope
+- Anti-replay:
+  - Tokens with previously seen `sub:jti` are rejected until replay TTL expires.
 
 Recommended staged rollout:
 

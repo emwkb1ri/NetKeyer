@@ -43,6 +43,8 @@ class TestStateStatistics(unittest.IsolatedAsyncioTestCase):
         await state.mark_map_requested(mapped.session_id)
         await state.set_mapped_endpoint(mapped.session_id, "198.51.100.10", 49923)
         await state.mark_relay_requested(relay.session_id)
+        await state.update_punch_result(mapped.session_id, from_host=False, success=True)
+        await state.update_punch_result(relay.session_id, from_host=False, success=True)
 
         stats = await state.get_statistics_snapshot()
 
@@ -67,6 +69,8 @@ class TestStateStatistics(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sessions_by_id[direct.session_id]["type"], "direct")
         self.assertEqual(sessions_by_id[mapped.session_id]["type"], "mapped")
         self.assertEqual(sessions_by_id[relay.session_id]["type"], "relay")
+        self.assertEqual(sessions_by_id[mapped.session_id]["state"], "mapped_connected")
+        self.assertEqual(sessions_by_id[relay.session_id]["state"], "relay_connected")
 
 
 if __name__ == "__main__":

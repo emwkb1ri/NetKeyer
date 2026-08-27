@@ -176,7 +176,12 @@ class RendezvousState:
                 session.client_punch_result = success
 
             if success:
-                session.state = "direct_connected"
+                if session.state == "relay_requested":
+                    session.state = "relay_connected"
+                elif session.state in {"map_requested", "map_ready"} or session.map_requested:
+                    session.state = "mapped_connected"
+                else:
+                    session.state = "direct_connected"
                 if session.timeout_task:
                     session.timeout_task.cancel()
                     session.timeout_task = None
@@ -269,7 +274,12 @@ class RendezvousState:
         cutoff = now - timedelta(seconds=ttl_seconds)
 
         async with self._lock:
-            expired = [s.session_id for s in self.sessions.values() if s.updated_at < cutoff and s.state != "direct_connected"]
+            expired = [
+                s.session_id
+                for s in self.sessions.values()
+                if s.updated_at < cutoff
+                and s.state not in {"direct_connected", "mapped_connected", "relay_connected"}
+            ]
 
         for session_id in expired:
             await self.close_session(session_id)
@@ -280,9 +290,9 @@ class RendezvousState:
     def _connection_type_for_session(session: SessionState) -> str:
         if session.state == "direct_connected":
             return "direct"
-        if session.state in {"map_requested", "map_ready"}:
+        if session.state in {"map_requested", "map_ready", "mapped_connected"}:
             return "mapped"
-        if session.state == "relay_requested":
+        if session.state in {"relay_requested", "relay_connected"}:
             return "relay"
         return "direct"
 

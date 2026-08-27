@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -43,6 +44,7 @@ PUNCH_TIMEOUT_SECONDS = 2
 PORT_MAP_TIMEOUT_SECONDS = 4
 DEFAULT_RELAY_HOST = "relay"
 DEFAULT_RELAY_PORT = 49921
+LOGGER = logging.getLogger("netkeyer.rendezvous.ws")
 
 
 def _claims_for_ws(ws: WebSocket) -> dict[str, Any]:
@@ -303,6 +305,7 @@ async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_hos
                     metadata=msg.metadata,
                 )
                 host_id = msg.host_id
+                LOGGER.info("host_registered host_id=%s peer=%s:%s max_clients=%s", host_id, ip, port, msg.max_clients)
                 continue
 
             if isinstance(msg, HostPunchResultMessage):
@@ -378,8 +381,13 @@ async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_hos
         pass
     finally:
         if host_id:
-            await state.close_sessions_for_host(host_id)
-            await state.unregister_host(host_id)
+            host = await state.get_host(host_id)
+            if host and host.ws is websocket:
+                LOGGER.info("host_unregistering host_id=%s reason=socket_closed", host_id)
+                await state.close_sessions_for_host(host_id)
+                await state.unregister_host(host_id)
+            else:
+                LOGGER.info("host_unregister_skipped host_id=%s reason=socket_replaced", host_id)
         await state.unregister_host_by_ws(websocket)
 
 
@@ -420,6 +428,7 @@ async def handle_client_ws(
                     public_port=port,
                 )
                 client_id = msg.client_id
+                LOGGER.info("client_registered client_id=%s peer=%s:%s", client_id, ip, port)
                 continue
 
             if not client_id:
@@ -610,6 +619,11 @@ async def handle_client_ws(
         pass
     finally:
         if client_id:
-            await state.close_sessions_for_client(client_id)
-            await state.unregister_client(client_id)
+            client = await state.get_client(client_id)
+            if client and client.ws is websocket:
+                LOGGER.info("client_unregistering client_id=%s reason=socket_closed", client_id)
+                await state.close_sessions_for_client(client_id)
+                await state.unregister_client(client_id)
+            else:
+                LOGGER.info("client_unregister_skipped client_id=%s reason=socket_replaced", client_id)
         await state.unregister_client_by_ws(websocket)

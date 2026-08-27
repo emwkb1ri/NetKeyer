@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.WebSockets;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NetKeyer.Services.Rendezvous;
@@ -96,6 +97,9 @@ public sealed class RendezvousClientConnectionSession : IAsyncDisposable
     public string ClientId { get; }
     public string HostId { get; }
     internal ClientWebSocket ControlSocket { get; set; }
+    internal CancellationTokenSource ControlMonitorCts { get; set; }
+    internal Task ControlMonitorTask { get; set; }
+    internal bool ControlMonitorStarted { get; set; }
     public string RelayHost { get; internal set; } = "";
     public int RelayPort { get; internal set; }
     public bool RelayRequested { get; internal set; }

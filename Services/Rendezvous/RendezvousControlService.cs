@@ -85,6 +85,7 @@ public sealed class RendezvousControlService : IRendezvousControlService
         ValidateClientOptions(options);
 
         var ws = new ClientWebSocket();
+        ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
         ApplyAccessToken(ws);
         await ws.ConnectAsync(BuildEndpoint(options.ServerUrl, "client"), ct);
 
@@ -121,7 +122,9 @@ public sealed class RendezvousControlService : IRendezvousControlService
 
         RendezvousResolvedEndpoint endpoint = await WaitForHostEndpointAsync(ws, null, ct);
 
-        var session = new RendezvousClientConnectionSession(
+        RendezvousClientConnectionSession session = null;
+
+        session = new RendezvousClientConnectionSession(
             endpoint,
             options.ClientId,
             options.HostId,
@@ -129,6 +132,14 @@ public sealed class RendezvousControlService : IRendezvousControlService
             token => RequestPortMapAsync(ws, options.ClientId, options.HostId, endpoint.SessionId, token),
             async () =>
             {
+                var monitorCts = session?.ControlMonitorCts;
+                var monitorTask = session?.ControlMonitorTask;
+
+                if (monitorCts != null)
+                {
+                    try { monitorCts.Cancel(); } catch { }
+                }
+
                 try
                 {
                     if (ws.State == WebSocketState.Open)
@@ -143,6 +154,19 @@ public sealed class RendezvousControlService : IRendezvousControlService
                 finally
                 {
                     ws.Dispose();
+                    monitorCts?.Dispose();
+                }
+
+                if (monitorTask != null)
+                {
+                    try
+                    {
+                        await monitorTask;
+                    }
+                    catch
+                    {
+                        // Ignore monitor teardown errors.
+                    }
                 }
             });
 
@@ -150,6 +174,28 @@ public sealed class RendezvousControlService : IRendezvousControlService
         session.RelayRequested = false;
 
         return session;
+    }
+
+    public void StartClientControlMonitor(RendezvousClientConnectionSession session)
+    {
+        if (session == null)
+        {
+            throw new ArgumentNullException(nameof(session));
+        }
+
+        if (session.ControlMonitorStarted)
+        {
+            return;
+        }
+
+        if (session.ControlSocket == null || session.ControlSocket.State != WebSocketState.Open)
+        {
+            return;
+        }
+
+        session.ControlMonitorStarted = true;
+        session.ControlMonitorCts = new CancellationTokenSource();
+        session.ControlMonitorTask = Task.Run(() => ClientControlReceiveLoopAsync(session, session.ControlMonitorCts.Token), CancellationToken.None);
     }
 
     public async Task<IReadOnlyList<RendezvousHostSummary>> ListHostsAsync(RendezvousHostListRequestOptions options, CancellationToken ct)
@@ -553,6 +599,73 @@ public sealed class RendezvousControlService : IRendezvousControlService
         }
 
         return false;
+    }
+
+    private static async Task ClientControlReceiveLoopAsync(RendezvousClientConnectionSession session, CancellationToken ct)
+    {
+        if (session?.ControlSocket == null)
+        {
+            return;
+        }
+
+        var ws = session.ControlSocket;
+
+        try
+        {
+            while (!ct.IsCancellationRequested && ws.State == WebSocketState.Open)
+            {
+                JsonElement msg = await ReceiveJsonAsync(ws, ct);
+                string type = msg.TryGetProperty("type", out var typeProp) ? typeProp.GetString() ?? "" : "";
+
+                if (string.Equals(type, "use_relay", StringComparison.OrdinalIgnoreCase))
+                {
+                    CaptureRelayMessage(session, msg);
+                    continue;
+                }
+
+                if (string.Equals(type, "host_endpoint", StringComparison.OrdinalIgnoreCase))
+                {
+                    string sessionId = msg.TryGetProperty("session_id", out var sidProp) ? sidProp.GetString() ?? "" : "";
+                    if (string.Equals(sessionId, session.Endpoint?.SessionId, StringComparison.Ordinal)
+                        && msg.TryGetProperty("host_public_ip", out var ipProp)
+                        && msg.TryGetProperty("host_public_port", out var portProp)
+                        && portProp.TryGetInt32(out var hostPort)
+                        && hostPort > 0)
+                    {
+                        string hostIp = ipProp.GetString() ?? "";
+                        if (!string.IsNullOrWhiteSpace(hostIp))
+                        {
+                            session.Endpoint = new RendezvousResolvedEndpoint
+                            {
+                                HostPublicIp = hostIp,
+                                HostPublicPort = hostPort,
+                                SessionId = session.Endpoint?.SessionId ?? sessionId,
+                            };
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (string.Equals(type, "error", StringComparison.OrdinalIgnoreCase))
+                {
+                    string code = msg.TryGetProperty("code", out var codeProp) ? codeProp.GetString() ?? "error" : "error";
+                    string message = msg.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "Rendezvous error" : "Rendezvous error";
+                    DebugLogger.LogAlways("rendezvous", $"Client signaling error ({code}): {message}");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (WebSocketException ex)
+        {
+            DebugLogger.LogAlways("rendezvous", $"Client signaling websocket error: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            DebugLogger.LogAlways("rendezvous", $"Client signaling loop terminated: {ex.Message}");
+        }
     }
 
     private static async Task HostReceiveLoopAsync(ClientWebSocket ws, RendezvousHostRegistrationOptions options, CancellationToken ct)

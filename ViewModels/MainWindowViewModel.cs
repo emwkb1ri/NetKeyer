@@ -1770,6 +1770,7 @@ public partial class MainWindowViewModel : ViewModelBase
             if (_rendezvousClientSession != null)
             {
                 await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts.Token);
+                _rendezvousControlService.StartClientControlMonitor(_rendezvousClientSession);
             }
 
             DebugLogger.LogAlways("remote", $"Client transport connected (transport=direct) endpoint={targetHost}:{targetPort}");
@@ -1834,6 +1835,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     DebugLogger.LogAlways("remote", $"Client transport connected (transport=mapped-direct) endpoint={mappedHost}:{mappedPort}");
 
                     await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts.Token);
+                    _rendezvousControlService.StartClientControlMonitor(_rendezvousClientSession);
                     return;
                 }
                 catch (Exception mappedDirectEx)
@@ -1887,6 +1889,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     ValidateRelayCiphertext = _validateRelayCiphertext
                 }, _remoteCts.Token);
 
+                await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts.Token);
+                _rendezvousControlService.StartClientControlMonitor(_rendezvousClientSession);
+
                 DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
             }
             catch
@@ -1938,6 +1943,9 @@ public partial class MainWindowViewModel : ViewModelBase
             RequireSecureTransport = _requireSecureRemoteTransport,
             ValidateRelayCiphertext = _validateRelayCiphertext
         }, _remoteCts?.Token ?? CancellationToken.None);
+
+        await _rendezvousClientSession.ReportPunchResultAsync(success: true, _remoteCts?.Token ?? CancellationToken.None);
+        _rendezvousControlService.StartClientControlMonitor(_rendezvousClientSession);
 
         DebugLogger.LogAlways("remote", $"Client transport connected (transport=relay) endpoint={relayHost}:{relayPort} session={relaySessionId}");
     }

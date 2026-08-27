@@ -717,6 +717,76 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             await second_ws.disconnect()
             await asyncio.wait_for(asyncio.gather(first_task, second_task), timeout=2)
 
+    async def test_stale_duplicate_client_disconnect_does_not_remove_active_client_or_session(self) -> None:
+        host_task = asyncio.create_task(
+            handlers.handle_host_ws(self.state, self.host_ws, relay_host="relay.test", relay_port=49921)
+        )
+        first_ws = FakeWebSocket("198.51.100.22", 52000)
+        second_ws = FakeWebSocket("198.51.100.23", 52001)
+        first_task = asyncio.create_task(
+            handlers.handle_client_ws(self.state, first_ws, relay_host="relay.test", relay_port=49921)
+        )
+        second_task = asyncio.create_task(
+            handlers.handle_client_ws(self.state, second_ws, relay_host="relay.test", relay_port=49921)
+        )
+
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+
+            await first_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-dup",
+                }
+            )
+            await second_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-dup",
+                }
+            )
+
+            await second_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-dup",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.1)
+
+            endpoint_msgs = [m for m in second_ws.sent if m.get("type") == "host_endpoint"]
+            self.assertTrue(endpoint_msgs)
+            session_id = endpoint_msgs[-1]["session_id"]
+
+            await first_ws.disconnect()
+            await asyncio.wait_for(first_task, timeout=2)
+
+            client = await self.state.get_client("client-dup")
+            self.assertIsNotNone(client)
+            assert client is not None
+            self.assertIs(client.ws, second_ws)
+
+            host = await self.state.get_host("host-1")
+            self.assertIsNotNone(host)
+            assert host is not None
+            self.assertEqual(host.current_clients, 1)
+
+            session = await self.state.get_session(session_id)
+            self.assertIsNotNone(session)
+        finally:
+            await self.host_ws.disconnect()
+            await second_ws.disconnect()
+            await asyncio.wait_for(asyncio.gather(host_task, second_task), timeout=2)
+
 
 if __name__ == "__main__":
     unittest.main()

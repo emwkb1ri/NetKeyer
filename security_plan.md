@@ -517,9 +517,17 @@ Implementation notes:
 ### Phase 5 Kickoff (Validation and Rollout PRs)
 - [ ] Add security telemetry metrics (auth failures, handshake failures, replay rejects, decrypt failures).
 - [ ] Add latency telemetry for handshake and keying p50/p95.
-- [ ] Add integration tests for secure direct, secure relay, expiry, and replay paths.
+- [x] Add integration tests for secure direct, secure relay, expiry, and replay paths.
 - [ ] Add staged rollout flags and environment defaults for progressive enforcement.
 - [ ] Add runbooks for cert rotation, key rotation, and security incident response.
+
+Implementation notes:
+
+- Rendezvous `/health` statistics semantics restored for active usage intent:
+   - `counts.hosts|clients|sessions` reflect actively registered hosts/clients and active host-client sessions.
+   - `session_type_counts.direct|mapped|relay` reflect active connected session transport types.
+   - `hosts|clients|sessions` lists summarize currently active entities and session state.
+- Relay and mapped session success now explicitly report connected state so active sessions are retained in stats.
 
 ### Acceptance Gates
 

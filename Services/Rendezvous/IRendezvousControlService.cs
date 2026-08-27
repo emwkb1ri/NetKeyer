@@ -12,4 +12,5 @@ public interface IRendezvousControlService : IDisposable
     Task<IReadOnlyList<RendezvousHostSummary>> ListHostsAsync(RendezvousHostListRequestOptions options, CancellationToken ct);
     Task<bool> WaitForMappedEndpointAsync(RendezvousClientConnectionSession session, TimeSpan timeout, CancellationToken ct);
     Task<bool> WaitForRelayAsync(RendezvousClientConnectionSession session, TimeSpan timeout, CancellationToken ct);
+    void StartClientControlMonitor(RendezvousClientConnectionSession session);
 }

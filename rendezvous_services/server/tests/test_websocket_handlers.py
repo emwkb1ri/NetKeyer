@@ -81,6 +81,26 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             expected_protocol_version=1,
         )
 
+    @staticmethod
+    def _auth_config_without_grant_secret(require_connection_grant: bool) -> AuthConfig:
+        return AuthConfig(
+            require_signed_tokens=False,
+            allow_legacy_no_token=True,
+            jwt_secret="",
+            jwt_issuer="",
+            jwt_audience="",
+            required_scope_host="",
+            required_scope_client="",
+            jti_replay_ttl_seconds=60,
+            jti_replay_cache_max_entries=1000,
+            require_jti=False,
+            require_connection_grant=require_connection_grant,
+            connection_grant_ttl_seconds=30,
+            connection_grant_secret="",
+            require_protocol_version_claim=False,
+            expected_protocol_version=1,
+        )
+
     async def _stop_handlers(self, host_task: asyncio.Task, client_task: asyncio.Task) -> None:
         await self.host_ws.disconnect()
         await self.client_ws.disconnect()
@@ -473,6 +493,40 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.client_ws.sent)
             self.assertEqual(self.client_ws.sent[-1].get("type"), "error")
             self.assertEqual(self.client_ws.sent[-1].get("code"), "missing_connection_grant")
+        finally:
+            await self._stop_handlers(host_task, client_task)
+
+    async def test_request_connection_grant_returns_unavailable_when_optional_and_secret_missing(self) -> None:
+        auth_config = self._auth_config_without_grant_secret(require_connection_grant=False)
+        host_task, client_task = await self._start_handlers(auth_config=auth_config)
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "request_connection_grant",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            self.assertTrue(self.client_ws.sent)
+            self.assertEqual(self.client_ws.sent[-1].get("type"), "error")
+            self.assertEqual(self.client_ws.sent[-1].get("code"), "grant_unavailable")
         finally:
             await self._stop_handlers(host_task, client_task)
 

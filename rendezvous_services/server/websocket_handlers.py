@@ -478,7 +478,10 @@ async def handle_client_ws(
                     grant_token = issue_connection_grant_token(auth_config, msg.client_id, msg.host_id, grant_session_id)
                 except AuthError as ex:
                     await state.record_security_failure(handshake_failure=True, detail=str(ex))
-                    await _send_error(websocket, "grant_issue_failed", str(ex))
+                    if not auth_config.require_connection_grant:
+                        await _send_error(websocket, "grant_unavailable", str(ex))
+                    else:
+                        await _send_error(websocket, "grant_issue_failed", str(ex))
                     continue
 
                 ttl = max(1, min(600, auth_config.connection_grant_ttl_seconds))
@@ -549,6 +552,15 @@ async def handle_client_ws(
                     await _send_error(websocket, "invalid_connection_grant", "connection grant session id already used")
                     continue
 
+                LOGGER.info(
+                    "connect_request_accepted client_id=%s host_id=%s session_id=%s grant_bound=%s force_relay=%s",
+                    msg.client_id,
+                    msg.host_id,
+                    session.session_id,
+                    bool(grant_session_id),
+                    force_relay,
+                )
+
                 await _send_model(
                     host.ws,
                     IncomingClientMessage(
@@ -574,6 +586,15 @@ async def handle_client_ws(
                 start_msg = StartPunchMessage(type="start_punch", session_id=session.session_id)
                 await _send_model(host.ws, start_msg)
                 await _send_model(websocket, start_msg)
+
+                LOGGER.info(
+                    "connect_request_signaled session_id=%s host_id=%s client_id=%s endpoint=%s:%s",
+                    session.session_id,
+                    session.host_id,
+                    session.client_id,
+                    host.public_ip,
+                    _resolve_host_endpoint_port(host.metadata, host.public_port),
+                )
 
                 if force_relay:
                     relay_state = await state.mark_relay_requested(session.session_id)

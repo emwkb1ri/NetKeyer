@@ -464,8 +464,11 @@ public sealed class RendezvousControlService : IRendezvousControlService
                 string message = msg.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "Rendezvous error" : "Rendezvous error";
 
                 if (string.Equals(code, "unsupported_message_type", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(code, "grant_unavailable", StringComparison.OrdinalIgnoreCase))
+                    || string.Equals(code, "grant_unavailable", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(code, "grant_issue_failed", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(code, "not_found", StringComparison.OrdinalIgnoreCase))
                 {
+                    DebugLogger.LogAlways("rendezvous", $"Connection grant not available ({code}): {message}. Falling back to direct connect_request without grant token.");
                     return string.Empty;
                 }
 

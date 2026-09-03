@@ -515,7 +515,7 @@ Implementation notes:
 - User-facing remote diagnostics now map handshake/ciphertext/auth policy failures to actionable, non-sensitive status text while keeping detailed exception data in debug logs.
 
 ### Phase 5 Kickoff (Validation and Rollout PRs)
-- [ ] Add security telemetry metrics (auth failures, handshake failures, replay rejects, decrypt failures).
+- [x] Add security telemetry metrics (auth failures, handshake failures, replay rejects, decrypt failures).
 - [ ] Add latency telemetry for handshake and keying p50/p95.
 - [x] Add integration tests for secure direct, secure relay, expiry, and replay paths.
 - [ ] Add staged rollout flags and environment defaults for progressive enforcement.
@@ -527,6 +527,11 @@ Implementation notes:
    - `counts.hosts|clients|sessions` reflect actively registered hosts/clients and active host-client sessions.
    - `session_type_counts.direct|mapped|relay` reflect active connected session transport types.
    - `hosts|clients|sessions` lists summarize currently active entities and session state.
+- Phase 5 security telemetry metrics now surface under `statistics.security_metrics` in `/health`:
+   - `auth_failures`: websocket auth/claims-policy denials.
+   - `handshake_failures`: connection-grant issuance/validation and handshake gating failures.
+   - `replay_rejects`: replay-protection rejects (for example reused grant/token identifiers).
+   - `decrypt_failures`: token crypto validation failures (invalid signed token/grant decode).
 - Relay and mapped session success now explicitly report connected state so active sessions are retained in stats.
 
 ### Acceptance Gates

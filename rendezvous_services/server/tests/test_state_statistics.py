@@ -16,9 +16,32 @@ class TestStateStatistics(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(stats["counts"], {"hosts": 0, "clients": 0, "sessions": 0})
         self.assertEqual(stats["session_type_counts"], {"direct": 0, "mapped": 0, "relay": 0})
+        self.assertEqual(
+            stats["security_metrics"],
+            {
+                "auth_failures": 0,
+                "handshake_failures": 0,
+                "replay_rejects": 0,
+                "decrypt_failures": 0,
+            },
+        )
         self.assertEqual(stats["hosts"], [])
         self.assertEqual(stats["clients"], [])
         self.assertEqual(stats["sessions"], [])
+
+    async def test_security_metric_recording_and_classification(self) -> None:
+        state = RendezvousState()
+
+        await state.record_security_failure(auth_failure=True, detail="missing access token")
+        await state.record_security_failure(handshake_failure=True, detail="missing connection grant token")
+        await state.record_security_failure(handshake_failure=True, detail="replayed connection grant rejected")
+        await state.record_security_failure(handshake_failure=True, detail="invalid connection grant token")
+
+        stats = await state.get_statistics_snapshot()
+        self.assertEqual(stats["security_metrics"]["auth_failures"], 1)
+        self.assertEqual(stats["security_metrics"]["handshake_failures"], 3)
+        self.assertEqual(stats["security_metrics"]["replay_rejects"], 1)
+        self.assertEqual(stats["security_metrics"]["decrypt_failures"], 1)
 
     async def test_statistics_with_direct_mapped_and_relay_sessions(self) -> None:
         state = RendezvousState()

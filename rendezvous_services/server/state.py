@@ -56,6 +56,47 @@ class RendezvousState:
         self.hosts: dict[str, HostConnection] = {}
         self.clients: dict[str, ClientConnection] = {}
         self.sessions: dict[str, SessionState] = {}
+        self.security_metrics: dict[str, int] = {
+            "auth_failures": 0,
+            "handshake_failures": 0,
+            "replay_rejects": 0,
+            "decrypt_failures": 0,
+        }
+
+    async def increment_security_metric(self, name: str, count: int = 1) -> None:
+        if not name or count <= 0:
+            return
+
+        async with self._lock:
+            current = self.security_metrics.get(name, 0)
+            self.security_metrics[name] = current + count
+
+    async def record_security_failure(
+        self,
+        *,
+        auth_failure: bool = False,
+        handshake_failure: bool = False,
+        detail: str = "",
+    ) -> None:
+        names: list[str] = []
+        if auth_failure:
+            names.append("auth_failures")
+        if handshake_failure:
+            names.append("handshake_failures")
+
+        lower = (detail or "").strip().lower()
+        if "replayed" in lower:
+            names.append("replay_rejects")
+        if "invalid access token" in lower or "invalid connection grant token" in lower:
+            names.append("decrypt_failures")
+
+        if not names:
+            return
+
+        async with self._lock:
+            for name in names:
+                current = self.security_metrics.get(name, 0)
+                self.security_metrics[name] = current + 1
 
     async def register_host(
         self,
@@ -378,6 +419,7 @@ class RendezvousState:
             return {
                 "counts": counts,
                 "session_type_counts": type_counts,
+                "security_metrics": dict(self.security_metrics),
                 "hosts": host_entries,
                 "clients": client_entries,
                 "sessions": session_entries,

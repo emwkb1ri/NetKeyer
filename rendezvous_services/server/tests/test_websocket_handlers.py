@@ -536,6 +536,70 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
         finally:
             await self._stop_handlers(host_task, client_task)
 
+    async def test_replayed_connection_grant_increments_security_metrics(self) -> None:
+        auth_config = self._auth_config(require_connection_grant=True)
+        host_task, client_task = await self._start_handlers(auth_config=auth_config)
+        try:
+            await self.host_ws.push(
+                {
+                    "type": "register_host",
+                    "host_id": "host-1",
+                    "max_clients": 5,
+                    "metadata": {},
+                }
+            )
+            await self.client_ws.push(
+                {
+                    "type": "register_client",
+                    "client_id": "client-1",
+                }
+            )
+
+            await self.client_ws.push(
+                {
+                    "type": "request_connection_grant",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            grant_messages = [m for m in self.client_ws.sent if m.get("type") == "connection_grant"]
+            self.assertTrue(grant_messages)
+            grant_token = grant_messages[-1].get("grant_token", "")
+            self.assertTrue(grant_token)
+
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                    "connection_grant_token": grant_token,
+                }
+            )
+            await asyncio.sleep(0.05)
+
+            await self.client_ws.push(
+                {
+                    "type": "connect_request",
+                    "client_id": "client-1",
+                    "host_id": "host-1",
+                    "connection_grant_token": grant_token,
+                }
+            )
+
+            await asyncio.sleep(0.05)
+
+            self.assertEqual(self.client_ws.sent[-1].get("type"), "error")
+            self.assertEqual(self.client_ws.sent[-1].get("code"), "invalid_connection_grant")
+
+            snapshot = await self.state.get_statistics_snapshot()
+            self.assertGreaterEqual(snapshot["security_metrics"]["handshake_failures"], 1)
+            self.assertGreaterEqual(snapshot["security_metrics"]["replay_rejects"], 1)
+        finally:
+            await self._stop_handlers(host_task, client_task)
+
     async def test_register_client_rejected_when_claim_subject_mismatch(self) -> None:
         self.client_ws.state.auth_claims = {
             "sub": "client-a",
@@ -556,6 +620,9 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.client_ws.sent)
             self.assertEqual(self.client_ws.sent[-1].get("type"), "error")
             self.assertEqual(self.client_ws.sent[-1].get("code"), "forbidden_claims")
+
+            snapshot = await self.state.get_statistics_snapshot()
+            self.assertGreaterEqual(snapshot["security_metrics"]["auth_failures"], 1)
         finally:
             await self._stop_handlers(host_task, client_task)
 
@@ -583,6 +650,9 @@ class TestWebSocketHandlers(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.host_ws.sent)
             self.assertEqual(self.host_ws.sent[-1].get("type"), "error")
             self.assertEqual(self.host_ws.sent[-1].get("code"), "forbidden_claims")
+
+            snapshot = await self.state.get_statistics_snapshot()
+            self.assertGreaterEqual(snapshot["security_metrics"]["auth_failures"], 1)
         finally:
             await self.host_ws.disconnect()
             await asyncio.wait_for(host_task, timeout=2)

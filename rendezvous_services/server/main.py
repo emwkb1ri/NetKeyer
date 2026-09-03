@@ -193,6 +193,7 @@ async def health(request: Request) -> dict[str, object]:
 async def ws_host(websocket: WebSocket) -> None:
     allowed, close_code, close_reason, claims = authorize_websocket(websocket, AUTH_CONFIG, required_role="host")
     if not allowed:
+        await state.record_security_failure(auth_failure=True, detail=close_reason)
         LOGGER.warning("ws_host authentication denied: %s", close_reason)
         await websocket.close(code=close_code, reason=close_reason)
         return
@@ -206,6 +207,7 @@ async def ws_host(websocket: WebSocket) -> None:
 async def ws_client(websocket: WebSocket) -> None:
     allowed, close_code, close_reason, claims = authorize_websocket(websocket, AUTH_CONFIG, required_role="client")
     if not allowed:
+        await state.record_security_failure(auth_failure=True, detail=close_reason)
         LOGGER.warning("ws_client authentication denied: %s", close_reason)
         await websocket.close(code=close_code, reason=close_reason)
         return

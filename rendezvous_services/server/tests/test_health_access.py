@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import types
 import unittest
 
-from server.main import is_health_request_allowed
+from server.main import health, is_health_request_allowed
 
 
 class HealthAccessPolicyTests(unittest.TestCase):
@@ -26,6 +27,26 @@ class HealthAccessPolicyTests(unittest.TestCase):
 
     def test_disabled_mode_denies_all(self) -> None:
         self.assertFalse(is_health_request_allowed("127.0.0.1", mode="disabled"))
+
+
+class HealthPayloadTests(unittest.IsolatedAsyncioTestCase):
+    async def test_health_payload_includes_security_metrics(self) -> None:
+        request = types.SimpleNamespace(client=types.SimpleNamespace(host="127.0.0.1"))
+
+        payload = await health(request)
+
+        self.assertIn("statistics", payload)
+        stats = payload["statistics"]
+        self.assertIn("security_metrics", stats)
+        self.assertEqual(
+            stats["security_metrics"],
+            {
+                "auth_failures": 0,
+                "handshake_failures": 0,
+                "replay_rejects": 0,
+                "decrypt_failures": 0,
+            },
+        )
 
 
 if __name__ == "__main__":

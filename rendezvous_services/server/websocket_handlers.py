@@ -292,6 +292,7 @@ async def handle_host_ws(state: RendezvousState, websocket: WebSocket, relay_hos
 
             if isinstance(msg, RegisterHostMessage):
                 if not _check_host_claims_for_host_id(claims, msg.host_id):
+                    await state.record_security_failure(auth_failure=True, detail="forbidden host registration claims")
                     await _send_error(websocket, "forbidden_claims", "Token claims do not allow this host registration")
                     continue
 
@@ -417,6 +418,7 @@ async def handle_client_ws(
 
             if isinstance(msg, RegisterClientMessage):
                 if not _check_client_claims_for_client_id(claims, msg.client_id):
+                    await state.record_security_failure(auth_failure=True, detail="forbidden client registration claims")
                     await _send_error(websocket, "forbidden_claims", "Token claims do not allow this client registration")
                     continue
 
@@ -454,9 +456,11 @@ async def handle_client_ws(
                     await _send_error(websocket, "client_mismatch", "Client ID does not match registered client")
                     continue
                 if not _check_client_claims_for_client_id(claims, msg.client_id):
+                    await state.record_security_failure(auth_failure=True, detail="forbidden client grant request claims")
                     await _send_error(websocket, "forbidden_claims", "Token claims do not allow this client grant request")
                     continue
                 if not _check_client_claims_for_target_host(claims, msg.host_id):
+                    await state.record_security_failure(auth_failure=True, detail="forbidden target host claims")
                     await _send_error(websocket, "forbidden_claims", "Token claims do not allow connecting to this host")
                     continue
 
@@ -473,6 +477,7 @@ async def handle_client_ws(
                     grant_session_id = uuid4().hex
                     grant_token = issue_connection_grant_token(auth_config, msg.client_id, msg.host_id, grant_session_id)
                 except AuthError as ex:
+                    await state.record_security_failure(handshake_failure=True, detail=str(ex))
                     await _send_error(websocket, "grant_issue_failed", str(ex))
                     continue
 
@@ -495,9 +500,11 @@ async def handle_client_ws(
                     await _send_error(websocket, "client_mismatch", "Client ID does not match registered client")
                     continue
                 if not _check_client_claims_for_client_id(claims, msg.client_id):
+                    await state.record_security_failure(auth_failure=True, detail="forbidden client connect claims")
                     await _send_error(websocket, "forbidden_claims", "Token claims do not allow this client connect request")
                     continue
                 if not _check_client_claims_for_target_host(claims, msg.host_id):
+                    await state.record_security_failure(auth_failure=True, detail="forbidden target host connect claims")
                     await _send_error(websocket, "forbidden_claims", "Token claims do not allow connecting to this host")
                     continue
 
@@ -506,6 +513,7 @@ async def handle_client_ws(
                 if auth_config and auth_config.require_connection_grant:
                     token = (msg.connection_grant_token or "").strip()
                     if not token:
+                        await state.record_security_failure(handshake_failure=True, detail="missing connection grant token")
                         await _send_error(websocket, "missing_connection_grant", "Connection grant token is required")
                         continue
 
@@ -513,6 +521,7 @@ async def handle_client_ws(
                         grant_claims = validate_connection_grant_token(token, auth_config, msg.client_id, msg.host_id)
                         grant_session_id = str(grant_claims.get("session_id", "")).strip() or None
                     except AuthError as ex:
+                        await state.record_security_failure(handshake_failure=True, detail=str(ex))
                         await _send_error(websocket, "invalid_connection_grant", str(ex))
                         continue
 
@@ -536,6 +545,7 @@ async def handle_client_ws(
                         session_id=grant_session_id,
                     )
                 except ValueError:
+                    await state.record_security_failure(handshake_failure=True, detail="connection grant session id already used")
                     await _send_error(websocket, "invalid_connection_grant", "connection grant session id already used")
                     continue
 

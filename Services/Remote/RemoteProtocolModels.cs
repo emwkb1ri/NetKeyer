@@ -110,7 +110,10 @@ public class HeartbeatPayload
     public long SenderTickMs { get; set; }
     public bool IsTransmitModeCW { get; set; } = true;
     public string TransmitMode { get; set; } = "CW";
+    public double HandshakeDurationMs { get; set; }
     public double LastLagMs { get; set; }
+    public double P50LagMs { get; set; }
+    public double P95LagMs { get; set; }
     public double AvgLagMs { get; set; }
     public double MaxLagMs { get; set; }
     public double JitterMs { get; set; }

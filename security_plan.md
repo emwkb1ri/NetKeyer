@@ -516,9 +516,9 @@ Implementation notes:
 
 ### Phase 5 Kickoff (Validation and Rollout PRs)
 - [x] Add security telemetry metrics (auth failures, handshake failures, replay rejects, decrypt failures).
-- [ ] Add latency telemetry for handshake and keying p50/p95.
+- [x] Add latency telemetry for handshake and keying p50/p95.
 - [x] Add integration tests for secure direct, secure relay, expiry, and replay paths.
-- [ ] Add staged rollout flags and environment defaults for progressive enforcement.
+- [x] Add staged rollout flags and environment defaults for progressive enforcement.
 - [ ] Add runbooks for cert rotation, key rotation, and security incident response.
 
 Implementation notes:
@@ -532,6 +532,10 @@ Implementation notes:
    - `handshake_failures`: connection-grant issuance/validation and handshake gating failures.
    - `replay_rejects`: replay-protection rejects (for example reused grant/token identifiers).
    - `decrypt_failures`: token crypto validation failures (invalid signed token/grant decode).
+- Remote keying latency telemetry now includes handshake duration and percentile lag summaries in host/client operating views:
+   - line 1 includes secure handshake duration plus keying lag `last`, `p50`, and `p95`.
+   - line 2 includes accepted frames (60s), stale drops, and max lag (60s).
+- Progressive rollout defaults are now supported by `RENDEZVOUS_SECURITY_STAGE` (`compat`, `tokens`, `grants`, `strict`) with explicit per-flag environment variables still taking precedence.
 - Relay and mapped session success now explicitly report connected state so active sessions are retained in stats.
 
 ### Acceptance Gates

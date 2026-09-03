@@ -477,7 +477,10 @@ public class RemoteClientService : IRemoteClientService
         {
             IsTransmitModeCW = heartbeat?.IsTransmitModeCW ?? true,
             TransmitMode = heartbeat?.TransmitMode ?? "CW",
+            HandshakeDurationMs = heartbeat?.HandshakeDurationMs ?? 0,
             LastLagMs = heartbeat?.LastLagMs ?? 0,
+            P50LagMs = heartbeat?.P50LagMs ?? 0,
+            P95LagMs = heartbeat?.P95LagMs ?? 0,
             AvgLagMs = heartbeat?.AvgLagMs ?? 0,
             MaxLagMs = heartbeat?.MaxLagMs ?? 0,
             JitterMs = heartbeat?.JitterMs ?? 0,

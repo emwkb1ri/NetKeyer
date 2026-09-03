@@ -20,6 +20,43 @@ LOGGER = logging.getLogger("netkeyer.rendezvous")
 
 state = RendezvousState()
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_security_stage(value: str | None) -> str:
+    stage = (value or "compat").strip().lower()
+    if stage not in {"compat", "tokens", "grants", "strict"}:
+        return "compat"
+    return stage
+
+
+SECURITY_STAGE = _normalize_security_stage(os.getenv("RENDEZVOUS_SECURITY_STAGE", "compat"))
+
+
+def _stage_default_signed_tokens(stage: str) -> bool:
+    return stage in {"tokens", "grants", "strict"}
+
+
+def _stage_default_allow_legacy(stage: str) -> bool:
+    return stage == "compat"
+
+
+def _stage_default_require_jti(stage: str) -> bool:
+    return stage in {"grants", "strict"}
+
+
+def _stage_default_require_connection_grant(stage: str) -> bool:
+    return stage in {"grants", "strict"}
+
+
+def _stage_default_require_protocol_version(stage: str) -> bool:
+    return stage == "strict"
+
 RELAY_HOST = os.getenv("RENDEZVOUS_RELAY_HOST", "relay")
 RELAY_PORT = int(os.getenv("RENDEZVOUS_RELAY_PORT", "49921"))
 SWEEP_INTERVAL_SECONDS = int(os.getenv("RENDEZVOUS_SWEEP_INTERVAL_SECONDS", "5"))
@@ -33,25 +70,35 @@ PORTMAP_INTERNAL_IP = os.getenv("RENDEZVOUS_PORTMAP_INTERNAL_IP", "").strip()
 NATPMP_GATEWAY_IP = os.getenv("RENDEZVOUS_NATPMP_GATEWAY_IP", "").strip()
 VERSION_INFO = load_version_block(component="rendezvous")
 FORCE_RELAY = os.getenv("RENDEZVOUS_FORCE_RELAY", "false").strip().lower() in {"1", "true", "yes", "on"}
-REQUIRE_SIGNED_TOKENS = os.getenv("RENDEZVOUS_REQUIRE_SIGNED_TOKENS", "false").strip().lower() in {"1", "true", "yes", "on"}
-ALLOW_LEGACY_NO_TOKEN = os.getenv("RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN", "true").strip().lower() in {"1", "true", "yes", "on"}
+REQUIRE_SIGNED_TOKENS = _env_bool(
+    "RENDEZVOUS_REQUIRE_SIGNED_TOKENS",
+    _stage_default_signed_tokens(SECURITY_STAGE),
+)
+ALLOW_LEGACY_NO_TOKEN = _env_bool(
+    "RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN",
+    _stage_default_allow_legacy(SECURITY_STAGE),
+)
 JWT_SECRET = os.getenv("RENDEZVOUS_JWT_SECRET", "")
 JWT_ISSUER = os.getenv("RENDEZVOUS_JWT_ISSUER", "").strip()
 JWT_AUDIENCE = os.getenv("RENDEZVOUS_JWT_AUDIENCE", "").strip()
 JWT_REQUIRED_SCOPE_HOST = os.getenv("RENDEZVOUS_JWT_REQUIRED_SCOPE_HOST", "").strip()
 JWT_REQUIRED_SCOPE_CLIENT = os.getenv("RENDEZVOUS_JWT_REQUIRED_SCOPE_CLIENT", "").strip()
-JWT_REQUIRE_JTI = os.getenv("RENDEZVOUS_JWT_REQUIRE_JTI", "true").strip().lower() in {"1", "true", "yes", "on"}
+JWT_REQUIRE_JTI = _env_bool(
+    "RENDEZVOUS_JWT_REQUIRE_JTI",
+    _stage_default_require_jti(SECURITY_STAGE),
+)
 JWT_REPLAY_TTL_SECONDS = int(os.getenv("RENDEZVOUS_JWT_REPLAY_TTL_SECONDS", "600"))
 JWT_REPLAY_CACHE_MAX_ENTRIES = int(os.getenv("RENDEZVOUS_JWT_REPLAY_CACHE_MAX_ENTRIES", "50000"))
-REQUIRE_CONNECTION_GRANT = os.getenv("RENDEZVOUS_REQUIRE_CONNECTION_GRANT", "false").strip().lower() in {"1", "true", "yes", "on"}
+REQUIRE_CONNECTION_GRANT = _env_bool(
+    "RENDEZVOUS_REQUIRE_CONNECTION_GRANT",
+    _stage_default_require_connection_grant(SECURITY_STAGE),
+)
 CONNECTION_GRANT_TTL_SECONDS = int(os.getenv("RENDEZVOUS_CONNECTION_GRANT_TTL_SECONDS", "30"))
 CONNECTION_GRANT_SECRET = os.getenv("RENDEZVOUS_CONNECTION_GRANT_SECRET", "")
-JWT_REQUIRE_PROTOCOL_VERSION = os.getenv("RENDEZVOUS_JWT_REQUIRE_PROTOCOL_VERSION", "false").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
+JWT_REQUIRE_PROTOCOL_VERSION = _env_bool(
+    "RENDEZVOUS_JWT_REQUIRE_PROTOCOL_VERSION",
+    _stage_default_require_protocol_version(SECURITY_STAGE),
+)
 HEALTH_ACCESS_MODE = os.getenv("RENDEZVOUS_HEALTH_ACCESS_MODE", "private").strip().lower()
 HEALTH_ALLOWED_CIDRS = [
     value.strip()
@@ -145,15 +192,19 @@ async def _session_sweeper() -> None:
 @contextlib.asynccontextmanager
 async def lifespan(_: FastAPI):
     LOGGER.info(
-        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s force_relay=%s require_signed_tokens=%s legacy_no_token=%s",
+        "rendezvous starting services_version=%s protocol=%s tag=%s commit=%s built_at=%s force_relay=%s security_stage=%s require_signed_tokens=%s legacy_no_token=%s require_connection_grant=%s require_jti=%s require_protocol_claim=%s",
         VERSION_INFO.get("services_version", ""),
         VERSION_INFO.get("protocol_version", ""),
         VERSION_INFO.get("build", {}).get("tag", ""),
         VERSION_INFO.get("build", {}).get("commit", ""),
         VERSION_INFO.get("build", {}).get("built_at_utc", ""),
         FORCE_RELAY,
+        SECURITY_STAGE,
         REQUIRE_SIGNED_TOKENS,
         ALLOW_LEGACY_NO_TOKEN,
+        REQUIRE_CONNECTION_GRANT,
+        JWT_REQUIRE_JTI,
+        JWT_REQUIRE_PROTOCOL_VERSION,
     )
     await asyncio.to_thread(PORT_MAPPER.run_mapping)
     sweeper = asyncio.create_task(_session_sweeper())

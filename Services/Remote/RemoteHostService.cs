@@ -40,6 +40,8 @@ public class RemoteHostService : IRemoteHostService
         public long MinRawSenderTickAgeMs = long.MaxValue;
         public double LastRawApparentAgeMs;
         public double LastLagMs;
+        public double P50LagMs;
+        public double P95LagMs;
         public double AvgLagMs;
         public double MaxLagMs;
         public double JitterMs;
@@ -372,13 +374,20 @@ public class RemoteHostService : IRemoteHostService
 
             if (_telemetryByClientId.TryGetValue(existing.ClientId, out var telemetry))
             {
+                existing.HandshakeDurationMs = session.HandshakeDurationMs;
                 existing.LastLagMs = telemetry.LastLagMs;
+                existing.P50LagMs = telemetry.P50LagMs;
+                existing.P95LagMs = telemetry.P95LagMs;
                 existing.AvgLagMs = telemetry.AvgLagMs;
                 existing.MaxLagMs = telemetry.MaxLagMs;
                 existing.JitterMs = telemetry.JitterMs;
                 existing.AcceptedFrames = telemetry.AcceptedFrames;
                 existing.AcceptedFramesLast60s = telemetry.AcceptedFramesLast60s;
                 existing.DroppedStaleFrames = telemetry.DroppedStaleFrames;
+            }
+            else
+            {
+                existing.HandshakeDurationMs = session.HandshakeDurationMs;
             }
 
             RemoveStaleDisconnectedEntries();
@@ -451,7 +460,10 @@ public class RemoteHostService : IRemoteHostService
                 Status = s.Status,
                 FirstSeenUtc = s.FirstSeenUtc,
                 LastUpdatedUtc = s.LastUpdatedUtc,
+                HandshakeDurationMs = s.HandshakeDurationMs,
                 LastLagMs = s.LastLagMs,
+                P50LagMs = s.P50LagMs,
+                P95LagMs = s.P95LagMs,
                 AvgLagMs = s.AvgLagMs,
                 MaxLagMs = s.MaxLagMs,
                 JitterMs = s.JitterMs,
@@ -594,6 +606,7 @@ public class RemoteHostService : IRemoteHostService
             telemetry.LagSamples.Enqueue((now, lag));
             PruneTelemetryWindows(telemetry, now);
             telemetry.MaxLagMs = telemetry.LagSamples.Count == 0 ? lag : telemetry.LagSamples.Max(s => s.LagMs);
+            (telemetry.P50LagMs, telemetry.P95LagMs) = ComputeLagPercentiles(telemetry.LagSamples);
 
             if (accepted)
             {
@@ -619,6 +632,8 @@ public class RemoteHostService : IRemoteHostService
             }
 
             existing.LastLagMs = telemetry.LastLagMs;
+            existing.P50LagMs = telemetry.P50LagMs;
+            existing.P95LagMs = telemetry.P95LagMs;
             existing.AvgLagMs = telemetry.AvgLagMs;
             existing.MaxLagMs = telemetry.MaxLagMs;
             existing.JitterMs = telemetry.JitterMs;
@@ -638,7 +653,7 @@ public class RemoteHostService : IRemoteHostService
 
         telemetry.NextLogAtUtc = now.AddSeconds(5);
         DebugLogger.LogAlways("remote-telemetry",
-            $"Telemetry {clientId}: raw={telemetry.LastRawApparentAgeMs:F1}ms baseline={telemetry.MinRawApparentAgeMs}ms last_norm={telemetry.LastLagMs:F1}ms avg_norm={telemetry.AvgLagMs:F1}ms max_norm_60s={telemetry.MaxLagMs:F1}ms jitter={telemetry.JitterMs:F1}ms accepted60s={telemetry.AcceptedFramesLast60s} accepted={telemetry.AcceptedFrames} dropped_stale={telemetry.DroppedStaleFrames}");
+            $"Telemetry {clientId}: raw={telemetry.LastRawApparentAgeMs:F1}ms baseline={telemetry.MinRawApparentAgeMs}ms last_norm={telemetry.LastLagMs:F1}ms p50_norm={telemetry.P50LagMs:F1}ms p95_norm={telemetry.P95LagMs:F1}ms avg_norm={telemetry.AvgLagMs:F1}ms max_norm_60s={telemetry.MaxLagMs:F1}ms jitter={telemetry.JitterMs:F1}ms accepted60s={telemetry.AcceptedFramesLast60s} accepted={telemetry.AcceptedFrames} dropped_stale={telemetry.DroppedStaleFrames}");
     }
 
     private HeartbeatPayload BuildHeartbeatPayloadForClient(string clientId)
@@ -653,6 +668,11 @@ public class RemoteHostService : IRemoteHostService
         if (string.IsNullOrWhiteSpace(clientId))
         {
             return payload;
+        }
+
+        if (_sessions.TryGetValue(clientId, out var session))
+        {
+            payload.HandshakeDurationMs = session.HandshakeDurationMs;
         }
 
         if (!_telemetryByClientId.TryGetValue(clientId, out var telemetry))
@@ -670,11 +690,14 @@ public class RemoteHostService : IRemoteHostService
             PruneTelemetryWindows(telemetry, now);
             telemetry.AcceptedFramesLast60s = telemetry.AcceptedFrameTimestamps.Count;
             telemetry.MaxLagMs = telemetry.LagSamples.Count == 0 ? 0 : telemetry.LagSamples.Max(s => s.LagMs);
+            (telemetry.P50LagMs, telemetry.P95LagMs) = ComputeLagPercentiles(telemetry.LagSamples);
 
             windowTelemetryChanged = telemetry.AcceptedFramesLast60s != previousAcceptedFramesLast60s
                 || Math.Abs(telemetry.MaxLagMs - previousMaxLagMs) > 0.05;
 
             payload.LastLagMs = telemetry.LastLagMs;
+            payload.P50LagMs = telemetry.P50LagMs;
+            payload.P95LagMs = telemetry.P95LagMs;
             payload.AvgLagMs = telemetry.AvgLagMs;
             payload.MaxLagMs = telemetry.MaxLagMs;
             payload.JitterMs = telemetry.JitterMs;
@@ -690,6 +713,9 @@ public class RemoteHostService : IRemoteHostService
                 var existing = _clientStatuses.FirstOrDefault(s => s.ClientId == clientId);
                 if (existing != null)
                 {
+                    existing.HandshakeDurationMs = payload.HandshakeDurationMs;
+                    existing.P50LagMs = payload.P50LagMs;
+                    existing.P95LagMs = payload.P95LagMs;
                     existing.MaxLagMs = payload.MaxLagMs;
                     existing.AcceptedFramesLast60s = payload.AcceptedFramesLast60s;
                     PublishClientStatuses();
@@ -712,6 +738,38 @@ public class RemoteHostService : IRemoteHostService
         {
             telemetry.AcceptedFrameTimestamps.Dequeue();
         }
+    }
+
+    private static (double P50LagMs, double P95LagMs) ComputeLagPercentiles(Queue<(DateTime TimestampUtc, double LagMs)> samples)
+    {
+        if (samples == null || samples.Count == 0)
+        {
+            return (0, 0);
+        }
+
+        double[] ordered = samples.Select(s => s.LagMs).OrderBy(v => v).ToArray();
+        return (ComputePercentile(ordered, 0.50), ComputePercentile(ordered, 0.95));
+    }
+
+    private static double ComputePercentile(double[] orderedValues, double percentile)
+    {
+        if (orderedValues == null || orderedValues.Length == 0)
+        {
+            return 0;
+        }
+
+        double clampedPercentile = Math.Max(0, Math.Min(1, percentile));
+        double index = (orderedValues.Length - 1) * clampedPercentile;
+        int lower = (int)Math.Floor(index);
+        int upper = (int)Math.Ceiling(index);
+
+        if (lower == upper)
+        {
+            return orderedValues[lower];
+        }
+
+        double weight = index - lower;
+        return orderedValues[lower] + ((orderedValues[upper] - orderedValues[lower]) * weight);
     }
 
     public void Dispose()

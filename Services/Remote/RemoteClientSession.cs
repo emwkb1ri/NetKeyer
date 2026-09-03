@@ -26,6 +26,7 @@ public class RemoteClientSession : IDisposable
     public string RemoteEndpoint { get; }
     public string RemoteIp { get; }
     public string Callsign { get; private set; } = "";
+    public double HandshakeDurationMs { get; private set; }
 
     public event EventHandler<RemotePaddleStateEventArgs> PaddleStateReceived;
     public event EventHandler<RemoteClientSession> SessionClosed;
@@ -71,6 +72,8 @@ public class RemoteClientSession : IDisposable
                         handshake.ReceiveKey,
                         handshake.SendNoncePrefix,
                         handshake.ReceiveNoncePrefix);
+                    HandshakeDurationMs = handshake.HandshakeDurationMs;
+                    SessionMetadataChanged?.Invoke(this, this);
                     DebugLogger.LogAlways("remote", $"Host secure handshake completed: session={handshake.SessionId} suite={handshake.SelectedSuite} client={ClientId}");
                 }
                 catch (Exception ex)

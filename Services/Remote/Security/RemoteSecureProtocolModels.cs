@@ -33,6 +33,7 @@ public sealed class RemoteHandshakeResult
     public string SessionId { get; set; } = string.Empty;
     public bool IsDirectPath { get; set; }
     public string SelectedSuite { get; set; } = string.Empty;
+    public double HandshakeDurationMs { get; set; }
     public byte[] SendKey { get; set; } = Array.Empty<byte>();
     public byte[] ReceiveKey { get; set; } = Array.Empty<byte>();
     public byte[] SendNoncePrefix { get; set; } = Array.Empty<byte>();

@@ -96,6 +96,7 @@ Phase 3 handshake should bind to Phase 2 grant context:
 - Transcript hash/signature verification is performed during handshake.
 - Directional traffic keys and nonce prefixes are derived from handshake shared secret.
 - Post-handshake control frames are wrapped in `secureFrame` payloads and AEAD protected.
+- Heartbeat telemetry now carries secure handshake duration plus normalized keying lag summaries (`last`, `p50`, `p95`, `max`) for remote latency observability.
 
 Feature flags:
 

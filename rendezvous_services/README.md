@@ -246,6 +246,14 @@ Use both flags together when collecting controlled relay-only latency measuremen
 
 Phase 2 auth controls (JWT rollout):
 
+- `RENDEZVOUS_SECURITY_STAGE=compat`
+  - Progressive enforcement profile. Stages:
+    - `compat`: tokenless compatibility defaults (`require_signed=false`, `allow_legacy=true`, `require_connection_grant=false`, `require_jti=false`, `require_protocol_claim=false`)
+    - `tokens`: signed-token defaults (`require_signed=true`, `allow_legacy=false`)
+    - `grants`: token defaults plus connection-grant enforcement (`require_connection_grant=true`, `require_jti=true`)
+    - `strict`: grants stage plus protocol claim enforcement (`require_protocol_claim=true`)
+  - Any explicit per-flag env var below overrides stage defaults.
+
 - `RENDEZVOUS_REQUIRE_SIGNED_TOKENS=true`
   - Enforces signed JWT authentication on websocket rendezvous endpoints.
 - `RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN=true`
@@ -320,12 +328,14 @@ Token issuance and refresh model:
 Recommended staged rollout:
 
 1. Compatibility start:
-  - `RENDEZVOUS_REQUIRE_SIGNED_TOKENS=false`
-  - `RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN=true`
+  - `RENDEZVOUS_SECURITY_STAGE=compat`
 2. Distribute app tokens and monitor denied-auth logs.
-3. Enforcement:
-  - `RENDEZVOUS_REQUIRE_SIGNED_TOKENS=true`
-  - `RENDEZVOUS_AUTH_ALLOW_LEGACY_NO_TOKEN=false`
+3. Token enforcement:
+  - `RENDEZVOUS_SECURITY_STAGE=tokens`
+4. Grant enforcement:
+  - `RENDEZVOUS_SECURITY_STAGE=grants`
+5. Strict enforcement:
+  - `RENDEZVOUS_SECURITY_STAGE=strict`
 
 App token forwarding:
 

@@ -80,7 +80,7 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - Active-client ownership lock to prevent simultaneous multi-client keying contention
   - Configurable client ownership hold time from 0.5 to 30.0 seconds (default 1.0 second)
   - Stale-frame drop policy to reject delayed paddle frames before keying
-  - Host and client telemetry summaries for last lag, avg lag, max lag (60s), accepted frames (60s), and stale drops
+  - Host and client telemetry summaries for handshake latency, last lag, keying p50/p95 lag, max lag (60s), accepted frames (60s), and stale drops
   - Telemetry lag values are normalized per client to remove static clock-skew bias while preserving observed network delay variation
   - Default TCP port is `49923`
   - Client keeps local sidetone active, host mutes local sidetone
@@ -228,8 +228,8 @@ Operating-page telemetry:
 - Host and Client connection list and status
 - compact two-line telemetry display.
 - Telemetry fields:
-  - Line 1: last lag, avg lag, max lag (last 60 seconds)
-  - Line 2: accepted frames in last 60 seconds, stale drops
+  - Line 1: secure handshake duration, last lag, keying p50 lag, keying p95 lag
+  - Line 2: accepted frames in last 60 seconds, stale drops, max lag (last 60 seconds)
 - 60-second window metrics age out during idle periods (for example accepted 60s returns to 0 if no frames are received in the last 60 seconds).
 - Telemetry text is rendered with high-contrast styling for readability in operating view.
 

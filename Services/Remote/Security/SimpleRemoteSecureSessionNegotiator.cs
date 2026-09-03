@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -24,6 +25,8 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
         {
             throw new ArgumentNullException(nameof(transport));
         }
+
+        var handshakeTimer = Stopwatch.StartNew();
 
         RemoteIdentityKeyPair clientIdentity = await _identityKeyProvider.GetOrCreateIdentityAsync(ct);
 
@@ -83,6 +86,7 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
             SessionId = response.SessionId,
             IsDirectPath = false,
             SelectedSuite = response.Suite,
+            HandshakeDurationMs = handshakeTimer.Elapsed.TotalMilliseconds,
             SendKey = Slice(keyMaterial, 0, 32),
             ReceiveKey = Slice(keyMaterial, 32, 32),
             SendNoncePrefix = Slice(keyMaterial, 64, 4),
@@ -96,6 +100,8 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
         {
             throw new ArgumentNullException(nameof(transport));
         }
+
+        var handshakeTimer = Stopwatch.StartNew();
 
         RemoteIdentityKeyPair hostIdentity = await _identityKeyProvider.GetOrCreateIdentityAsync(ct);
 
@@ -147,6 +153,7 @@ public sealed class SimpleRemoteSecureSessionNegotiator : IRemoteSecureSessionNe
             SessionId = response.SessionId,
             IsDirectPath = false,
             SelectedSuite = response.Suite,
+            HandshakeDurationMs = handshakeTimer.Elapsed.TotalMilliseconds,
             SendKey = Slice(keyMaterial, 32, 32),
             ReceiveKey = Slice(keyMaterial, 0, 32),
             SendNoncePrefix = Slice(keyMaterial, 68, 4),

@@ -11,6 +11,8 @@ The rendezvous health endpoint is available at `/health` on port `49920`.
 
 Phase 1 security work has started with an nginx TLS ingress overlay for controlled testing.
 
+Security runbooks are documented in `../docs/security/phase5-operations-runbook.md`.
+
 ## Prerequisites
 
 - Python 3.11+

@@ -519,7 +519,7 @@ Implementation notes:
 - [x] Add latency telemetry for handshake and keying p50/p95.
 - [x] Add integration tests for secure direct, secure relay, expiry, and replay paths.
 - [x] Add staged rollout flags and environment defaults for progressive enforcement.
-- [ ] Add runbooks for cert rotation, key rotation, and security incident response.
+- [x] Add runbooks for cert rotation, key rotation, and security incident response.
 
 Implementation notes:
 
@@ -536,6 +536,11 @@ Implementation notes:
    - line 1 includes secure handshake duration plus keying lag `last`, `p50`, and `p95`.
    - line 2 includes accepted frames (60s), stale drops, and max lag (60s).
 - Progressive rollout defaults are now supported by `RENDEZVOUS_SECURITY_STAGE` (`compat`, `tokens`, `grants`, `strict`) with explicit per-flag environment variables still taking precedence.
+- Phase 5 operations runbook published at `docs/security/phase5-operations-runbook.md` covering:
+   - TLS certificate rotation and rollback
+   - rendezvous signing secret rotation and rollback
+   - desktop remote identity key rotation and rollback
+   - incident response containment, evidence collection, and recovery
 - Relay and mapped session success now explicitly report connected state so active sessions are retained in stats.
 
 ### Acceptance Gates

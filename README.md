@@ -250,6 +250,7 @@ Remote security defaults:
   - `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT`
   - `NETKEYER_VALIDATE_RELAY_CIPHERTEXT`
 - Security policy failures are surfaced as actionable, non-sensitive UI status messages; detailed failure internals remain in debug logs.
+- Security operations runbook (Phase 5): `docs/security/phase5-operations-runbook.md`
 
 ## Rendezvous and Relay Services
 

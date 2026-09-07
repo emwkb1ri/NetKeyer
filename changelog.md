@@ -2,6 +2,36 @@
 
 <!-- markdownlint-disable MD022 MD024 MD032 -->
 
+## 2026-09-07 (Revision 2.1.42, Services 0.1.8)
+
+### Added
+- Detailed sidetone latency probe instrumentation for keying analysis, including:
+  - input closure, controller dispatch/entry, sidetone start call, tone-start callback,
+    first non-silent sample, first audible threshold sample, and audio-idle checkpoints.
+- Audio settings controls for latency diagnostics and device behavior:
+  - `Enable detailed timing analysis logging` toggle (disabled by default).
+  - Persisted one-shot `ForceEnableKeepAudioDeviceAwakeAtStartup` migration setting.
+
+### Changed
+- Setup-page rendezvous host discovery display now shows host identity and utilization as:
+  - `'HostID' - HostName (connectedClients/MaxClients)`.
+- Remote Host ID persistence was split by role to prevent cross-mode field bleed:
+  - `RemoteHostId` is now used for Host mode.
+  - `RemoteRendezvousHostId` remains for Client mode target selection.
+  - Mode switching now repopulates the Host ID field from the correct persisted value.
+- Host-mode rendezvous registration now resolves Host ID from host-specific settings first,
+  with fallback to host name/machine name when not configured.
+
+### Fixed
+- Switching from Client mode to Host mode no longer leaves the Host ID field populated with
+  the last client target host.
+- Measured first-element sidetone delay after long idle was reduced on affected systems by
+  applying keep-awake behavior for output-device stability.
+
+### Release Tags
+- Client release tag: `v2.1.42`
+- Rendezvous services release tag: `rs-v0.1.8`
+
 ## 2026-09-06 (Revision 2.1.41, Services 0.1.7)
 
 ### Added

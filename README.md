@@ -4,6 +4,25 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 
 ## Recent Changes
 
+- **Revision 2.1.42 (2026-09-07)**
+  - Added detailed sidetone timing probe instrumentation for diagnostics, including:
+    - input closure, controller dispatch/entry, sidetone start call, tone-start callback,
+      first non-silent sample, first audible threshold sample, and audio-idle checkpoints.
+  - Added audio settings controls for latency diagnostics:
+    - `Enable detailed timing analysis logging` toggle (disabled by default).
+    - one-shot persisted startup migration option to force-enable keep-awake behavior.
+  - Updated setup-page rendezvous host discovery display format to:
+    - `'HostID' - HostName (connectedClients/MaxClients)`.
+  - Split Host ID persistence by role to prevent host/client field crossover:
+    - Host mode uses `RemoteHostId`.
+    - Client mode uses `RemoteRendezvousHostId`.
+    - Switching modes now repopulates the Host ID field from the correct saved value.
+  - Updated host rendezvous registration to resolve Host ID from host-specific settings first,
+    with fallback to host name/machine name when needed.
+  - Release tags for this set:
+    - Client: `v2.1.42`
+    - Rendezvous services: `rs-v0.1.8`
+
 - **Revision 2.1.41 (2026-09-06)**
   - Completed the Phase 5 security implementation and operations baseline for remote+rendezvous.
   - Added staged rendezvous auth/security controls with `/health` security telemetry counters:

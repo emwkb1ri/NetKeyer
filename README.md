@@ -150,7 +150,247 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   developer contract with FlexRadio if they want to use SmartLink. This is the best compromise
   we can manage for an open-source app.
 
-## Building
+## Usage
+
+### Menu
+
+**Settings**:
+
+- **Audio Output Devices**:
+  - choose the Audio Output Device for sidetone - typically `System Default`
+  - tick Aggressive Low-Latency Mode
+  - tick Keep audio device awake (especially on laptops)
+  - Do Not tick Enable detailed timing analysis unless requested by developer
+
+- **MIDI Note Mapping**:
+  - set MIDI Note mappings - Defaults are usually fine
+
+- **Access Token**:
+  - Set Rendezvous server authentication token
+  - tick `Generate JWT`
+  - enter information provided by the remote station owner or server admin
+  - For initial testing use the following:
+    - Key ID: public
+    - ID Key Secret: 
+    - Issuer: netkeyer-auth
+    - Audience: netkeyer
+    - Token TTL: 30
+  - contact NR4O at `nr4o@att.net` for a unique security key for your station
+  - additional details on self-hosting a rendezvous server later in this document
+
+**Help**:
+
+- **Documentation**:
+  - Hyperlink to this README.md page on GitHub
+
+- **View Debug Log**:
+  - Opens directory containing debug.log and settings.json
+
+- **About NetKeyer+Remote**:
+  - Opens an About Window with `Check for Updates` button
+  - Use 'Check for Updates' to automatically load latest releases
+  - Maybe a good idea to check the Documentation link to see recent changes before updating
+
+### Setup Page
+
+### Connection Mode
+
+Use the **Connection Mode** section on the setup page to select one of these modes:
+
+- **Standalone**:
+  - Original NetKeyer behavior (local input keys local radio connection)
+  - SmartLink not supported
+- **Client**:
+  - Opens local input device and keeps local sidetone active
+  - Sends paddle/straight/PTT state with timing ticks to a remote host via TCP
+- **Host**:
+  - Connects to a local/SmartLink radio and listens for remote paddle events
+  - Mutes local sidetone while host mode is active
+  - Accepts up to 5 simultaneous TCP client connections
+  - Includes active-client ownership lock with configurable hold time
+  - Drops stale remote frames before they reach keying
+
+### Standalone Mode
+
+1. **Select Radio**:
+   - Click "Refresh" to discover FlexRadio devices
+   - Select a radio and GUI client station from the dropdown, OR
+   - Select "No radio (sidetone only)" for practice mode
+2. **Select Input Device Type**: Choose between:
+   - Serial Port (HaliKey v1) - uses CTS (left) and DSR (right) pins
+   - MIDI (HaliKey MIDI, CTR2) - uses configurable MIDI note mappings
+3. **Choose Input Device**:
+   - For Serial: Select the serial port connected to your keyer/paddle
+   - For MIDI: Select the MIDI device, then optionally click "Configure MIDI Notes..." to customize mappings
+4. **Connect**: Click "Connect" to begin operating
+
+### Operating Page
+
+1. **Monitor Paddle Status**: Visual indicators show left/right paddle state in real-time
+2. **Adjust CW Settings**:
+   - Speed (WPM): Controls dit/dah timing
+   - Sidetone: Volume of local audio feedback
+   - Pitch: Frequency of sidetone tone
+3. **Select Keyer Mode**:
+   - Iambic: Automatic dit/dah generation with Mode A or Mode B
+   - Straight Key: Direct on/off control
+4. **Swap Paddles**: Reverse left/right paddle assignment if needed
+5. **Disconnect**: Return to setup page to change settings
+
+### Client Mode
+
+### Setup Page(client mode)
+
+1. **Callsign**: Enter your callsign, name or identity for connection indentification
+2. **Use Rendezvous**: tick for remote rendezvous connection services
+3. **Test Rendezvous Auth**: click to validate Access Token in Settings menu
+4. **ID Server**: enter URL or IP address of rendezvous server (e.g., `nr4o-netkeyer.ddns.net`)
+5. **Port**: default `49920`
+6. **Host ID**: typically filled in automatically when selecting a Host
+7. **Select Host**: Choose a Host listed from the rendezvous server
+8. **Host IP**: Used when `Use Rendezvous` is not checked
+9. **Host Port**: default `49923` - client/host keying communication port
+10. **Shared Token**: Access token for host mode NetKeyer+Remote at remote radio site
+11. **Input Device Selection**: See `Standalone` description above
+12. **Connect Button**: Used to initiate connection to Host mode NetKeyer+Remote at remote site
+13. **Connect by IP**: Used for direct IP connection when not using rendezvous server
+14. **Exit**: Close the program
+
+### Host Mode
+
+### Setup Page(host mode)
+
+**Network Connection**:
+
+1. **Callsign**: Enter your station callsign
+2. **Use Rendezvous**: tick for remote rendezvous connection services
+3. **Test Rendezvous Auth**: click to validate Access Token in Settings menu
+4. **ID Server**: enter URL or IP address of rendezvous server (e.g., `nr4o-netkeyer.ddns.net`)
+5. **Port**: default `49920`
+6. **Host ID**: Set an ID for your FlexRadio - e.g. `Radio1`
+7. **Shared Token**: Access token for host mode NetKeyer+Remote at remote radio site
+
+**Host Settings**:
+
+1. **Host Name**: Program fills in host computer name
+2. **Bind Address**: leave default `0.0.0.0`
+3. **Listen Port**: default `49923` - client/host keying communication port
+4. **Max Clients**: limit concurrent remote clients (1 to 5)
+5. **Client Hold Time**: ownership hold duration after last accepted key input (0.5s to 30.0s in 0.5s increments)
+
+**Radio Selection**:
+
+1. **Pulldown**: press arrow to select radio client to send keying data
+2. **Refresh Button**: Refreshes list of discovered FlexRadio Clients found
+
+**Input Device Selection**:
+
+Not used in host mode
+
+### Operating Window
+
+**Client Mode**:
+
+- **CW Settings**: Keyer controls described in `Standalone` mode above
+
+**Client & Host Mode**:
+
+- **Status**: Provides connection status information
+- **Disconnect Button**: disconnects client or host connections
+
+- **Telemetry**:
+  - Telemetry fields:
+  - Line 1: last lag, keying p50 lag, keying p95 lag
+  - Line 2: max lag (last 60 seconds), accepted frames in last 60 seconds, stale drops
+  - Note: 60-second window metrics age out during idle periods (for example accepted 60s returns to 0 if no frames are received in the last 60 seconds).
+
+### NetKeyer+Remote Security Info
+
+**NetKeyer+Remote security defaults**:
+
+- Secure transport handshake is enabled by default
+- Secure transport is required by default (no plaintext fallback)
+- Ciphertext frame validation is enabled by default for both direct and relay transports
+- Insecure overrides are debug-gated: set `NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES=true` in a debug build
+- To opt out for local/lab debugging only, set one or more environment variables to `0`, `false`, `no`, or `off` (only honored when the debug gate above is active):
+  - `NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT`
+  - `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT`
+  - `NETKEYER_VALIDATE_RELAY_CIPHERTEXT`
+- Security policy failures are surfaced as actionable, non-sensitive UI status messages; detailed failure internals remain in debug logs.
+- Security operations runbook (Phase 5): `docs/security/phase5-operations-runbook.md`
+
+## Rendezvous Service Overview
+
+NetKeyer now includes deployment artifacts for standalone rendezvous control-plane and relay data-plane services under [rendezvous_services](rendezvous_services).
+
+The rendezvous server and relay server are Python applications requiring Python 3.11.
+These Python apps are intended to run in Docker containers therfore Docker is required
+to be installed on the system hosting these apps.  The repository contains the necessary Docker files for deployment.  It may be be necessary to open ports 49920-49922 on your router to allow the rendezvous server to be accessed over the WAN.
+
+### Rendezvous and Relay Services
+
+- **Rendezvous server**: FastAPI + WebSocket signaling for host registration, host discovery, client connect orchestration, and relay fallback signaling.
+- **Relay server**: asyncio TCP byte pipe that pairs host/client sockets by session ID and forwards bytes bidirectionally.
+- **Rendezvous health endpoint**: `/health` reports service status plus automatic router port-map attempt results when enabled.
+
+### Connection Negotiation Summary
+
+When rendezvous mode is enabled, NetKeyer negotiates transport in this order:
+
+1. **Direct**: client attempts direct TCP to the host endpoint provided by rendezvous.
+2. **Mapped-direct**: on direct timeout/failure, rendezvous requests host automatic TCP mapping (UPnP first, then NAT-PMP) and returns an updated mapped endpoint for a retry.
+3. **Relay fallback**: if mapped endpoint is unavailable or retry fails, rendezvous signals both sides to switch to relay transport.
+
+This keeps the keying data path as close to direct as possible while still providing deterministic fallback.
+
+### Container Summary
+
+|Container|Purpose|Internal Port|Host Port (default) |
+|`netkeyer-rendezvous`|HTTP/WebSocket control-plane (`/health`, `/ws/host`, `/wsclient`)|`49920`|`49920`|
+|`netkeyer-relay`|Raw TCP relay service| `49921`|`49921`|
+|`netkeyer-rendezvous-nginx` (optional)|Reverse proxy for rendezvous + optional TCP stream proxy for relay|`80` + `49922`|`8080` + `49922`|
+
+### Docker Deployment (Rendezvous Services)
+
+Compose files are split so nginx is optional:
+
+- Base services (relay + rendezvous): [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
+- Optional nginx overlay: [rendezvous_services/docker-compose.nginx.yml](rendezvous_services/docker-compose.nginx.yml)
+
+**Rendezvous security token options**:
+
+- Local ID-key mode (RustDesk-style):
+  - Enable `Generate JWT locally from ID key (RustDesk-style)` in Settings -> Access Token.
+  - Configure `kid`, key secret, issuer, audience, and token TTL.
+  - NetKeyer mints short-lived HS256 JWTs automatically for host registration, client host-discovery, and client connect requests.
+  - For server-side key rotation/revocation, configure `RENDEZVOUS_JWT_KEYS_JSON` with per-user/per-device `kid` secrets.
+  - Manual mode: set a pre-issued JWT under Settings -> Access Token (Advanced users)
+
+### Rendezvous Services Versioning Model
+
+Rendezvous and relay services are versioned as a single suite using semantic versioning.
+
+- Single source of truth: `rendezvous_services/pyproject.toml` `project.version`.
+- Wire compatibility contract: `RENDEZVOUS_SERVICES_PROTOCOL_VERSION` (defaults to `1`).
+- Build traceability metadata (optional):
+  - `RENDEZVOUS_SERVICES_BUILD_TAG`
+  - `RENDEZVOUS_SERVICES_BUILD_COMMIT`
+  - `RENDEZVOUS_SERVICES_BUILD_DATE`
+
+Runtime metadata is exposed via rendezvous `/health` (`version` block) and relay startup logs.
+
+## Compatibility matrix (maintain this table as releases evolve):
+
+|NetKeyer Desktop Revision|Supported Services Version|Protocol Version|
+|-------------------------|--------------------------|----------------|
+| 2.1.42                  | 0.1.8                    | 1              |
+| 2.1.41                  |                          |                |
+|-------------------------|--------------------------|----------------|
+| 2.1.41                  | 0.1.7                    | 1              |
+| 2.1.34                  |                          |                |
+|-------------------------|--------------------------|----------------|
+
+## NetKeyer+Remote Building
 
 ### Build Requirements
 
@@ -208,180 +448,33 @@ dotnet build
 dotnet run
 ```
 
-## Usage
-
-### Setup Page
-
-1. **SmartLink (Optional)**: Click "Enable SmartLink" to connect to remote radios via FlexRadio SmartLink
-2. **Select Radio**:
-   - Click "Refresh" to discover FlexRadio devices
-   - Select a radio and GUI client station from the dropdown, OR
-   - Select "No radio (sidetone only)" for practice mode
-3. **Select Input Device Type**: Choose between:
-   - Serial Port (HaliKey v1) - uses CTS (left) and DSR (right) pins
-   - MIDI (HaliKey MIDI, CTR2) - uses configurable MIDI note mappings
-4. **Choose Input Device**:
-   - For Serial: Select the serial port connected to your keyer/paddle
-   - For MIDI: Select the MIDI device, then optionally click "Configure MIDI Notes..." to customize mappings
-5. **Connect**: Click "Connect" to begin operating
-
-### Operating Page
-
-1. **Monitor Paddle Status**: Visual indicators show left/right paddle state in real-time
-2. **Adjust CW Settings**:
-   - Speed (WPM): Controls dit/dah timing
-   - Sidetone: Volume of local audio feedback
-   - Pitch: Frequency of sidetone tone
-3. **Select Keyer Mode**:
-   - Iambic: Automatic dit/dah generation with Mode A or Mode B
-   - Straight Key: Direct on/off control
-4. **Swap Paddles**: Reverse left/right paddle assignment if needed
-5. **Disconnect**: Return to setup page to change settings
-
-### Remote Mode
-
-Use the **Connection Mode** section on the setup page to select one of these modes:
-
-- **Standalone**: Existing behavior (local input keys local radio connection)
-- **Client**:
-  - Opens local input device and keeps local sidetone active
-  - Sends paddle/straight/PTT state with timing ticks to a remote host via TCP
-- **Host**:
-  - Connects to a local/SmartLink radio and listens for remote paddle events
-  - Mutes local sidetone while host mode is active
-  - Accepts up to 5 simultaneous TCP client connections
-  - Includes active-client ownership lock with configurable hold time
-  - Drops stale remote frames before they reach keying
-
-Rendezvous setup inputs:
-
-- **Redezvous Server**: enter only host name or IP (for example, `netkeyer.ddns.net`).
-- **Port**: default `49920`.
-- The app generates the control URL in code as `http://<server>:<port>`.
-
-Remote host setup options include:
-
-- **Max Clients**: limit concurrent remote clients (1 to 5)
-- **Client Hold Time**: ownership hold duration after last accepted key input (0.5s to 30.0s in 0.5s increments)
-
-Operating-page telemetry:
-
-- **Host Status** and **Client Status** blocks include:
-
-- Host and Client connection list and status
-- compact two-line telemetry display.
-- Telemetry fields:
-  - Line 1: last lag, keying p50 lag, keying p95 lag
-  - Line 2: max lag (last 60 seconds), accepted frames in last 60 seconds, stale drops
-- 60-second window metrics age out during idle periods (for example accepted 60s returns to 0 if no frames are received in the last 60 seconds).
-- Telemetry text is rendered with high-contrast styling for readability in operating view.
-- Handshake duration is retained in telemetry payloads/logs for diagnostics but is no longer shown in the Client Status telemetry UI line.
-
-Defaults:
-
-- Port: `49923`
-- Client target host: `127.0.0.1`
-- Host bind address: `0.0.0.0`
-
-Remote security defaults:
-
-- Secure transport handshake is enabled by default.
-- Secure transport is required by default (no plaintext fallback).
-- Ciphertext frame validation is enabled by default for both direct and relay transports.
-- Insecure overrides are debug-gated: set `NETKEYER_DEBUG_ALLOW_INSECURE_OVERRIDES=true` in a debug build.
-- To opt out for local/lab debugging only, set one or more environment variables to `0`, `false`, `no`, or `off` (only honored when the debug gate above is active):
-  - `NETKEYER_ENABLE_SECURE_REMOTE_TRANSPORT`
-  - `NETKEYER_REQUIRE_SECURE_REMOTE_TRANSPORT`
-  - `NETKEYER_VALIDATE_RELAY_CIPHERTEXT`
-- Security policy failures are surfaced as actionable, non-sensitive UI status messages; detailed failure internals remain in debug logs.
-- Security operations runbook (Phase 5): `docs/security/phase5-operations-runbook.md`
-
-Rendezvous token options:
-
-- Manual mode: set a pre-issued JWT under Settings -> Access Token.
-- Local ID-key mode (RustDesk-style):
-  - Enable `Generate JWT locally from ID key (RustDesk-style)` in Settings -> Access Token.
-  - Configure `kid`, key secret, issuer, audience, and token TTL.
-  - NetKeyer mints short-lived HS256 JWTs automatically for host registration, client host-discovery, and client connect requests.
-  - For server-side key rotation/revocation, configure `RENDEZVOUS_JWT_KEYS_JSON` with per-user/per-device `kid` secrets.
-
-## Rendezvous and Relay Services
-
-NetKeyer now includes deployment artifacts for standalone rendezvous control-plane and relay data-plane services under [rendezvous_services](rendezvous_services).
-
-The rendezvous server and relay server are Python applications requiring Python 3.11.
-These Python apps are intended to run in Docker containers therfore Docker is required
-to be installed on the system hosting these apps.  The repository contains the necessary Docker files for deployment.  It may be be necessary to open ports
-49920-49922 on your router to allow the rendezvous server to be accessed over the WAN.
-
-### Services Versioning Model
-
-Rendezvous and relay services are versioned as a single suite using semantic versioning.
-
-- Single source of truth: `rendezvous_services/pyproject.toml` `project.version`.
-- Wire compatibility contract: `RENDEZVOUS_SERVICES_PROTOCOL_VERSION` (defaults to `1`).
-- Build traceability metadata (optional):
-  - `RENDEZVOUS_SERVICES_BUILD_TAG`
-  - `RENDEZVOUS_SERVICES_BUILD_COMMIT`
-  - `RENDEZVOUS_SERVICES_BUILD_DATE`
-
-Runtime metadata is exposed via rendezvous `/health` (`version` block) and relay startup logs.
-
-Compatibility matrix (maintain this table as releases evolve):
-
-|NetKeyer Desktop Revision|Supported Services Version|Protocol Version|
-|---|---|---|
-|2.1.35+|0.1.2+|1|
-
-Release tag conventions:
+**Release tag conventions:**
 
 - Desktop client release tags use `vX.Y.Z` (example: `v2.1.35`).
 - Rendezvous services release tags use `rs-X.Y.Z` (example: `rs-0.1.2`).
 
-### Release Cut Order (v2.1.35 / rs-0.1.2)
+### Release Cut Order (Example: va.b.c / rs-vx.y.z)
 
 Use this order to avoid cross-trigger confusion between desktop and services release flows.
 
 1. Validate clean working tree and tests.
-1. Create and push services tag first: run `git tag rs-0.1.2` and `git push origin rs-0.1.2`.
-1. Build/publish rendezvous services artifact from current commit: run `./build-rendezvous-release.ps1` (Windows PowerShell) or `./build-rendezvous-release.sh` (Linux/macOS).
-1. Publish services release notes/artifact labeled `rs-0.1.2`.
-1. Create and push desktop client tag: run `git tag v2.1.35` and `git push origin v2.1.35`.
-1. Publish desktop client release notes/artifacts labeled `v2.1.35`.
-1. Post-publish verification: confirm desktop updater target/version is correct; confirm rendezvous package metadata reports `services_version=0.1.2`; confirm `/health` `version` block matches expected build tag/commit/date.
+1. Update changelog.md, README.md, rendezvous_services/README.md, pyproject.toml
+1. Build application using `build-installer.ps1` or `build-installer.sh`
+1. Create and push services tag first: run `git tag rs-vx.y.z` and `git push origin rs-vx.y.z`.
+1. Build rendezvous services artifact from current commit: run `./build-rendezvous-release.ps1` (Windows PowerShell) or `./build-rendezvous-release.sh` (Linux/macOS).
+1. Create and push desktop client tag: run `git tag va.b.c` and `git push origin vx.x.z`.
+1. Create draft release note on GitHub - save draft
+1. Run `Build Multi-Platform Installers` action on GitHub
+1. Verify successful completion and artifacts attached to release notice
+1. Upload `rendezvous_services/dist/netkeyer-rendezvous-services-x.y.z.zip` to release note - save draft
+1. Verify release notice and publish on GitHub
+1. Stop your rendezvous_services Docker containers - e.g `docker compose down`
+1. Install updated rendezvous_service files on your Docker server - `cd ~/rendezvous_services/; ./scripts/install-rendezvous-services.sh`
+1. Rebuild your rendezvous_services Docker containers - `docker compose -f docker-compose.yml -f docker-compose.nginx.yml build --no-cache`
+1. Restart your rendezvous_services Docker containers - `docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d relay rendezvous nginx`
+1. Post-publish verification: confirm desktop updater target/version is correct; confirm rendezvous package metadata reports `services_version=x.y.z`; confirm `/health` `version` block matches expected build tag/commit/date.
 
-### Service Overview
-
-- **Rendezvous server**: FastAPI + WebSocket signaling for host registration, host discovery, connect orchestration, and relay fallback signaling.
-- **Relay server**: asyncio TCP byte pipe that pairs host/client sockets by session ID and forwards bytes bidirectionally.
-- **Rendezvous health endpoint**: `/health` reports service status plus automatic router port-map attempt results when enabled.
-
-### Connection Negotiation Summary
-
-When rendezvous mode is enabled, NetKeyer negotiates transport in this order:
-
-1. **Direct**: client attempts direct TCP to the host endpoint provided by rendezvous.
-2. **Mapped-direct**: on direct timeout/failure, rendezvous requests host automatic TCP mapping (UPnP first, then NAT-PMP) and returns an updated mapped endpoint for a retry.
-3. **Relay fallback**: if mapped endpoint is unavailable or retry fails, rendezvous signals both sides to switch to relay transport.
-
-This keeps the keying data path as close to direct as possible while still providing deterministic fallback.
-
-### Container Summary
-
-|Container|Purpose|Internal Port|Host Port (default)|
-|---|---|---|---|
-|`netkeyer-rendezvous`|HTTP/WebSocket control-plane (`/health`, `/ws/host`, `/ws/client`)|`49920`|`49920`|
-|`netkeyer-relay`|Raw TCP relay service|`49921`|`49921`|
-|`netkeyer-rendezvous-nginx` (optional)|Reverse proxy for rendezvous + optional TCP stream proxy for relay|`80` + `49922`|`8080` + `49922`|
-
-## Docker Deployment (Rendezvous Services)
-
-Compose files are split so nginx is optional:
-
-- Base services (relay + rendezvous): [rendezvous_services/docker-compose.yml](rendezvous_services/docker-compose.yml)
-- Optional nginx overlay: [rendezvous_services/docker-compose.nginx.yml](rendezvous_services/docker-compose.nginx.yml)
-
-### Release Artifact Helper
+### Rendezvous Service Release Artifact Helper
 
 Use the release helper to produce a stamped deployment bundle zip that works across Windows, Linux, and macOS:
 
@@ -404,7 +497,7 @@ python release_helper.py
 
 Output:
 
-- `Releases/netkeyer-rendezvous-services-<version>.zip`
+- `rendezvous_services/dist/netkeyer-rendezvous-services-<version>.zip`
 
 The artifact includes all files required to deploy rendezvous + relay with Docker Compose, and stamps these values into `docker-compose.yml`:
 
@@ -413,8 +506,6 @@ The artifact includes all files required to deploy rendezvous + relay with Docke
 - `RENDEZVOUS_SERVICES_BUILD_TAG`
 - `RENDEZVOUS_SERVICES_BUILD_COMMIT`
 - `RENDEZVOUS_SERVICES_BUILD_DATE`
-
-Note: the release bundle intentionally excludes the optional nginx overlay for this initial deployment track.
 
 Advanced options:
 
@@ -447,7 +538,7 @@ cd rendezvous_services
 docker compose -f docker-compose.yml up -d
 ```
 
-Manual-mode recommendation:
+Manual-mode port forwarding recommendation:
 
 - The default compose preset is manual-mode with automatic router mapping disabled.
 - Configure static router forwards for stable WAN behavior:
@@ -676,12 +767,18 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
   - `by Eric NR4O`
   - `forked from NetKeyer by Andrew KC2G and contributors`
 - `Check for Updates` is enabled in the About dialog.
-- Update checks target GitHub Releases for this repository: `https://github.com/NetKeyer/NetKeyer`.
+- Update checks target GitHub Releases for this repository: `https://github.com/emwkb1ri/NetKeyer`.
 - Update install/apply requires a Velopack-installed build. When running via `dotnet run`, update status will report development mode and skip install/apply.
 
 ## Troubleshooting
 
 ### Connection Issues
+
+**Test Rendezvous Auth fails(red text)**:
+
+- Confirm `Settings/Access Token` - Rendezvous Authentication is configured properly
+- `Generate JWT` checkbox and all credentials must be filled in to authenticate
+- Obtain credentials from station owner or `Rendezvous Server` administrator
 
 **Radio not found**:
 
@@ -717,14 +814,19 @@ Default mappings (compatible with HaliKey MIDI and CTR2):
 
 Use this quick checklist before WAN testing:
 
-1. Configure the same shared token on Remote Host and Remote Client.
-2. Confirm Remote Host is listening on the expected port (default `49923`).
-3. On host, allow inbound TCP on the listen port in the OS firewall.
-4. On Windows host, ensure the firewall rule covers the active profile (Private/Public).
-5. Optional: Port forwarding, confirm router/NAT forwards the same port to the host.
-6. Start host first, then connect client.
-7. Verify expected logs: Host success `Session <id> authenticated ...`; host refusal `Connection refused ... shared token mismatch` or `missing shared token`; client refusal `Host error payload: Connection refused: ...`.
-8. If direct fails but relay succeeds, treat this as a network path issue (firewall/NAT), not a protocol failure.
+1. If `Use Rendezvous` is checked - Press `Test Rendezvous Auth` button
+   - text will turn green if authentication is working, else it will turn red
+   - Confirm `Settings/Access Token` - Rendezvous Authentication is configured properly
+   - `Generate JWT` checkbox and all credentials must be filled in to authenticate
+   - Obtain credentials from station owner or `Rendezvous Server` administrator
+1. Configure the same shared token on Remote Host and Remote Client
+1. Confirm Remote Host is listening on the expected port (default `49923`)
+1. On host, allow inbound TCP on the listen port in the OS firewall
+1. On Windows host, ensure the firewall rule covers the active profile (Private/Public)
+1. Optional: Port forwarding, confirm router/NAT forwards the same port to the host
+1. Start host first, then connect client
+1. Verify expected logs: Host success `Session <id> authenticated ...`; host refusal `Connection refused ... shared token mismatch` or `missing shared token`; client refusal `Host error payload: Connection refused: ...`
+1. If direct fails but relay succeeds, treat this as a network path issue (firewall/NAT), not a protocol failure
 
 ### Audio Issues
 

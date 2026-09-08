@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$OUTPUT_DIR" ]]; then
-  OUTPUT_DIR="$REPO_ROOT/Releases"
+  OUTPUT_DIR="$SERVICES_DIR/dist"
 fi
 
 if [[ -z "$VERSION" ]]; then

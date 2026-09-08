@@ -15,7 +15,7 @@ $RepoRoot = $PSScriptRoot
 $ServicesDir = Join-Path $RepoRoot "rendezvous_services"
 
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $RepoRoot "Releases"
+    $OutputDir = Join-Path $ServicesDir "dist"
 }
 
 $PyProjectPath = Join-Path $ServicesDir "pyproject.toml"

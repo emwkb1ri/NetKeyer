@@ -3373,7 +3373,8 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void OpenDocumentation()
     {
-        UrlHelper.OpenUrl("https://github.com/NetKeyer/NetKeyer#usage");
+        string repositoryUrl = (AppReleaseInfo.GitHubRepositoryUrl ?? string.Empty).TrimEnd('/');
+        UrlHelper.OpenUrl($"{repositoryUrl}/tree/remote#usage");
     }
 
     [RelayCommand]

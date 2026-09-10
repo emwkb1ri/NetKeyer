@@ -9,6 +9,29 @@
         WindowStartupLocation="CenterOwner"
         CanResize="true">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="MidiDialogBorderBrush" Color="#C8D2DF"/>
+                    <SolidColorBrush x:Key="MidiDialogHeaderBackgroundBrush" Color="#E7ECF3"/>
+                    <SolidColorBrush x:Key="MidiDialogHeaderForegroundBrush" Color="#1A2433"/>
+                    <SolidColorBrush x:Key="MidiDialogSectionBackgroundBrush" Color="#F7F9FC"/>
+                    <SolidColorBrush x:Key="MidiDialogSectionForegroundBrush" Color="#243246"/>
+                    <SolidColorBrush x:Key="MidiDialogSecondaryTextBrush" Color="#4A5A70"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="MidiDialogBorderBrush" Color="#4A5870"/>
+                    <SolidColorBrush x:Key="MidiDialogHeaderBackgroundBrush" Color="#2A3444"/>
+                    <SolidColorBrush x:Key="MidiDialogHeaderForegroundBrush" Color="#EAF1FF"/>
+                    <SolidColorBrush x:Key="MidiDialogSectionBackgroundBrush" Color="#1F2633"/>
+                    <SolidColorBrush x:Key="MidiDialogSectionForegroundBrush" Color="#D9E4F7"/>
+                    <SolidColorBrush x:Key="MidiDialogSecondaryTextBrush" Color="#AAB8CF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid Margin="15" RowDefinitions="Auto,Auto,*,Auto,Auto">
 
         <!-- Title and Instructions -->
@@ -18,13 +41,13 @@
                        FontWeight="Bold"/>
             <TextBlock Text="Assign MIDI notes (0-127) to one or more functions. Multiple functions can be assigned to the same note."
                        FontSize="12"
-                       Foreground="Gray"
+                       Foreground="{DynamicResource MidiDialogSecondaryTextBrush}"
                        TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- Add Note Section -->
         <Border Grid.Row="1"
-                BorderBrush="Gray"
+            BorderBrush="{DynamicResource MidiDialogBorderBrush}"
                 BorderThickness="1"
                 Padding="10"
                 CornerRadius="3"
@@ -50,7 +73,7 @@
                     <TextBlock Text="(MIDI note 0-127)"
                                VerticalAlignment="Center"
                                FontSize="11"
-                               Foreground="Gray"/>
+                               Foreground="{DynamicResource MidiDialogSecondaryTextBrush}"/>
                 </StackPanel>
                 <TextBlock Text="{Binding AddNoteError}"
                            Foreground="Red"
@@ -62,23 +85,23 @@
 
         <!-- Note Configurations Table -->
         <Border Grid.Row="2"
-                BorderBrush="Gray"
+            BorderBrush="{DynamicResource MidiDialogBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="3">
             <ScrollViewer>
                 <StackPanel>
                     <!-- Header Row -->
-                    <Border BorderBrush="LightGray"
+                        <Border BorderBrush="{DynamicResource MidiDialogBorderBrush}"
                             BorderThickness="0,0,0,1"
-                            Background="#F5F5F5"
+                            Background="{DynamicResource MidiDialogHeaderBackgroundBrush}"
                             Padding="8,6">
                         <Grid ColumnDefinitions="70,90,90,90,90,60">
-                            <TextBlock Grid.Column="0" HorizontalAlignment="Center" Text="Note #" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Grid.Column="1" HorizontalAlignment="Center" Text="Left Paddle" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Grid.Column="2" HorizontalAlignment="Center" Text="Right Paddle" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Grid.Column="3" HorizontalAlignment="Center" Text="Straight Key" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Grid.Column="4" HorizontalAlignment="Center" Text="PTT" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Grid.Column="5" HorizontalAlignment="Center" Text="Remove" FontWeight="Bold" FontSize="12"/>
+                            <TextBlock Grid.Column="0" HorizontalAlignment="Center" Text="Note #" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MidiDialogHeaderForegroundBrush}"/>
+                            <TextBlock Grid.Column="1" HorizontalAlignment="Center" Text="Left Paddle" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MidiDialogHeaderForegroundBrush}"/>
+                            <TextBlock Grid.Column="2" HorizontalAlignment="Center" Text="Right Paddle" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MidiDialogHeaderForegroundBrush}"/>
+                            <TextBlock Grid.Column="3" HorizontalAlignment="Center" Text="Straight Key" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MidiDialogHeaderForegroundBrush}"/>
+                            <TextBlock Grid.Column="4" HorizontalAlignment="Center" Text="PTT" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MidiDialogHeaderForegroundBrush}"/>
+                            <TextBlock Grid.Column="5" HorizontalAlignment="Center" Text="Remove" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource MidiDialogHeaderForegroundBrush}"/>
                         </Grid>
                     </Border>
 
@@ -86,7 +109,7 @@
                     <ItemsControl ItemsSource="{Binding NoteConfigurations}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="vm:MidiNoteConfigRow">
-                                <Border BorderBrush="LightGray"
+                                <Border BorderBrush="{DynamicResource MidiDialogBorderBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="8,6">
                                     <Grid ColumnDefinitions="70,90,90,90,90,60">
@@ -129,18 +152,18 @@
 
         <!-- Function Descriptions -->
         <Border Grid.Row="3"
-                BorderBrush="LightGray"
+                BorderBrush="{DynamicResource MidiDialogBorderBrush}"
                 BorderThickness="1"
-                Background="#FAFAFA"
+                Background="{DynamicResource MidiDialogSectionBackgroundBrush}"
                 Padding="10"
                 CornerRadius="3"
                 Margin="0,10,0,0">
             <StackPanel Spacing="4">
-                <TextBlock FontWeight="SemiBold" FontSize="11" Margin="0,0,0,3">Function Descriptions:</TextBlock>
-                <TextBlock FontSize="10" Foreground="#444">• Left Paddle: Used as dit paddle in iambic mode</TextBlock>
-                <TextBlock FontSize="10" Foreground="#444">• Right Paddle: Used as dah paddle in iambic mode</TextBlock>
-                <TextBlock FontSize="10" Foreground="#444">• Straight Key: Key down/up in straight key mode</TextBlock>
-                <TextBlock FontSize="10" Foreground="#444">• PTT: Push-to-talk for non-CW modes</TextBlock>
+                <TextBlock FontWeight="SemiBold" FontSize="11" Margin="0,0,0,3" Foreground="{DynamicResource MidiDialogSectionForegroundBrush}">Function Descriptions:</TextBlock>
+                <TextBlock FontSize="10" Foreground="{DynamicResource MidiDialogSectionForegroundBrush}">• Left Paddle: Used as dit paddle in iambic mode</TextBlock>
+                <TextBlock FontSize="10" Foreground="{DynamicResource MidiDialogSectionForegroundBrush}">• Right Paddle: Used as dah paddle in iambic mode</TextBlock>
+                <TextBlock FontSize="10" Foreground="{DynamicResource MidiDialogSectionForegroundBrush}">• Straight Key: Key down/up in straight key mode</TextBlock>
+                <TextBlock FontSize="10" Foreground="{DynamicResource MidiDialogSectionForegroundBrush}">• PTT: Push-to-talk for non-CW modes</TextBlock>
             </StackPanel>
         </Border>
 

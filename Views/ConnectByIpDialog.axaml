@@ -7,6 +7,21 @@
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ConnectDialogBorderBrush" Color="#C8D2DF"/>
+                    <SolidColorBrush x:Key="ConnectDialogSecondaryTextBrush" Color="#4A5A70"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ConnectDialogBorderBrush" Color="#4A5870"/>
+                    <SolidColorBrush x:Key="ConnectDialogSecondaryTextBrush" Color="#AAB8CF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid Margin="15" RowDefinitions="Auto,*,Auto">
 
         <!-- Header -->
@@ -16,13 +31,13 @@
                        FontWeight="Bold"/>
             <TextBlock Text="Connect directly to a radio without network discovery."
                        FontSize="12"
-                       Foreground="Gray"
+                       Foreground="{DynamicResource ConnectDialogSecondaryTextBrush}"
                        TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- Body -->
         <Border Grid.Row="1"
-                BorderBrush="Gray"
+            BorderBrush="{DynamicResource ConnectDialogBorderBrush}"
                 BorderThickness="1"
                 Padding="12"
                 CornerRadius="3">
@@ -42,7 +57,7 @@
                     <TextBlock Text="Select a station:" FontWeight="SemiBold" FontSize="13"/>
                     <TextBlock x:Name="SearchingText"
                                Text="Searching for stations..."
-                               Foreground="Gray"
+                               Foreground="{DynamicResource ConnectDialogSecondaryTextBrush}"
                                FontSize="12"/>
                     <ListBox x:Name="ClientListBox"
                              Height="110"
@@ -50,7 +65,7 @@
                 </StackPanel>
 
                 <!-- Status / error -->
-                <TextBlock x:Name="StatusText" Text="" FontSize="12" Foreground="Gray"/>
+                <TextBlock x:Name="StatusText" Text="" FontSize="12" Foreground="{DynamicResource ConnectDialogSecondaryTextBrush}"/>
                 <TextBlock x:Name="ErrorText" Text="" FontSize="12" Foreground="Red" IsVisible="False" TextWrapping="Wrap"/>
                 <ProgressBar x:Name="ProgressBar" IsIndeterminate="True" IsVisible="False" Height="4"/>
 

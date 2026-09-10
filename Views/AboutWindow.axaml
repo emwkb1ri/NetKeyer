@@ -11,6 +11,21 @@
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AboutSecondaryTextBrush" Color="#4A5A70"/>
+                    <SolidColorBrush x:Key="AboutLinkBrush" Color="#1155CC"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AboutSecondaryTextBrush" Color="#AAB8CF"/>
+                    <SolidColorBrush x:Key="AboutLinkBrush" Color="#89B8FF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Design.DataContext>
         <vm:AboutWindowViewModel/>
     </Design.DataContext>
@@ -27,7 +42,7 @@
         <TextBlock Text="{Binding VersionText}"
                    FontSize="14"
                    HorizontalAlignment="Center"
-                   Foreground="Gray"/>
+                   Foreground="{DynamicResource AboutSecondaryTextBrush}"/>
 
         <!-- Credits -->
         <TextBlock Text="by Eric NR4O"
@@ -49,7 +64,7 @@
                 Cursor="Hand"
                 Background="Transparent"
                 BorderThickness="0"
-                Foreground="Blue">
+                Foreground="{DynamicResource AboutLinkBrush}">
             <Button.Styles>
                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                     <Setter Property="TextBlock.TextDecorations" Value="Underline"/>
@@ -61,7 +76,7 @@
         <TextBlock Text="{Binding UpdateStatus}"
                    FontSize="11"
                    HorizontalAlignment="Center"
-                   Foreground="Gray"
+                   Foreground="{DynamicResource AboutSecondaryTextBrush}"
                    TextWrapping="Wrap"
                    IsVisible="{Binding !!UpdateStatus}"
                    Margin="0,5,0,0"/>

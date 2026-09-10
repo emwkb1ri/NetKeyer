@@ -8,6 +8,19 @@
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SmartLinkDialogSecondaryTextBrush" Color="#4A5A70"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SmartLinkDialogSecondaryTextBrush" Color="#AAB8CF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
 
         <!-- Title -->
@@ -35,7 +48,7 @@
         <TextBlock Grid.Row="3"
                    Name="HintTextBlock"
                    Text="Complete sign-in in your browser, then return here."
-                   Foreground="Gray"
+                   Foreground="{DynamicResource SmartLinkDialogSecondaryTextBrush}"
                    FontSize="12"
                    TextWrapping="Wrap"
                    Margin="0,0,0,10"/>

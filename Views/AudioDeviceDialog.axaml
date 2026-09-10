@@ -8,6 +8,23 @@
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AudioDialogBorderBrush" Color="#C8D2DF"/>
+                    <SolidColorBrush x:Key="AudioDialogSecondaryTextBrush" Color="#4A5A70"/>
+                    <SolidColorBrush x:Key="AudioDialogTertiaryTextBrush" Color="#5F7088"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AudioDialogBorderBrush" Color="#4A5870"/>
+                    <SolidColorBrush x:Key="AudioDialogSecondaryTextBrush" Color="#AAB8CF"/>
+                    <SolidColorBrush x:Key="AudioDialogTertiaryTextBrush" Color="#C2CEE2"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid Margin="15" RowDefinitions="Auto,*,Auto">
 
         <!-- Title and Instructions -->
@@ -17,13 +34,13 @@
                        FontWeight="Bold"/>
             <TextBlock Text="Select the audio output device for sidetone. Changes take effect immediately."
                        FontSize="12"
-                       Foreground="Gray"
+                       Foreground="{DynamicResource AudioDialogSecondaryTextBrush}"
                        TextWrapping="Wrap"/>
         </StackPanel>
 
         <!-- Device Selection -->
         <Border Grid.Row="1"
-                BorderBrush="Gray"
+            BorderBrush="{DynamicResource AudioDialogBorderBrush}"
                 BorderThickness="1"
                 Padding="12"
                 CornerRadius="3">
@@ -48,17 +65,17 @@
                           IsChecked="{Binding AggressiveLowLatency}"
                           IsVisible="{Binding IsWindowsOnly}"
                           FontSize="11"
-                          Foreground="Gray"
+                          Foreground="{DynamicResource AudioDialogSecondaryTextBrush}"
                           Margin="0,10,0,0"/>
                 <TextBlock Text="When enabled: Lowest latency, may cause audio artifacts"
                            FontSize="10"
-                           Foreground="DarkGray"
+                           Foreground="{DynamicResource AudioDialogTertiaryTextBrush}"
                            TextWrapping="Wrap"
                            Margin="20,3,0,0"
                            IsVisible="{Binding IsWindowsOnly}"/>
                 <TextBlock Text="When disabled: Higher latency, most compatible"
                            FontSize="10"
-                           Foreground="DarkGray"
+                           Foreground="{DynamicResource AudioDialogTertiaryTextBrush}"
                            TextWrapping="Wrap"
                            Margin="20,2,0,0"
                            IsVisible="{Binding IsWindowsOnly}"/>
@@ -66,17 +83,17 @@
                 <CheckBox Content="Keep audio device awake"
                           IsChecked="{Binding KeepAudioDeviceAwake}"
                           FontSize="11"
-                          Foreground="Gray"
+                          Foreground="{DynamicResource AudioDialogSecondaryTextBrush}"
                           Margin="0,10,0,0"/>
 
                 <CheckBox Content="Enable detailed timing analysis logging"
                           IsChecked="{Binding EnableDetailedTimingAnalysisLogging}"
                           FontSize="11"
-                          Foreground="Gray"
+                          Foreground="{DynamicResource AudioDialogSecondaryTextBrush}"
                           Margin="0,8,0,0"/>
                 <TextBlock Text="Disabled by default. Enable only while collecting latency diagnostics."
                            FontSize="10"
-                           Foreground="DarkGray"
+                           Foreground="{DynamicResource AudioDialogTertiaryTextBrush}"
                            TextWrapping="Wrap"
                            Margin="20,2,0,0"/>
             </StackPanel>

@@ -8,6 +8,21 @@
         WindowStartupLocation="CenterOwner"
         CanResize="false">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="TokenDialogBorderBrush" Color="#C8D2DF"/>
+                    <SolidColorBrush x:Key="TokenDialogSecondaryTextBrush" Color="#4A5A70"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="TokenDialogBorderBrush" Color="#4A5870"/>
+                    <SolidColorBrush x:Key="TokenDialogSecondaryTextBrush" Color="#AAB8CF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <Grid Margin="15" RowDefinitions="Auto,Auto,Auto">
         <StackPanel Grid.Row="0" Spacing="8" Margin="0,0,0,12">
             <TextBlock Text="Rendezvous Authentication"
@@ -15,12 +30,12 @@
                        FontWeight="Bold"/>
             <TextBlock Text="Choose manual bearer token mode or local token generation from an ID key."
                        FontSize="12"
-                       Foreground="Gray"
+                       Foreground="{DynamicResource TokenDialogSecondaryTextBrush}"
                        TextWrapping="Wrap"
                        Width="620"/>
         </StackPanel>
 
-        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Padding="12">
+        <Border Grid.Row="1" BorderBrush="{DynamicResource TokenDialogBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="12">
             <StackPanel Spacing="10" Width="620">
                 <CheckBox Content="Generate JWT locally from ID key (RustDesk-style)"
                           IsChecked="{Binding UseLocalJwtMinting}"/>
@@ -61,7 +76,7 @@
 
                 <TextBlock Text="Security note: distribute unique key IDs and secrets per trusted user/device so keys can be revoked individually."
                            FontSize="11"
-                           Foreground="Gray"
+                           Foreground="{DynamicResource TokenDialogSecondaryTextBrush}"
                            TextWrapping="Wrap"/>
 
                 <Separator Margin="0,4,0,4"/>

@@ -52,5 +52,7 @@ endif()
 # Platform-specific link flags to hide non-exported symbols
 if(UNIX AND NOT APPLE)
     target_link_options(netkeyer_midi_shim PRIVATE
+    -static-libstdc++
+    -static-libgcc
         -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
 endif()

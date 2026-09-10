@@ -20,6 +20,12 @@
     <CFBundleIdentifier>com.netkeyer.app</CFBundleIdentifier>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <LinuxX64ShimPath>native/linux-x64/libnetkeyer_midi_shim.so</LinuxX64ShimPath>
+    <LinuxArm64ShimPath>native/linux-arm64/libnetkeyer_midi_shim.so</LinuxArm64ShimPath>
+    <LinuxBuildShimPath>native/build/libnetkeyer_midi_shim.so</LinuxBuildShimPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
@@ -90,17 +96,39 @@
             OS and CPU architecture via RuntimeInformation so the correct shim is
             picked on both x64 and arm64 development machines. -->
   <ItemGroup>
-    <Content Include="native/linux-x64/libnetkeyer_midi_shim.so"
-             Condition="'$(RuntimeIdentifier)' == 'linux-x64' Or
-                        ($([MSBuild]::IsOsPlatform('Linux')) And '$(RuntimeIdentifier)' == '' And
-                         '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64')">
+    <Content Include="$(LinuxX64ShimPath)"
+         Condition="(('$(RuntimeIdentifier)' == 'linux-x64') Or
+              ($([MSBuild]::IsOsPlatform('Linux')) And '$(RuntimeIdentifier)' == '' And
+               '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64')) And
+              Exists('$(LinuxX64ShimPath)')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>libnetkeyer_midi_shim.so</TargetPath>
     </Content>
-    <Content Include="native/linux-arm64/libnetkeyer_midi_shim.so"
-             Condition="'$(RuntimeIdentifier)' == 'linux-arm64' Or
-                        ($([MSBuild]::IsOsPlatform('Linux')) And '$(RuntimeIdentifier)' == '' And
-                         '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64')">
+    <Content Include="$(LinuxArm64ShimPath)"
+         Condition="(('$(RuntimeIdentifier)' == 'linux-arm64') Or
+              ($([MSBuild]::IsOsPlatform('Linux')) And '$(RuntimeIdentifier)' == '' And
+               '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64')) And
+              Exists('$(LinuxArm64ShimPath)')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>libnetkeyer_midi_shim.so</TargetPath>
+    </Content>
+    <!-- Dev fallback: if running on Linux without an explicit RID and the RID-stamped
+         destination folder is missing, copy directly from native/build output. -->
+    <Content Include="$(LinuxBuildShimPath)"
+             Condition="$([MSBuild]::IsOsPlatform('Linux')) And
+                        '$(RuntimeIdentifier)' == '' And
+                        '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64' And
+                        !Exists('$(LinuxX64ShimPath)') And
+                        Exists('$(LinuxBuildShimPath)')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>libnetkeyer_midi_shim.so</TargetPath>
+    </Content>
+    <Content Include="$(LinuxBuildShimPath)"
+             Condition="$([MSBuild]::IsOsPlatform('Linux')) And
+                        '$(RuntimeIdentifier)' == '' And
+                        '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' And
+                        !Exists('$(LinuxArm64ShimPath)') And
+                        Exists('$(LinuxBuildShimPath)')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>libnetkeyer_midi_shim.so</TargetPath>
     </Content>
@@ -126,4 +154,25 @@
       <TargetPath>libnetkeyer_midi_shim.dylib</TargetPath>
     </Content>
   </ItemGroup>
+
+  <Target Name="ValidateLinuxNativeMidiShim" BeforeTargets="Build;Publish">
+    <Error Condition="'$(RuntimeIdentifier)' == 'linux-x64' And !Exists('$(LinuxX64ShimPath)')"
+           Text="Missing $(LinuxX64ShimPath). Build the native shim first: cd native &amp;&amp; ./build.sh" />
+    <Error Condition="'$(RuntimeIdentifier)' == 'linux-arm64' And !Exists('$(LinuxArm64ShimPath)')"
+           Text="Missing $(LinuxArm64ShimPath). Build/copy the native arm64 shim before publishing linux-arm64." />
+
+    <Error Condition="$([MSBuild]::IsOsPlatform('Linux')) And
+                      '$(RuntimeIdentifier)' == '' And
+                      '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64' And
+                      !Exists('$(LinuxX64ShimPath)') And
+                      !Exists('$(LinuxBuildShimPath)')"
+           Text="Missing Linux MIDI shim. Expected either $(LinuxX64ShimPath) or $(LinuxBuildShimPath). Build it with: cd native &amp;&amp; ./build.sh" />
+
+    <Error Condition="$([MSBuild]::IsOsPlatform('Linux')) And
+                      '$(RuntimeIdentifier)' == '' And
+                      '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' And
+                      !Exists('$(LinuxArm64ShimPath)') And
+                      !Exists('$(LinuxBuildShimPath)')"
+           Text="Missing Linux MIDI shim. Expected either $(LinuxArm64ShimPath) or $(LinuxBuildShimPath). Build it with: cd native &amp;&amp; ./build.sh" />
+  </Target>
 </Project>

@@ -33,6 +33,7 @@ namespace NetKeyer.Midi
             catch (Exception ex)
             {
                 Console.WriteLine($"Error enumerating MIDI devices: {ex.Message}");
+                DebugLogger.LogAlways("midi", $"[MIDI] Enumeration failed: {ex}");
                 return new List<string>();
             }
         }

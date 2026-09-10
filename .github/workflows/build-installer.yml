@@ -274,6 +274,15 @@ jobs:
           -p:Version=${{ steps.version.outputs.VERSION }} \
           -o publish
 
+    - name: Verify native MIDI shim in publish output
+      run: |
+        shim="publish/libnetkeyer_midi_shim.so"
+        if [ ! -f "$shim" ]; then
+          echo "Missing native MIDI shim in publish output: $shim" >&2
+          exit 1
+        fi
+        echo "Found native MIDI shim: $shim"
+
     - name: Package with Velopack
       run: |
         vpk pack \
@@ -285,6 +294,30 @@ jobs:
           --packAuthors "NetKeyer Contributors" \
           --runtime linux-${{ matrix.arch }} \
           --channel linux-${{ matrix.arch }}
+
+    - name: Verify native MIDI shim in AppImage
+      run: |
+        appimage="$(find Releases -type f -name "*.AppImage" | head -n 1)"
+        if [ -z "$appimage" ]; then
+          echo "No AppImage found in Releases" >&2
+          exit 1
+        fi
+        appimage="$(readlink -f "$appimage")"
+        chmod +x "$appimage"
+
+        tmpdir="$(mktemp -d)"
+        trap 'rm -rf "$tmpdir"' EXIT
+        (
+          cd "$tmpdir"
+          "$appimage" --appimage-extract >/dev/null
+        )
+
+        shim="$(find "$tmpdir/squashfs-root" -type f -name "libnetkeyer_midi_shim.so" | head -n 1)"
+        if [ -z "$shim" ]; then
+          echo "native MIDI shim not found in AppImage: $appimage" >&2
+          exit 1
+        fi
+        echo "Found native MIDI shim in AppImage: $shim"
 
     - name: Upload Linux ${{ matrix.arch }} artifacts
       uses: actions/upload-artifact@v4

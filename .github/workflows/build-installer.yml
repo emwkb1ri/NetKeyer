@@ -10,6 +10,11 @@ on:
         description: 'Version number (e.g., 1.0.0)'
         required: true
         default: '1.0.0'
+      publish_release:
+        description: 'Create GitHub Release from built artifacts (draft)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-windows:
@@ -96,6 +101,15 @@ jobs:
           -p:Version=${{ steps.version.outputs.VERSION }} `
           -o publish
 
+    - name: Verify native MIDI shim in publish output
+      shell: pwsh
+      run: |
+        $shim = "publish/netkeyer_midi_shim.dll"
+        if (-not (Test-Path $shim)) {
+          Write-Error "Missing native MIDI shim in publish output: $shim"
+        }
+        Write-Host "Found native MIDI shim: $shim"
+
     - name: Determine whether Azure signing is available
       id: signing
       shell: pwsh
@@ -172,6 +186,27 @@ jobs:
 
         vpk @vpkArgs
 
+    - name: Verify native MIDI shim in package
+      shell: pwsh
+      run: |
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $pkg = Get-ChildItem -Path Releases -Recurse -Filter "*full.nupkg" | Select-Object -First 1
+        if ($null -eq $pkg) {
+          throw "No full nupkg found in Releases"
+        }
+
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+        try {
+          $shimEntry = $zip.Entries | Where-Object { $_.FullName -like "*netkeyer_midi_shim.dll*" } | Select-Object -First 1
+          if ($null -eq $shimEntry) {
+            throw "native MIDI shim not found in package: $($pkg.FullName)"
+          }
+          Write-Host "Found native MIDI shim in package: $($shimEntry.FullName)"
+        }
+        finally {
+          $zip.Dispose()
+        }
+
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -186,7 +221,7 @@ jobs:
       matrix:
         include:
           - arch: x64
-            runner: ubuntu-latest
+            runner: ubuntu-22.04
           - arch: arm64
             runner: ubuntu-24.04-arm
 
@@ -295,29 +330,18 @@ jobs:
           --runtime linux-${{ matrix.arch }} \
           --channel linux-${{ matrix.arch }}
 
-    - name: Verify native MIDI shim in AppImage
+    - name: Verify native MIDI shim in package
       run: |
-        appimage="$(find Releases -type f -name "*.AppImage" | head -n 1)"
-        if [ -z "$appimage" ]; then
-          echo "No AppImage found in Releases" >&2
+        pkg="$(find Releases -type f -name "*full.nupkg" | head -n 1)"
+        if [ -z "$pkg" ]; then
+          echo "No full nupkg found in Releases" >&2
           exit 1
         fi
-        appimage="$(readlink -f "$appimage")"
-        chmod +x "$appimage"
-
-        tmpdir="$(mktemp -d)"
-        trap 'rm -rf "$tmpdir"' EXIT
-        (
-          cd "$tmpdir"
-          "$appimage" --appimage-extract >/dev/null
-        )
-
-        shim="$(find "$tmpdir/squashfs-root" -type f -name "libnetkeyer_midi_shim.so" | head -n 1)"
-        if [ -z "$shim" ]; then
-          echo "native MIDI shim not found in AppImage: $appimage" >&2
+        if ! unzip -l "$pkg" | grep -q "libnetkeyer_midi_shim.so"; then
+          echo "native MIDI shim not found in package: $pkg" >&2
           exit 1
         fi
-        echo "Found native MIDI shim in AppImage: $shim"
+        echo "Found native MIDI shim in package: $pkg"
 
     - name: Upload Linux ${{ matrix.arch }} artifacts
       uses: actions/upload-artifact@v4
@@ -418,6 +442,15 @@ jobs:
           -p:Version=${{ steps.version.outputs.VERSION }} \
           -o publish
 
+    - name: Verify native MIDI shim in publish output
+      run: |
+        shim="publish/libnetkeyer_midi_shim.dylib"
+        if [ ! -f "$shim" ]; then
+          echo "Missing native MIDI shim in publish output: $shim" >&2
+          exit 1
+        fi
+        echo "Found native MIDI shim: $shim"
+
     - name: Package with Velopack
       run: |
         vpk pack \
@@ -430,6 +463,19 @@ jobs:
           --runtime osx-${{ matrix.arch }} \
           --channel osx-${{ matrix.arch }}
 
+    - name: Verify native MIDI shim in package
+      run: |
+        pkg="$(find Releases -type f -name "*full.nupkg" | head -n 1)"
+        if [ -z "$pkg" ]; then
+          echo "No full nupkg found in Releases" >&2
+          exit 1
+        fi
+        if ! unzip -l "$pkg" | grep -q "libnetkeyer_midi_shim.dylib"; then
+          echo "native MIDI shim not found in package: $pkg" >&2
+          exit 1
+        fi
+        echo "Found native MIDI shim in package: $pkg"
+
     - name: Upload macOS ${{ matrix.arch }} artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -437,13 +483,85 @@ jobs:
         path: Releases/*
         retention-days: 90
 
+  linux-compatibility:
+    name: Linux Compatibility Validation
+    needs: [build-linux]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - label: ubuntu-22.04
+            image: ubuntu:22.04
+          - label: debian-12
+            image: debian:12
+          - label: mint-21x-equivalent
+            image: ubuntu:22.04
+
+    steps:
+    - name: Download Linux x64 artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: netkeyer-linux-x64-v*
+        path: artifacts/linux-x64
+        merge-multiple: true
+
+    - name: Extract packaged Linux shim
+      run: |
+        set -euo pipefail
+        pkg="$(find artifacts/linux-x64 -type f -name "*full.nupkg" | head -n 1)"
+        if [ -z "$pkg" ]; then
+          echo "No Linux full nupkg found in downloaded artifacts" >&2
+          exit 1
+        fi
+
+        mkdir -p compat/unpacked
+        unzip -q "$pkg" -d compat/unpacked
+
+        shim="$(find compat/unpacked -type f -name "libnetkeyer_midi_shim.so" | head -n 1)"
+        if [ -z "$shim" ]; then
+          echo "libnetkeyer_midi_shim.so not found inside package: $pkg" >&2
+          exit 1
+        fi
+
+        cp "$shim" compat/libnetkeyer_midi_shim.so
+        echo "Extracted packaged shim: $shim"
+
+    - name: Validate shim compatibility on ${{ matrix.label }}
+      run: |
+        set -euo pipefail
+        docker run --rm \
+          -v "$PWD/compat:/compat:ro" \
+          ${{ matrix.image }} \
+          bash -lc '
+            set -euo pipefail
+            export DEBIAN_FRONTEND=noninteractive
+
+            apt-get update >/dev/null
+            apt-get install -y --no-install-recommends \
+              libc6 \
+              libasound2 \
+              binutils \
+              >/dev/null
+
+            ldd /compat/libnetkeyer_midi_shim.so | tee /tmp/ldd.txt
+            if grep -q "not found" /tmp/ldd.txt; then
+              echo "Missing shared-library dependency detected" >&2
+              exit 1
+            fi
+
+            if grep -q "libstdc++" /tmp/ldd.txt; then
+              echo "Unexpected dynamic libstdc++ dependency in shim" >&2
+              exit 1
+            fi
+
+            echo "Compatibility check passed for ${{ matrix.label }}"
+          '
+
   create-release:
     name: Create GitHub Release
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-windows, build-linux, build-macos, linux-compatibility]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true'
 
     steps:
     - name: Checkout code
@@ -452,8 +570,14 @@ jobs:
     - name: Determine version and release type
       id: version
       run: |
-        version="${{ github.ref }}"
-        version="${version#refs/tags/v}"
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+          version="${{ github.event.inputs.version }}"
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          version="${{ github.ref }}"
+          version="${version#refs/tags/v}"
+        else
+          version="0.0.1-dev"
+        fi
         echo "VERSION=$version" >> $GITHUB_OUTPUT
 
         # Check if this is a prerelease (tag contains "-pre")
@@ -476,28 +600,11 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: v${{ steps.version.outputs.VERSION }}
         files: artifacts/**/*
-        draft: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
+        draft: true
         prerelease: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
-        make_latest: ${{ steps.version.outputs.IS_PRERELEASE != 'true' }}
+        make_latest: false
         generate_release_notes: true
-        body: |
-          ## NetKeyer v${{ steps.version.outputs.VERSION }}
-
-          ### Downloads
-
-          **Windows (x64):**
-          - [NetKeyer-win-x64-Setup.exe](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/NetKeyer-win-x64-Setup.exe) - Windows x64 installer
-
-          **Linux:**
-          - [NetKeyer-linux-x64.AppImage](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/NetKeyer-linux-x64.AppImage) - Linux x64 AppImage
-          - [NetKeyer-linux-arm64.AppImage](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/NetKeyer-linux-arm64.AppImage) - Linux ARM64 AppImage
-
-          **macOS:**
-          - [NetKeyer-osx-x64-Setup.pkg](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/NetKeyer-osx-x64-Setup.pkg) - macOS Intel (x64) installer
-          - [NetKeyer-osx-arm64-Setup.pkg](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/NetKeyer-osx-arm64-Setup.pkg) - macOS Apple Silicon (ARM64) installer
-
-          ### Auto-Updates
-          All installers include automatic update support. Click "Check for Updates" in the Help → About window.
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

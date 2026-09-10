@@ -4,6 +4,25 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
 
 ## Recent Changes
 
+- **Revision 2.1.43 (2026-09-09)**
+  - Updated the README.md extensively
+  - Updated Documentation link in Help menu to point to correct repository
+  - Hardened Linux/native MIDI packaging and release validation:
+    - CI now verifies platform-native MIDI shim presence in publish output for Windows/Linux/macOS.
+    - CI now verifies shim presence inside packaged Velopack `*full.nupkg` artifacts.
+    - Added Linux compatibility validation stage across Ubuntu 22.04, Debian 12, and
+      Mint 21.x-equivalent baseline (Ubuntu 22.04 image).
+  - Improved Linux ABI compatibility for MIDI native component:
+    - Linux x64 installer workflow now builds on Ubuntu 22.04 baseline.
+    - Linux shim now statically links `libstdc++` and `libgcc` to reduce
+      `GLIBCXX_*` runtime mismatch failures on older distros.
+  - Improved diagnostics and UI readability:
+    - MIDI enumeration now writes always-on native-load failure details to debug log.
+    - Theme-aware dialog brush updates improve header/text readability in both light and dark themes across MIDI Note Mapping, Audio Output Device, About, Access Token, Connect by IP, and SmartLink Login dialogs.
+  - Release tags for this set:
+    - Client: `v2.1.43`
+    - Rendezvous services: `rs-v0.1.9`
+
 - **Revision 2.1.42 (2026-09-07)**
   - Added detailed sidetone timing probe instrumentation for diagnostics, including:
     - input closure, controller dispatch/entry, sidetone start call, tone-start callback,
@@ -361,6 +380,7 @@ Runtime metadata is exposed via rendezvous `/health` (`version` block) and relay
 
 |NetKeyer Desktop Revision|Supported Services Version|Protocol Version|
 |-------------------------|--------------------------|----------------|
+| 2.1.43                  | 0.1.9                    | 1              |
 | 2.1.42                  | 0.1.8                    | 1              |
 | 2.1.41                  |                          |                |
 |-------------------------|--------------------------|----------------|

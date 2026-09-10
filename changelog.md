@@ -2,6 +2,39 @@
 
 <!-- markdownlint-disable MD022 MD024 MD032 -->
 
+## 2026-09-09 (Revision 2.1.43, Services 0.1.9)
+
+### Added
+- Linux compatibility hardening for native MIDI shim packaging and validation:
+  - GitHub Actions now verifies native shim presence in publish outputs for Windows/Linux/macOS.
+  - GitHub Actions now verifies native shim presence inside generated Velopack `*full.nupkg` artifacts.
+  - Added Linux compatibility validation stage using container checks for Ubuntu 22.04,
+    Debian 12, and Mint 21.x-equivalent baseline (Ubuntu 22.04 image).
+
+### Changed
+- Updated the README.md extensively
+- Updated Documentation link in Help menu to point to correct repository
+- Add ability to edit 'kid', ESC;Enter to exit at prompts and save menu items to keyring helper script
+- Linux x64 installer workflow runner is pinned to Ubuntu 22.04 to maintain older distro ABI compatibility.
+- Native Linux MIDI shim link flags now statically link `libstdc++` and `libgcc` to reduce host-side
+  `GLIBCXX_*` runtime mismatch failures on older distributions.
+- Theme/readability pass across dialog windows now uses light/dark-aware brush dictionaries for contrast-safe headings, section text, and borders:
+  - MIDI Note Configuration
+  - Audio Output Device Selection
+  - About
+  - Access Token
+  - Connect by IP
+  - SmartLink Login
+
+### Fixed
+
+- Build/publish now fails fast with explicit guidance when required Linux shim artifacts are missing, preventing silent release of Linux packages without MIDI native support.
+- MIDI device enumeration now logs native-load failures with always-on logging for easier diagnosis.
+
+### Release Tags
+- Client release tag: `v2.1.43`
+- Rendezvous services release tag: `rs-v0.1.9`
+
 ## 2026-09-07 (Revision 2.1.42, Services 0.1.8)
 
 ### Added

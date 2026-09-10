@@ -254,7 +254,7 @@ Deliverables
 
 Functional requirements
 
-- Accept line-based handshake: SESSION <session_id> <role>.
+- Accept line-based handshake: SESSION `<session_id> <role>`.
 - Pair HOST and CLIENT sockets by session_id.
 - Start bidirectional forwarding when both peers are present.
 - Close both peers cleanly on disconnect/error.

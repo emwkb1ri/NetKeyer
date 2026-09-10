@@ -70,28 +70,6 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
     - Optional nginx relay TCP stream proxy remains `49922`.
   - Updated Docker and nginx deployment defaults under `rendezvous_services` to match the new rendezvous control-plane port.
 
-- **Revision 2.1.32 (2026-08-06)**
-  - Completed setup-page UI enhancements:
-    - Connection Mode now uses Standalone / Client / Host labels.
-    - Added Network Connection grouping for remote networking controls.
-    - Updated client labels to Select Host, Host IP, and Host Port.
-    - Selecting a discovered host now fills Host IP and Host Port when endpoint metadata is available.
-    - Radio Selection is hidden in Client mode.
-    - Network Connection is hidden in Standalone mode.
-  - Refined host-mode operating behavior:
-    - CW Settings are hidden in host mode unless a local key input device is connected.
-    - Local host keying enables sidetone, while remote-origin keying suppresses host sidetone.
-    - Sidetone source switching is transition-based to prevent keying jitter/regression.
-
-- **Revision 2.1.27 (2026-07-30)**
-  - Fixed remote non-CW behavior so host transmit mode is communicated to clients and clients correctly follow CW vs non-CW operation.
-  - Fixed host transmit-mode synchronization to include non-CW to non-CW changes so mode text follows radio mode changes (for example USB to LSB).
-  - Added host transmit mode text to remote heartbeat telemetry so remote client bottom status mode labels mirror host mode naming.
-  - Fixed remote client non-CW keying to send PTT intent while suppressing local CW keyer/sidetone behavior.
-  - Fixed remote client bottom status identity/mode display so connected state shows host identity and active mode immediately.
-  - Fixed remote client non-CW single LED logic to follow host PTT-closure behavior (responds to either paddle/PTT closure path).
-  - Fixed host operating-page bottom keying indicator behavior in non-CW mode: left indicator now represents PTT assertion (green when active), and the right indicator is intentionally hidden.
-
 ## Features
 
 - **Cross-Platform**: Runs on Linux, Windows, and macOS using Avalonia UI
@@ -171,7 +149,7 @@ A cross-platform GUI application for CW (Morse code) keying with FlexRadio devic
   - enter information provided by the remote station owner or server admin
   - For initial testing use the following:
     - Key ID: public
-    - ID Key Secret: 
+    - ID Key Secret: 8b2aa8fc9d854db0c0a5a332c6c097bd5ae7256eada41259750d4a574bfad0a9
     - Issuer: netkeyer-auth
     - Audience: netkeyer
     - Token TTL: 30
@@ -379,7 +357,7 @@ Rendezvous and relay services are versioned as a single suite using semantic ver
 
 Runtime metadata is exposed via rendezvous `/health` (`version` block) and relay startup logs.
 
-## Compatibility matrix (maintain this table as releases evolve):
+## Compatibility matrix (maintain this table as releases evolve)
 
 |NetKeyer Desktop Revision|Supported Services Version|Protocol Version|
 |-------------------------|--------------------------|----------------|

@@ -67,12 +67,12 @@ This document defines a phased plan to secure the rendezvous and relay services 
 
 ## Phase 1: Edge Hardening with Nginx and TLS
 
-### Goals
+### Goals 1
 
 - Secure external ingress first.
 - Remove plaintext internet exposure.
 
-### Tasks
+### Tasks 1
 
 1. Place rendezvous API/WebSocket endpoints behind nginx with TLS termination.
 2. Enforce `wss` for external websocket access; disable plain `ws` externally.
@@ -91,7 +91,7 @@ This document defines a phased plan to secure the rendezvous and relay services 
 6. Restrict access to admin/diagnostic endpoints (`/health`, metrics) by network policy or auth.
 7. Keep service-to-service network private and non-public.
 
-### Deliverables
+### Deliverables 1
 
 - Nginx configuration files for prod/staging.
 - TLS certificate provisioning and rotation runbook.
@@ -103,8 +103,8 @@ This document defines a phased plan to secure the rendezvous and relay services 
   - TLS-first nginx rendezvous ingress configuration added.
   - nginx compose overlay updated for ports 80/443 and certificate mount path.
   - deployment documentation updated with secure overlay startup instructions.
-   - PR-2 controls implemented: request guards/rate limits at nginx and restricted `/health` defaults in rendezvous service.
-   - PR-2 observability implemented: nginx structured security access logs now expose deny/throttle signals (`403`, `429`, `limit_req`).
+  - PR-2 controls implemented: request guards/rate limits at nginx and restricted `/health` defaults in rendezvous service.
+  - PR-2 observability implemented: nginx structured security access logs now expose deny/throttle signals (`403`, `429`, `limit_req`).
 - Current operating mode during compatibility window:
   - dual-path operation (legacy direct path for client v2.1.34 testing + secure nginx ingress path for validation).
 
@@ -196,14 +196,14 @@ If any gate fails:
 
 #### F. Results template
 
-| Scenario | Run | Samples | p50 (ms) | p95 (ms) | p99 (ms) | Max (ms) | p99-p50 (ms) | Notes |
-|---|---:|---:|---:|---:|---:|---:|---:|---|
-| Baseline (49921) | 1 |  |  |  |  |  |  |  |
-| Baseline (49921) | 2 |  |  |  |  |  |  |  |
-| Baseline (49921) | 3 |  |  |  |  |  |  |  |
-| Option A (49922) | 1 |  |  |  |  |  |  |  |
-| Option A (49922) | 2 |  |  |  |  |  |  |  |
-| Option A (49922) | 3 |  |  |  |  |  |  |  |
+| Scenario         | Run | Samples | p50 (ms) | p95 (ms) | p99 (ms) | Max (ms) | p99-p50 (ms) | Notes |
+|------------------|-----|---------|----------|----------|----------|----------|--------------|-------|
+| Baseline (49921) | 1   |         |          |          |          |          |              |       |
+| Baseline (49921) | 2   |         |          |          |          |          |              |       |
+| Baseline (49921) | 3   |         |          |          |          |          |              |       |
+| Option A (49922) | 1   |         |          |          |          |          |              |       |
+| Option A (49922) | 2   |         |          |          |          |          |              |       |
+| Option A (49922) | 3   |         |          |          |          |          |              |       |
 
 Decision summary fields:
 
@@ -217,7 +217,7 @@ Companion aggregation helper:
 
 - `./rendezvous_services/scripts/summarize-relay-latency-runs.sh`
 - Example:
-   - `./rendezvous_services/scripts/summarize-relay-latency-runs.sh --input-root ./rendezvous_services/measurements/relay-latency --budget-ms 5 --output ./rendezvous_services/measurements/relay-latency/report.md`
+   `./rendezvous_services/scripts/summarize-relay-latency-runs.sh --input-root ./rendezvous_services/measurements/relay-latency --budget-ms 5 --output ./rendezvous_services/measurements/relay-latency/report.md`
 
 ---
 
@@ -225,12 +225,12 @@ Companion aggregation helper:
 
 Status: Completed (2026-08-26)
 
-### Goals
+### Goals 2
 
 - Ensure only authorized hosts/clients can register and connect.
 - Make authorization explicit and scoped.
 
-### Tasks
+### Tasks 2
 
 1. Add signed access tokens (JWT) with short TTL for control-plane calls.
 2. Validate token signature, expiry, issuer/audience, and required claims.
@@ -262,7 +262,7 @@ Implementation completion notes:
 - Connection grants are now bound to session ID, host ID, client ID, and expiration.
 - Legacy tokenless behavior remains available only behind migration toggles.
 
-### Deliverables
+### Deliverables 2
 
 - Auth validation module and policy docs.
 - Token issuance/refresh flow docs.
@@ -281,12 +281,12 @@ Reference draft:
 
 - `docs/security/phase3-protocol-draft.md`
 
-### Goals
+### Goals 3
 
 - Encrypt keying traffic end-to-end regardless of direct or relay path.
 - Cryptographically verify host/client identities.
 
-### Tasks
+### Tasks 3
 
 1. Implement secure session handshake:
    - Static identity keys: Ed25519.
@@ -301,7 +301,7 @@ Reference draft:
 6. Add secure rekey strategy (time-based or frame-count based).
 7. Ensure relay forwards ciphertext only and cannot decrypt payload data.
 
-### Deliverables
+### Deliverables 3
 
 - Protocol specification (message schema, state machine, failure behavior).
 - Reference implementation in client/host and relay pass-through validation.
@@ -311,12 +311,12 @@ Reference draft:
 
 ## Phase 4: Transport Behavior and Mode Consistency
 
-### Goals
+### Goals 4
 
 - Keep security properties consistent across direct and relay operation.
 - Prevent insecure fallback in production.
 
-### Tasks
+### Tasks 4
 
 1. Use one encrypted framing model for direct and relay paths.
 2. Keep relay behavior transport-agnostic (opaque forwarding of encrypted frames).
@@ -325,7 +325,7 @@ Reference draft:
 5. Validate direct-first and relay-fallback switching without changing security posture.
 6. Ensure connection errors expose actionable but non-sensitive diagnostics.
 
-### Deliverables
+### Deliverables 4
 
 - Unified transport behavior spec.
 - Secure default configuration profile.
@@ -335,12 +335,12 @@ Reference draft:
 
 ## Phase 5: Observability, Validation, and Rollout Enforcement
 
-### Goals
+### Goals 5
 
 - Safely roll out security changes with measurable confidence.
 - Enforce secure defaults once validated.
 
-### Tasks
+### Tasks 5
 
 1. Add security and performance metrics:
    - Handshake duration.
@@ -360,7 +360,7 @@ Reference draft:
 5. Progressively enforce secure-only mode after acceptance thresholds.
 6. Publish operational runbooks for incident response and key rotation.
 
-### Deliverables
+### Deliverables 5
 
 - Metrics dashboards and alert rules.
 - Security test plan and pass criteria.
@@ -479,7 +479,7 @@ Done criteria:
 - [x] Add JWT validation middleware/dependency in rendezvous server.
 - [x] Enforce token checks on register/connect/relay request paths.
 - [x] Define and validate mandatory claims (`sub`, `role`, scope identifiers, `exp`, `jti`).
-   - Implemented in kickoff: `sub`, `iat`, `exp`, `jti`, endpoint role checks (`role`/`roles`, `admin` override), optional endpoint scope checks.
+   Implemented in kickoff: `sub`, `iat`, `exp`, `jti`, endpoint role checks (`role`/`roles`, `admin` override), optional endpoint scope checks.
 - [x] Introduce short-lived connection grant token model for host-client session setup.
 - [x] Add anti-replay cache keyed by `jti` with bounded TTL.
 - [x] Add migration toggle to allow temporary legacy shared-token mode.
@@ -501,7 +501,7 @@ Implementation notes:
 
 ### Phase 4 Kickoff (Behavior and Policy PRs)
 
- [x] Unify direct and relay transport behavior under encrypted framing.
+- [x] Unify direct and relay transport behavior under encrypted framing.
 - [x] Add secure-default configuration profile.
 - [x] Add guarded debug-only insecure override flags.
 - [x] Add user-facing diagnostics for security policy failures (without leaking secrets).
@@ -515,6 +515,7 @@ Implementation notes:
 - User-facing remote diagnostics now map handshake/ciphertext/auth policy failures to actionable, non-sensitive status text while keeping detailed exception data in debug logs.
 
 ### Phase 5 Kickoff (Validation and Rollout PRs)
+
 - [x] Add security telemetry metrics (auth failures, handshake failures, replay rejects, decrypt failures).
 - [x] Add latency telemetry for handshake and keying p50/p95.
 - [x] Add integration tests for secure direct, secure relay, expiry, and replay paths.
@@ -524,23 +525,23 @@ Implementation notes:
 Implementation notes:
 
 - Rendezvous `/health` statistics semantics restored for active usage intent:
-   - `counts.hosts|clients|sessions` reflect actively registered hosts/clients and active host-client sessions.
-   - `session_type_counts.direct|mapped|relay` reflect active connected session transport types.
-   - `hosts|clients|sessions` lists summarize currently active entities and session state.
+   `counts.hosts|clients|sessions` reflect actively registered hosts/clients and active host-client sessions.
+   `session_type_counts.direct|mapped|relay` reflect active connected session transport types.
+   `hosts|clients|sessions` lists summarize currently active entities and session state.
 - Phase 5 security telemetry metrics now surface under `statistics.security_metrics` in `/health`:
-   - `auth_failures`: websocket auth/claims-policy denials.
-   - `handshake_failures`: connection-grant issuance/validation and handshake gating failures.
-   - `replay_rejects`: replay-protection rejects (for example reused grant/token identifiers).
-   - `decrypt_failures`: token crypto validation failures (invalid signed token/grant decode).
+   `auth_failures`: websocket auth/claims-policy denials.
+   `handshake_failures`: connection-grant issuance/validation and handshake gating failures.
+   `replay_rejects`: replay-protection rejects (for example reused grant/token identifiers).
+   `decrypt_failures`: token crypto validation failures (invalid signed token/grant decode).
 - Remote keying latency telemetry now includes handshake duration and percentile lag summaries in host/client operating views:
-   - line 1 includes secure handshake duration plus keying lag `last`, `p50`, and `p95`.
-   - line 2 includes accepted frames (60s), stale drops, and max lag (60s).
+   line 1 includes secure handshake duration plus keying lag `last`, `p50`, and `p95`.
+   line 2 includes accepted frames (60s), stale drops, and max lag (60s).
 - Progressive rollout defaults are now supported by `RENDEZVOUS_SECURITY_STAGE` (`compat`, `tokens`, `grants`, `strict`) with explicit per-flag environment variables still taking precedence.
 - Phase 5 operations runbook published at `docs/security/phase5-operations-runbook.md` covering:
-   - TLS certificate rotation and rollback
-   - rendezvous signing secret rotation and rollback
-   - desktop remote identity key rotation and rollback
-   - incident response containment, evidence collection, and recovery
+   TLS certificate rotation and rollback
+   rendezvous signing secret rotation and rollback
+   desktop remote identity key rotation and rollback
+   incident response containment, evidence collection, and recovery
 - Relay and mapped session success now explicitly report connected state so active sessions are retained in stats.
 
 ### Acceptance Gates

@@ -7,15 +7,18 @@ This project uses [Velopack](https://velopack.io) to create cross-platform insta
 ### Building Locally
 
 **Build all platforms (Windows, Linux x64/ARM64):**
+
 ```bash
 # On Linux/macOS:
 ./build-installer.sh 1.0.0
 
 # On Windows (PowerShell):
+
 ./build-installer.ps1 -Version "1.0.0"
 ```
 
 **Build specific platform:**
+
 ```bash
 # Linux/macOS:
 ./build-installer.sh 1.0.0 windows     # Windows only
@@ -31,18 +34,21 @@ This project uses [Velopack](https://velopack.io) to create cross-platform insta
 Installers are created in `NetKeyer/Releases/<platform>/`:
 
 **Windows (`win-x64/`):**
+
 - `NetKeyer-1.0.0-Setup.exe` - Windows installer
 - `NetKeyer-1.0.0-full.nupkg` - Full release package
 - `NetKeyer-1.0.0-delta.nupkg` - Delta update
 - `RELEASES` - Update manifest
 
 **Linux (`linux-x64/` and `linux-arm64/`):**
+
 - `NetKeyer-1.0.0.AppImage` - Portable Linux executable
 - `NetKeyer-1.0.0-full.nupkg` - Full release package
 - `NetKeyer-1.0.0-delta.nupkg` - Delta update
 - `RELEASES` - Update manifest
 
 **macOS (`osx-x64/` and `osx-arm64/` - must build on Mac):**
+
 - `NetKeyer-1.0.0.dmg` - macOS installer (Intel x64 or Apple Silicon ARM64)
 - Package files and manifest
 
@@ -53,12 +59,14 @@ The project includes automated multi-platform builds via GitHub Actions.
 ### Automatic Builds on Version Tags
 
 Create and push a version tag to trigger builds for all platforms:
+
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
 This will:
+
 1. Build installers for Windows x64, Linux x64/ARM64, and macOS x64/ARM64 in parallel
 2. Create a GitHub Release with all installers
 3. Upload all platform installers as release assets
@@ -72,6 +80,7 @@ Go to the Actions tab in GitHub and run the "Build Multi-Platform Installers" wo
 ### Option 1: GitHub Releases (Recommended)
 
 Upload all platform files to a GitHub Release:
+
 1. Create a new release on GitHub
 2. Upload all files from `NetKeyer/Releases/*/` (all platform subdirectories)
 3. Distribute platform-specific installers to users:
@@ -134,6 +143,7 @@ Use this checklist when publishing builds that depend on rendezvous services ove
 ### Option 2: Custom Web Server
 
 Upload all files from `NetKeyer/Releases/` to a web-accessible directory:
+
 ```
 https://yoursite.com/releases/
   ├── NetKeyer-1.0.0-Setup.exe
@@ -192,6 +202,7 @@ private async Task CheckForUpdatesAsync()
 - **Note**: macOS installers require building on macOS due to code signing requirements
 
 The build scripts automatically handle cross-compilation:
+
 - Bash script (`build-installer.sh`) works on Linux/macOS
 - PowerShell script (`build-installer.ps1`) works on Windows/Linux/macOS
 - GitHub Actions uses platform-specific runners for optimal results
@@ -199,6 +210,7 @@ The build scripts automatically handle cross-compilation:
 ## Versioning
 
 Version numbers should follow [Semantic Versioning](https://semver.org/):
+
 - **Major.Minor.Patch** (e.g., `1.0.0`)
 - Increment **Major** for breaking changes
 - Increment **Minor** for new features
@@ -212,6 +224,7 @@ Version numbers should follow [Semantic Versioning](https://semver.org/):
 ## Native Dependencies
 
 The application includes native library dependencies that are automatically bundled:
+
 - **OpenAL** (audio library) - Included via `OpenAL.Soft` NuGet package for Windows x64/x86/ARM64
 - The build automatically copies the correct OpenAL DLL for the target platform
 

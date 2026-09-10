@@ -3,6 +3,7 @@
 Purpose: finish environment validation and complete the next implementation/testing steps on this branch.
 
 ## Step 1: Build Native Shim
+
 - Status: Complete
 - Goal: produce native/windows-x64/netkeyer_midi_shim.dll reliably on this machine.
 - Command:
@@ -13,6 +14,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - native/windows-x64/netkeyer_midi_shim.dll exists.
 
 ## Step 2: Build Managed App
+
 - Status: Complete (with warnings)
 - Goal: verify full project compile after remote-mode integration.
 - Command:
@@ -24,6 +26,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - build succeeds with no blocking errors
 
 ## Step 3: Smoke-Check Remote Defaults
+
 - Status: Complete
 - Goal: confirm configured defaults and key integration points are present.
 - Verify:
@@ -35,6 +38,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - all checks true in source
 
 ## Step 4: Run Two-Machine LAN Smoke Test
+
 - Status: Complete
 - Goal: validate basic client-host remote keying path.
 - Procedure:
@@ -47,6 +51,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - host sidetone stays muted
 
 ## Step 5: Stabilization Fixes
+
 - Status: Complete
 - Goal: address any compile/runtime issues found in Steps 1-4.
 - Actions:
@@ -56,6 +61,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - Steps 1-4 all green
 
 ## Step 6: Phase 2 Start (After Green)
+
 - Status: Complete
 - Goal: begin arbitration and stale-frame handling.
 - Implement:
@@ -66,6 +72,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - design + initial implementation builds cleanly
 
 ## Step 7: Telemetry Clarity Review (Future)
+
 - Status: Planned
 - Goal: evaluate telemetry metric semantics and improve clarity of on-screen lag display for direct vs relay comparisons.
 - Tasks:
@@ -78,6 +85,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - UI/log display updated or confirmed as clear for direct and relay interpretation.
 
 ## Step 8: UI Compaction + Full Screen Review (Future)
+
 - Status: Complete (2026-07-29)
 - Goal: improve information density and usability by compacting operating screens and conducting a complete UI review across all screens/dialogs.
 - Tasks:
@@ -91,6 +99,7 @@ Purpose: finish environment validation and complete the next implementation/test
   - approved compact layout changes implemented or staged with clear follow-up tasks.
 
 Completion summary (2026-07-29):
+
 - Operating-page compaction completed:
   - Host status table reduced to 3 display rows.
   - Host IP column narrowed to IPv4-sized width.
@@ -110,6 +119,7 @@ Completion summary (2026-07-29):
   - MIDI dialog height capped with MaxHeight to avoid excessive vertical growth.
 
 ## Step 9: UI Enhancements (Future)
+
 - Status: Complete (2026-08-06)
 - Goal: streamline setup-page mode and network layout while improving client-mode clarity.
 - Tasks:
@@ -131,6 +141,7 @@ Completion summary (2026-07-29):
   - Client-mode network labels and control ordering match the specified wording/layout.
 
 Completion summary (2026-08-06):
+
 - Released in program revision 2.1.32.
 - Setup-page grouping and mode-label updates completed:
   - Connection Mode section uses labels Standalone / Client / Host.
@@ -150,6 +161,7 @@ Completion summary (2026-08-06):
     - transition gating avoids per-frame sidetone toggles that caused keying jitter.
 
 ## Execution Log
+
 - 2026-06-25: Checklist created and execution started.
 - 2026-06-25: Step 1 passed. native/build.ps1 completed and native/windows-x64/netkeyer_midi_shim.dll exists.
 - 2026-06-25: Step 2 passed. dotnet restore and dotnet build succeeded.
